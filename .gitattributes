@@ -1,0 +1,28 @@
+# Keep GitHub's Languages bar honest — Mise is a Python + TypeScript project.
+# The directories below are either agent tooling or test fixtures and should
+# not pollute language statistics.
+
+.agents/**                 linguist-vendored
+skills-lock.json           linguist-generated
+*.tsbuildinfo              linguist-generated
+
+frontend/package-lock.json linguist-generated
+
+# Evaluation fixtures are data, not source.
+evals/datasets/**/*.pdf    linguist-vendored
+evals/datasets/**/*.jpg    linguist-vendored
+evals/datasets/**/*.png    linguist-vendored
+evals/datasets/**/*.json   linguist-vendored
+
+# Documentation plans and prompts are reviewed by humans but are not code.
+# We still want them in the doc-count so keep the default behaviour.
+
+# Normalize line endings.
+* text=auto eol=lf
+*.{cmd,[cC][mM][dD]} text eol=crlf
+*.{bat,[bB][aA][tT]} text eol=crlf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
