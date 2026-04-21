@@ -1,0 +1,73 @@
+{
+  "note": "Copied from the latest `evals/reports/*.json` produced by `python evals/run_eval.py --bundle all`. Keep in sync on every re-run before submission. Every number in `submissions/written_summary.md` must match this file exactly.",
+  "source_report": "evals/reports/eval_fallback.json",
+  "run_timestamp": "2026-04-21",
+  "mode": "fallback",
+  "aggregate": {
+    "bundles": 3,
+    "sources_ingested": 10,
+    "canonical_count": 14,
+    "modifier_count": 5,
+    "ephemeral_count": 2,
+    "merge_precision": 1.0,
+    "merge_recall": 0.917,
+    "non_merge_accuracy": 1.0,
+    "modifier_routing_accuracy": 1.0,
+    "ephemeral_routing_accuracy": 1.0,
+    "time_to_review_pack_seconds": 0.045,
+    "demo_critical_all_pass": true
+  },
+  "bundles": [
+    {
+      "bundle_id": "bundle_01_italian",
+      "sources_ingested": 4,
+      "canonical_count": 6,
+      "modifier_count": 2,
+      "ephemeral_count": 1,
+      "merge_precision": 1.0,
+      "merge_recall": 1.0,
+      "non_merge_accuracy": 1.0,
+      "modifier_routing_accuracy": 1.0,
+      "ephemeral_routing_accuracy": 1.0,
+      "time_to_review_pack_seconds": 0.121,
+      "demo_critical": {
+        "marghertia_to_margherita": true,
+        "pizza_vs_calzone_funghi_separate": true,
+        "add_burrata_modifier": true
+      }
+    },
+    {
+      "bundle_id": "bundle_02_taqueria",
+      "sources_ingested": 3,
+      "canonical_count": 3,
+      "modifier_count": 3,
+      "ephemeral_count": 0,
+      "merge_precision": 1.0,
+      "merge_recall": 0.75,
+      "non_merge_accuracy": 1.0,
+      "modifier_routing_accuracy": 1.0,
+      "ephemeral_routing_accuracy": 1.0,
+      "time_to_review_pack_seconds": 0.009,
+      "demo_critical": {
+        "tacos_al_pastor_reorder_merge": true,
+        "add_guacamole_modifier": true
+      }
+    },
+    {
+      "bundle_id": "bundle_03_bistro",
+      "sources_ingested": 3,
+      "canonical_count": 5,
+      "modifier_count": 0,
+      "ephemeral_count": 1,
+      "merge_precision": 1.0,
+      "merge_recall": 1.0,
+      "non_merge_accuracy": 1.0,
+      "modifier_routing_accuracy": 1.0,
+      "ephemeral_routing_accuracy": 1.0,
+      "time_to_review_pack_seconds": 0.006,
+      "demo_critical": {
+        "chef_special_ephemeral": true
+      }
+    }
+  ]
+}

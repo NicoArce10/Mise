@@ -2,11 +2,15 @@
 
 Deliverables for the hackathon submission.
 
-## Files (produced on submission day)
-- `demo.mp4` — final rendered video, ≤ 3:00. Not committed to git — hosted on YouTube unlisted or Loom. The URL lives here in this README.
-- `hero_frame.png` — still export of the opening shot, used in the written summary and the repo README header
-- `metrics.json` — copy of the `evals/reports/` file corresponding to the run shown in the metrics pane of the video
-- `written_summary.md` — the written summary submitted alongside the video and the repo
+## Files
+
+| File | State | Notes |
+|---|---|---|
+| `written_summary.md` | **Draft in repo.** Refresh on submission day after the final eval run. | Every number mirrors `metrics.json`. Video URL is the one placeholder to fill. |
+| `metrics.json` | **Snapshot in repo** (fallback mode, 2026-04-21). | Overwrite from the latest `evals/reports/*.json` after any re-run. Committed so reviewers can verify without booting the app. |
+| `written_summary_template.md` | Reference. | Keep for future hackathons — do not submit. |
+| `demo.mp4` | Not committed. | ≤ 3:00, hosted on YouTube unlisted or Loom. URL lives in this README. |
+| `hero_frame.png` | Not committed. | Still export of the opening shot; used in the written summary and README header. |
 
 ## Links (filled in on submission day)
 
