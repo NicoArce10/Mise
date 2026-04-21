@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Generic build
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Evaluation reports are generated artifacts
+evals/reports/*
+!evals/reports/.gitkeep
+
+# Submissions — videos hosted externally (YouTube unlisted / Loom)
+submissions/*.mp4
+submissions/*.mov
+submissions/*.webm
+!submissions/README.md
+!submissions/metrics.json
+!submissions/hero_frame.png
+
+# Generated fixtures
+evals/datasets/**/generated/
