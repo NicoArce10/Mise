@@ -35,6 +35,8 @@ export function useCockpitState(): UseCockpit {
             ),
           };
         }
+        // kind === 'modifier' — unattached modifiers lane uses this in a later iteration;
+        // for now the mock does not expose modifier-level moderation actions.
         return prev;
       });
     },

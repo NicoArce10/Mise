@@ -89,9 +89,9 @@ export function DetailRail({ dish, trace, sources }: Props) {
           >
             Reconciliation trace
           </span>
-          {dishTrace.map((t, i) => (
+          {dishTrace.map(t => (
             <div
-              key={i}
+              key={`${t.left_id}-${t.right_id}`}
               className="flex flex-col gap-2"
               style={{
                 borderTop: '1px solid var(--color-hairline)',
