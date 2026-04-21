@@ -19,6 +19,7 @@ dist/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+*.tsbuildinfo
 
 # Generic build
 build/

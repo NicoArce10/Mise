@@ -28,12 +28,12 @@ Owner decisions locked:
 - [x] Node 20+ and npm are available locally
 - [x] `evals/datasets/bundle_01_italian/evidence/` contains the four generated assets
 
-## Gate 2 — Before running `3rd_prompt.md` (backend shell)
+## Gate 2 — Before running `3rd_prompt.md` (backend shell) ✅ GREEN 2026-04-21
 
-- [ ] The Cockpit renders the four demo-critical decisions with mock data
-- [ ] The API contract document from milestone 1 has not changed without being re-approved
-- [ ] Python 3.11+ and a virtualenv-ready toolchain are available (`python --version`)
-- [ ] `backend/requirements.txt` plan exists in the implementation plan for milestone 3
+- [x] The Cockpit renders the four demo-critical decisions with mock data (all 8 strings verified in compiled bundle)
+- [x] The API contract document from milestone 1 has not changed without being re-approved (one documented extension: `CockpitState.modifiers` flat list replaces the `unattached_modifiers` split — see `docs/plans/2026-04-22-cockpit.md` T2.2 comment)
+- [x] Python 3.11+ and a virtualenv-ready toolchain are available
+- [ ] `backend/requirements.txt` plan exists in the implementation plan for milestone 3 *(to be produced in Milestone 3 execution plan)*
 
 ## Gate 3 — Before running `4th_prompt.md` (AI integration)
 
