@@ -54,3 +54,11 @@ submissions/*.webm
 
 # Generated fixtures
 evals/datasets/**/generated/
+
+# Local runtime artifacts
+uvicorn.out.log
+uvicorn.err.log
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/**/__pycache__/
+backend/.venv/

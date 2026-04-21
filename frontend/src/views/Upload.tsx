@@ -1,13 +1,44 @@
 import { useState } from 'react';
 import { UploadCloud } from 'lucide-react';
+import { apiStartProcessing, apiUpload } from '../api/client';
+import type { UUID } from '../domain/types';
 
 interface Props {
-  onStart: () => void;
+  onStart: (processingId: UUID | null) => void;
 }
 
 export function Upload({ onStart }: Props) {
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleStart = async () => {
+    setErrorMsg(null);
+
+    if (files.length === 0) {
+      // No files — keep legacy mock path so the demo survives a zero-click walk-through.
+      onStart(null);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const batch = await apiUpload(files);
+      const start = await apiStartProcessing(batch.id);
+      onStart(start.processing_id);
+    } catch (err) {
+      console.warn('[mise] upload path failed, falling back to mock', err);
+      setErrorMsg(
+        err instanceof Error
+          ? `${err.message} — continuing with local mock`
+          : 'Backend unreachable — continuing with local mock',
+      );
+      onStart(null);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -58,7 +89,7 @@ export function Upload({ onStart }: Props) {
           onDrop={e => {
             e.preventDefault();
             setDragOver(false);
-            setFiles(Array.from(e.dataTransfer.files).map(f => f.name));
+            setFiles(Array.from(e.dataTransfer.files));
           }}
           className="flex cursor-pointer flex-col items-center justify-center gap-4 text-center"
           style={{
@@ -85,9 +116,7 @@ export function Upload({ onStart }: Props) {
             multiple
             accept="application/pdf,image/*"
             className="hidden"
-            onChange={e =>
-              setFiles(Array.from(e.target.files ?? []).map(f => f.name))
-            }
+            onChange={e => setFiles(Array.from(e.target.files ?? []))}
           />
         </label>
 
@@ -103,20 +132,30 @@ export function Upload({ onStart }: Props) {
           >
             {files.map(f => (
               <li
-                key={f}
+                key={f.name}
                 className="font-mono"
                 style={{ fontSize: 13, lineHeight: '20px' }}
               >
-                → {f}
+                → {f.name}
               </li>
             ))}
           </ul>
         )}
 
+        {errorMsg && (
+          <p
+            className="font-mono"
+            style={{ fontSize: 13, color: 'var(--color-sienna)' }}
+          >
+            {errorMsg}
+          </p>
+        )}
+
         <div className="flex items-center justify-end gap-3">
           <button
             type="button"
-            onClick={onStart}
+            onClick={handleStart}
+            disabled={submitting}
             className="caption cursor-pointer"
             style={{
               background: 'var(--color-ink)',
@@ -125,9 +164,10 @@ export function Upload({ onStart }: Props) {
               borderRadius: 'var(--radius-chip)',
               padding: '12px 20px',
               letterSpacing: '0.04em',
+              opacity: submitting ? 0.6 : 1,
             }}
           >
-            Start reconciliation
+            {submitting ? 'Uploading…' : 'Start reconciliation'}
           </button>
         </div>
       </main>

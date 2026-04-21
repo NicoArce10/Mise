@@ -31,18 +31,18 @@ Owner decisions locked:
 ## Gate 2 — Before running `3rd_prompt.md` (backend shell) ✅ GREEN 2026-04-21
 
 - [x] The Cockpit renders the four demo-critical decisions with mock data (all 8 strings verified in compiled bundle)
-- [x] The API contract document from milestone 1 has not changed without being re-approved (one documented extension: `CockpitState.modifiers` flat list replaces the `unattached_modifiers` split — see `docs/plans/2026-04-22-cockpit.md` T2.2 comment)
+- [x] The API contract document from milestone 1 has not changed without being re-approved (one documented extension: `CockpitState.modifiers` flat list replaces the `unattached_modifiers` split — see `docs/plans/2026-04-22-cockpit.md` T2.2 comment, propagated into `docs/plans/2026-04-22-architecture.md` §2.3 on 2026-04-23)
 - [x] Python 3.11+ and a virtualenv-ready toolchain are available
-- [ ] `backend/requirements.txt` plan exists in the implementation plan for milestone 3 *(to be produced in Milestone 3 execution plan)*
+- [x] `backend/requirements.txt` plan exists in the implementation plan for milestone 3 *(`docs/plans/2026-04-23-backend.md`)*
 
-## Gate 3 — Before running `4th_prompt.md` (AI integration)
+## Gate 3 — Before running `4th_prompt.md` (AI integration) ✅ GREEN 2026-04-23
 
-- [ ] Backend endpoints exist, return mock responses in the contract shape (`§3` of the arch plan)
-- [ ] Frontend consumes the backend (no more inline mocks on the happy path)
-- [ ] `.env` key has been tested against `claude-opus-4-7` in the last 24 hours (re-run `python scripts/smoke_api.py`)
-- [ ] The four demo-critical decisions are encoded in `evals/datasets/bundle_*/expected.json` (done 2026-04-21)
-- [ ] All three `evals/datasets/bundle_*/evidence/` folders are populated (done via `scripts/generate_eval_bundles.py`)
-- [ ] The deterministic adaptive-thinking gate is frozen at `docs/plans/2026-04-22-architecture.md` §2.1; no ad-hoc loosening
+- [x] Backend endpoints exist, return mock responses in the contract shape (`§3` of the arch plan) — 5 endpoints + `/api/health`, 21/21 tests passing
+- [x] Frontend consumes the backend (no more inline mocks on the happy path) — `frontend/src/api/client.ts`, `useCockpitState(processingId)` polls live, mock retained as offline fallback
+- [ ] `.env` key has been tested against `claude-opus-4-7` in the last 24 hours (re-run `python scripts/smoke_api.py`) — **user action before M4**
+- [x] The four demo-critical decisions are encoded in `evals/datasets/bundle_*/expected.json` (done 2026-04-21)
+- [x] All three `evals/datasets/bundle_*/evidence/` folders are populated (done via `scripts/generate_eval_bundles.py`)
+- [x] The deterministic adaptive-thinking gate is frozen at `docs/plans/2026-04-22-architecture.md` §2.1; no ad-hoc loosening
 
 ## Gate 4 — Before recording the demo video
 
