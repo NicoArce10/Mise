@@ -1,7 +1,7 @@
 # Prompt 1 — Architecture, domain models, contracts, mock data, plan
 
 ## Read first (in this order)
-- `claude.md`
+- `CLAUDE.md`
 - `AGENTS.md`
 - `docs/product.md`
 - `docs/hackathon_rules.md`

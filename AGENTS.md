@@ -4,7 +4,7 @@ Orientation for any AI agent working on Mise. Read this fully before touching co
 
 ## Read order, first visit
 0. `docs/project_brief.md` — one-page self-contained handoff brief. Read first to get oriented.
-1. `claude.md` — identity, scope, engineering principles
+1. `CLAUDE.md` — identity, scope, engineering principles
 2. `docs/product.md` — what Mise is and is not
 3. `docs/hackathon_rules.md` — hard rules from the competition
 4. `docs/acceptance_criteria.md` — what must be true to submit

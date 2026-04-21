@@ -188,7 +188,7 @@ Execution:
 Agent orientation:
 
 - [`AGENTS.md`](AGENTS.md) — read order, hard rules, skill matrix for AI agents working on this repo
-- [`claude.md`](claude.md) — identity and scope summary for Claude sessions
+- [`CLAUDE.md`](CLAUDE.md) — identity and scope summary for Claude sessions
 
 ## For hackathon judges
 
