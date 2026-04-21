@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+
+@import '@fontsource/fraunces/400.css';
+@import '@fontsource/fraunces/500.css';
+@import '@fontsource/fraunces/700.css';
+@import '@fontsource/instrument-serif/400-italic.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+@theme {
+  /* Colors — Editorial / Cartographic */
+  --color-paper: #FBF8F2;
+  --color-paper-tint: #F3EEE3;
+  --color-paper-deep: #E9E1CF;
+  --color-ink: #1C1917;
+  --color-ink-muted: #57534E;
+  --color-ink-subtle: #A8A29E;
+  --color-hairline: #E7E5E1;
+  --color-sienna: #8B2E23;
+  --color-sienna-tint: #F2D9D4;
+  --color-olive: #5F6B3F;
+  --color-olive-tint: #E4E8D8;
+  --color-ochre: #B45309;
+  --color-ochre-tint: #F5E4CC;
+  --color-gold-leaf: #B59046;
+
+  /* Fonts */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-accent: 'Instrument Serif', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Radii */
+  --radius-chip: 2px;
+  --radius-input: 4px;
+  --radius-card: 8px;
+
+  /* Shadows */
+  --shadow-atmosphere: 0 24px 48px -24px rgba(28, 25, 23, 0.12), 0 2px 4px -1px rgba(28, 25, 23, 0.04);
+  --shadow-hover-lift: 0 6px 16px -6px rgba(28, 25, 23, 0.10);
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 24px;
+    font-feature-settings: 'kern' 1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+  }
+
+  .font-accent {
+    font-family: var(--font-accent);
+    font-style: italic;
+  }
+
+  .font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: 'tnum' 1;
+  }
+
+  .caption {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+}
