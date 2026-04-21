@@ -1,0 +1,40 @@
+{
+  "bundle_id": "bundle_02_taqueria",
+  "canonical_dishes": [
+    {
+      "canonical_name": "Tacos al Pastor",
+      "expected_aliases": ["Al Pastor Tacos"],
+      "expected_sources": ["menu_pdf_main.pdf", "menu_screenshot_delivery.png"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Tacos de Carnitas",
+      "expected_aliases": ["Carnitas Tacos"],
+      "expected_sources": ["menu_pdf_main.pdf", "menu_screenshot_delivery.png"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Tacos de Barbacoa",
+      "expected_aliases": ["Barbacoa Tacos"],
+      "expected_sources": ["menu_pdf_main.pdf", "menu_screenshot_delivery.png"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Quesadilla de Queso",
+      "expected_aliases": ["Cheese Quesadilla"],
+      "expected_sources": ["menu_pdf_main.pdf", "menu_screenshot_delivery.png"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    }
+  ],
+  "expected_non_merges": [],
+  "expected_modifiers": [
+    { "text": "add guacamole +2", "parent_dish": null },
+    { "text": "add queso +1",     "parent_dish": null },
+    { "text": "extra salsa +0",   "parent_dish": null }
+  ],
+  "expected_ephemeral": []
+}

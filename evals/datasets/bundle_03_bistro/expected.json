@@ -1,0 +1,45 @@
+{
+  "bundle_id": "bundle_03_bistro",
+  "canonical_dishes": [
+    {
+      "canonical_name": "Short Rib",
+      "expected_aliases": [],
+      "expected_sources": ["menu_pdf_dinner.pdf"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Halibut en Papillote",
+      "expected_aliases": [],
+      "expected_sources": ["menu_pdf_dinner.pdf"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Beet Tartare",
+      "expected_aliases": [],
+      "expected_sources": ["menu_pdf_dinner.pdf", "menu_pdf_lunch.pdf"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Ricotta Gnudi",
+      "expected_aliases": [],
+      "expected_sources": ["menu_pdf_dinner.pdf", "menu_pdf_lunch.pdf"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Mushroom Toast",
+      "expected_aliases": [],
+      "expected_sources": ["menu_pdf_lunch.pdf"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    }
+  ],
+  "expected_non_merges": [],
+  "expected_modifiers": [],
+  "expected_ephemeral": [
+    { "text": "Chef's Special", "source": "chef_special_board.jpg" }
+  ]
+}

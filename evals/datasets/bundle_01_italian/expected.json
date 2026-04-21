@@ -1,0 +1,62 @@
+{
+  "bundle_id": "bundle_01_italian",
+  "canonical_dishes": [
+    {
+      "canonical_name": "Margherita",
+      "expected_aliases": ["Marghertia", "Pizza Margherita"],
+      "expected_sources": [
+        "menu_pdf_branch_a.pdf",
+        "menu_photo_branch_b.jpg",
+        "chalkboard_branch_c.jpg"
+      ],
+      "expected_modifiers": [
+        { "text": "add burrata +3", "source": "chalkboard_branch_c.jpg" }
+      ],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Pizza Funghi",
+      "expected_aliases": [],
+      "expected_sources": ["menu_pdf_branch_a.pdf"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Calzone Funghi",
+      "expected_aliases": [],
+      "expected_sources": ["menu_photo_branch_b.jpg"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Pizza Diavola",
+      "expected_aliases": [],
+      "expected_sources": ["menu_pdf_branch_a.pdf", "chalkboard_branch_c.jpg"],
+      "expected_modifiers": [
+        { "text": "extra chili +1", "source": "chalkboard_branch_c.jpg" }
+      ],
+      "expected_route": "canonical"
+    },
+    {
+      "canonical_name": "Calzone Vegano",
+      "expected_aliases": [],
+      "expected_sources": ["menu_photo_branch_b.jpg"],
+      "expected_modifiers": [],
+      "expected_route": "canonical"
+    }
+  ],
+  "expected_non_merges": [
+    {
+      "left": "Pizza Funghi",
+      "right": "Calzone Funghi",
+      "reason": "different_dish_type"
+    }
+  ],
+  "expected_modifiers": [
+    { "text": "add burrata +3", "parent_dish": "Margherita" },
+    { "text": "extra chili +1", "parent_dish": "Pizza Diavola" }
+  ],
+  "expected_ephemeral": [
+    { "text": "Linguine del giorno", "source": "instagram_post_special.png" }
+  ]
+}
