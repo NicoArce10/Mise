@@ -311,17 +311,6 @@ class ProcessingRun(BaseModel):
     ready_at: str | None = None
 
 
-class CockpitState(BaseModel):
-    """Exactly what GET /api/review/{processing_id} returns."""
-    processing: ProcessingRun
-    sources: list[SourceDocument]
-    canonical_dishes: list[CanonicalDish]
-    unattached_modifiers: list[Modifier]      # only modifiers where parent_dish_id is None
-    ephemerals: list[EphemeralItem]
-    reconciliation_trace: list[ReconciliationResult]   # provenance for the detail rail
-    metrics_preview: MetricsPreview | None = None      # populated when eval report exists
-    
-    
 class MetricsPreview(BaseModel):
     """Subset of evals report surfaced in the Cockpit metrics pane."""
     sources_ingested: int
@@ -331,6 +320,20 @@ class MetricsPreview(BaseModel):
     merge_precision: float | None = None
     non_merge_accuracy: float | None = None
     time_to_review_pack_seconds: float | None = None
+
+
+class CockpitState(BaseModel):
+    """Exactly what GET /api/review/{processing_id} returns."""
+    processing: ProcessingRun
+    sources: list[SourceDocument]
+    canonical_dishes: list[CanonicalDish]
+    # All modifiers (attached + unattached). UI derives the "unattached lane"
+    # as the subset where parent_dish_id is None. Extension approved in Gate 2
+    # — supersedes the earlier `unattached_modifiers` split for simpler client state.
+    modifiers: list[Modifier]
+    ephemerals: list[EphemeralItem]
+    reconciliation_trace: list[ReconciliationResult]   # provenance for the detail rail
+    metrics_preview: MetricsPreview | None = None      # populated when eval report exists
 ```
 
 ### 2.4 `GET /api/review/{processing_id}` — contract by example
@@ -365,7 +368,8 @@ The frontend reads this one endpoint and renders the whole Cockpit. Shape is exa
       "moderation": "pending"
     }
   ],
-  "unattached_modifiers": [
+  "modifiers": [
+    { "id":"m_burrata", "text":"add burrata +3", "price_delta_value":3.0, "price_delta_currency":"EUR", "parent_dish_id":"d1...", "source_ids":["s_c"] },
     { "id":"m_guac", "text":"add guacamole +2", "price_delta_value":2.0, "price_delta_currency":"USD", "parent_dish_id": null, "source_ids":["s_chalk"] }
   ],
   "ephemerals": [

@@ -29,7 +29,7 @@ Produce the minimal, composable architecture that serves the hero frame in `docs
 - No external OCR in the critical path — images and PDFs go directly to Opus 4.7 vision
 - No exposure of raw model thinking to the frontend
 - Architecture must separate extraction, reconciliation, routing, and validation into distinct layers
-- In-memory storage acceptable for MVP; Supabase only if a concrete milestone requires it
+- In-memory storage mandatory for MVP; external DB is frozen out — see `docs/scope_freeze.md`
 
 ## Deliverables
 
