@@ -22,6 +22,7 @@ from typing import Literal
 from .ai.extraction import extract_fallback, extract_from_bytes
 from .ai.reconciliation import reconcile_deterministic, reconcile_pair
 from .ai.routing import route_candidate
+from .core.metrics import apply_latest_report
 from .domain.models import (
     CanonicalDish,
     CockpitState,
@@ -254,10 +255,12 @@ def _build_cockpit(
         else:
             attached_modifiers.append(m)
 
-    # Build a lightweight metrics preview. Real numbers come from the eval
-    # harness — this block is replaced by `evals/run_eval.py` output when a
-    # report exists.
-    metrics = MetricsPreview(
+    # Base metrics describe THIS run (counts + timing). Quality numbers
+    # (`merge_precision`, `non_merge_accuracy`) must come from the eval
+    # harness — never invent them. When an `evals/reports/*.json` exists we
+    # overlay its aggregate. When it does not, the fields stay `None` so the
+    # UI can render "—" rather than a fake value.
+    base_metrics = MetricsPreview(
         sources_ingested=len(sources),
         canonical_count=len(canonical_dishes),
         modifier_count=len(attached_modifiers),
@@ -266,6 +269,7 @@ def _build_cockpit(
         non_merge_accuracy=None,
         time_to_review_pack_seconds=round(elapsed_s, 2),
     )
+    metrics = apply_latest_report(base_metrics)
 
     processing = ProcessingRun(
         id=processing_id,

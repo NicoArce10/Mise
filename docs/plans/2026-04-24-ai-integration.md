@@ -91,8 +91,8 @@ Replace the mock pipeline from Milestone 3 with real Opus 4.7 calls, determinist
 - [x] T4.6 — Routing (regex-first, ephemeral hints). LLM fallback stubbed per plan.
 - [x] T4.7 — Pipeline wiring (`MISE_PIPELINE_MODE` env toggle; falls back to fixture on hard error)
 - [x] T4.8 — Eval harness (`evals/run_eval.py`; 3/3 bundles demo-critical pass in fallback mode)
-- [ ] T4.9 — Cockpit metrics from latest report *(pipeline populates `metrics_preview` with run stats; eval-report swap deferred — fixture metrics shown until real-mode run exists)*
-- [x] T4.10 — Tests (47/47 backend green — gate, routing, pipeline, AI client guardrails, upload/process/review/models/api)
+- [x] T4.9 — Cockpit metrics from latest report (`backend/app/core/metrics.py`, `apply_latest_report()` wired in `pipeline._build_cockpit`; `merge_precision` / `non_merge_accuracy` now read from `evals/reports/*.json` mtime-newest; pure-function overlay is independently tested with 6 cases)
+- [x] T4.10 — Tests (53/53 backend green — gate, routing, pipeline, AI client guardrails, upload/process/review/models/api, metrics overlay)
 
 ## Gate 4 partial status (2026-04-21)
 - [x] `python evals/run_eval.py --bundle all` runs end-to-end in fallback mode

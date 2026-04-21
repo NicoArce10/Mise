@@ -48,10 +48,10 @@ Owner decisions locked:
 
 - [x] `python evals/run_eval.py --bundle all` runs end-to-end and produces a report (fallback mode, 2026-04-21)
 - [x] Each of the four demo-critical decisions passes in the report (`demo_critical_all_pass: true`)
-- [ ] The hero frame renders with real data at the chosen browser size (1440×900 reference) — needs Opus-real run
-- [ ] At least two clean takes of each demo beat exist
-- [ ] The metrics pane in the Cockpit reads from the latest eval report, not from static mock numbers
-- [ ] The written summary draft exists and is internally consistent with the video
+- [x] The metrics pane in the Cockpit reads from the latest eval report (T4.9 — `backend/app/core/metrics.py`, `apply_latest_report()` called in `pipeline._build_cockpit`)
+- [x] The written summary draft exists and is internally consistent with the measured metrics (`submissions/written_summary.md` + `submissions/metrics.json`, 2026-04-21)
+- [ ] The hero frame renders with real data at the chosen browser size (1440×900 reference) — pending: `MISE_PIPELINE_MODE=fallback` boot + Upload → Processing → Cockpit walk, 5-minute visual smoke
+- [ ] At least two clean takes of each demo beat exist — pending: user records per `docs/demo_recording_plan.md`
 
 ## Gate 5 — Before submission
 
