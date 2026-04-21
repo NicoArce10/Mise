@@ -39,16 +39,16 @@ Owner decisions locked:
 
 - [x] Backend endpoints exist, return mock responses in the contract shape (`§3` of the arch plan) — 5 endpoints + `/api/health`, 21/21 tests passing
 - [x] Frontend consumes the backend (no more inline mocks on the happy path) — `frontend/src/api/client.ts`, `useCockpitState(processingId)` polls live, mock retained as offline fallback
-- [ ] `.env` key has been tested against `claude-opus-4-7` in the last 24 hours (re-run `python scripts/smoke_api.py`) — **user action before M4**
+- [x] `.env` key has been tested against `claude-opus-4-7` in the last 24 hours (re-run `python scripts/smoke_api.py`) — all 6 probes PASS 2026-04-21
 - [x] The four demo-critical decisions are encoded in `evals/datasets/bundle_*/expected.json` (done 2026-04-21)
 - [x] All three `evals/datasets/bundle_*/evidence/` folders are populated (done via `scripts/generate_eval_bundles.py`)
 - [x] The deterministic adaptive-thinking gate is frozen at `docs/plans/2026-04-22-architecture.md` §2.1; no ad-hoc loosening
 
 ## Gate 4 — Before recording the demo video
 
-- [ ] `python evals/run_eval.py --bundle all` runs end-to-end and produces a report
-- [ ] Each of the four demo-critical decisions passes in the report
-- [ ] The hero frame renders with real data at the chosen browser size (1440×900 reference)
+- [x] `python evals/run_eval.py --bundle all` runs end-to-end and produces a report (fallback mode, 2026-04-21)
+- [x] Each of the four demo-critical decisions passes in the report (`demo_critical_all_pass: true`)
+- [ ] The hero frame renders with real data at the chosen browser size (1440×900 reference) — needs Opus-real run
 - [ ] At least two clean takes of each demo beat exist
 - [ ] The metrics pane in the Cockpit reads from the latest eval report, not from static mock numbers
 - [ ] The written summary draft exists and is internally consistent with the video
