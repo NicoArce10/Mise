@@ -80,6 +80,11 @@ async def upload(files: list[UploadFile] = File(...)) -> UploadBatch:
                 height_px=None,
             )
         )
+        # Persist the raw bytes so the real pipeline can read them in the
+        # worker thread. Without this, the pipeline falls back to the
+        # filename-keyed fixture and the uploaded file is effectively
+        # ignored — the bug the user hit when uploading their own menu.
+        store.save_source_bytes(src_id, data)
 
     batch = UploadBatch(
         id=new_id("batch"),

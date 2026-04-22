@@ -35,6 +35,17 @@ class InMemoryStore:
         self._batches: dict[EntityId, UploadBatch] = {}
         self._run_meta: dict[EntityId, ProcessingRun] = {}
         self._cockpits: dict[EntityId, CockpitState] = {}
+        self._source_bytes: dict[EntityId, bytes] = {}
+
+    # ----- source bytes -----
+
+    def save_source_bytes(self, source_id: EntityId, data: bytes) -> None:
+        with self._lock:
+            self._source_bytes[source_id] = data
+
+    def get_source_bytes(self, source_id: EntityId) -> bytes | None:
+        with self._lock:
+            return self._source_bytes.get(source_id)
 
     # ----- batches -----
 

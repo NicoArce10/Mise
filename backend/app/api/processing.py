@@ -72,12 +72,25 @@ def _advance_pipeline_real(run_id: EntityId, batch_id: EntityId) -> None:
             return
 
         store.update_state(run_id, ProcessingState.EXTRACTING, state_detail=None)
-        # The upload path does not persist bytes in M3/M4 (memory-only); the
-        # pipeline will fall back to fixture-keyed extraction per filename.
-        inputs = [PipelineInput(source=src, data=None) for src in batch.sources]
+        # Read the bytes the user uploaded. Uploads persist them via
+        # store.save_source_bytes so the worker thread can reach them here.
+        inputs = [
+            PipelineInput(source=src, data=store.get_source_bytes(src.id))
+            for src in batch.sources
+        ]
 
-        mode = os.environ.get("MISE_PIPELINE_MODE", "mock").lower()
-        pipeline_mode = "real" if mode == "real" else "fallback"
+        # Decide mode the same way _select_pipeline does — use real when
+        # explicitly asked OR when an API key is present. Fallback only
+        # when neither applies.
+        explicit = os.environ.get("MISE_PIPELINE_MODE", "").lower()
+        if explicit == "real":
+            pipeline_mode = "real"
+        elif explicit == "fallback":
+            pipeline_mode = "fallback"
+        elif os.environ.get("ANTHROPIC_API_KEY"):
+            pipeline_mode = "real"
+        else:
+            pipeline_mode = "fallback"
 
         store.update_state(
             run_id,
@@ -106,13 +119,58 @@ def _advance_pipeline_real(run_id: EntityId, batch_id: EntityId) -> None:
             adaptive_thinking_pairs=cockpit.processing.adaptive_thinking_pairs,
         )
     except Exception as exc:
-        logger.warning("[mise] real pipeline failed, falling back to fixture: %s", exc)
-        store.materialize_ready_cockpit(run_id, batch_id)
+        # Previously this branch fell back to the italian fixture, which
+        # made the UI show fake dishes unrelated to what the user uploaded.
+        # Honesty over cosmetics: surface the failure in state_detail and
+        # leave an empty CockpitState so the reviewer sees there was a
+        # pipeline error instead of a misleading result.
+        logger.warning("[mise] real pipeline failed: %s", exc)
+        from ..domain.models import CockpitState, MetricsPreview
+
+        batch = store.get_batch(batch_id)
+        store.update_state(
+            run_id,
+            ProcessingState.FAILED,
+            state_detail=f"pipeline error: {type(exc).__name__}",
+        )
+        run = store.get_run_meta(run_id)
+        if run is None or batch is None:
+            return
+        empty = CockpitState(
+            processing=run,
+            sources=list(batch.sources),
+            canonical_dishes=[],
+            modifiers=[],
+            ephemerals=[],
+            reconciliation_trace=[],
+            metrics_preview=MetricsPreview(
+                sources_ingested=len(batch.sources),
+                canonical_count=0,
+                modifier_count=0,
+                ephemeral_count=0,
+            ),
+        )
+        store.set_cockpit(run_id, empty)
 
 
 def _select_pipeline():
-    mode = os.environ.get("MISE_PIPELINE_MODE", "mock").lower()
-    if mode in {"real", "fallback"}:
+    """Pick the pipeline to run for this upload.
+
+    Priority:
+    1. If MISE_PIPELINE_MODE is set explicitly, honor it.
+    2. Else if ANTHROPIC_API_KEY is present, use the real pipeline so an
+       uploaded file actually gets processed (not overwritten with the
+       italian fixture). This is the honest default — a user who boots
+       the stack with a valid key expects the product to read their bytes.
+    3. Else fall back to mock (fixture walk-through), which is only
+       appropriate for a UI-only demo without an API key.
+    """
+    explicit = os.environ.get("MISE_PIPELINE_MODE", "").lower()
+    if explicit in {"real", "fallback", "mock"}:
+        if explicit == "mock":
+            return _advance_pipeline_mock
+        return _advance_pipeline_real
+    if os.environ.get("ANTHROPIC_API_KEY"):
         return _advance_pipeline_real
     return _advance_pipeline_mock
 
