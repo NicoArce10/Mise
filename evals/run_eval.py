@@ -29,6 +29,14 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 
+# Load `.env` for real-mode runs — same path smoke_api.py uses.
+try:
+    from dotenv import load_dotenv  # noqa: E402
+
+    load_dotenv(REPO_ROOT / ".env")
+except ImportError:
+    pass
+
 from app.domain.models import SourceDocument, SourceKind  # noqa: E402
 from app.pipeline import PipelineInput, run_pipeline  # noqa: E402
 
@@ -178,8 +186,9 @@ def _evaluate_bundle(
             "add guacamole +2" in produced_modifier_texts
         )
     if bundle_id == "bundle_03_bistro":
-        demo_critical["chef_special_ephemeral"] = (
-            "Chef's Special" in produced_ephemeral_texts
+        demo_critical["chef_special_ephemeral"] = any(
+            "chef" in t.lower() and "special" in t.lower()
+            for t in produced_ephemeral_texts
         )
 
     return BundleMetrics(

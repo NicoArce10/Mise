@@ -62,8 +62,9 @@ def test_call_opus_does_not_send_banned_knobs(monkeypatch) -> None:
     assert "thinking" not in sent
     # System prompt is cached.
     assert sent["system"][0]["cache_control"] == {"type": "ephemeral"}
-    # Structured output via json_schema.
+    # Structured output via json_schema — API shape is {"type": "json_schema", "schema": {...}}.
     assert sent["output_config"]["format"]["type"] == "json_schema"
+    assert "schema" in sent["output_config"]["format"]
 
 
 def test_call_opus_enables_adaptive_thinking_when_requested(monkeypatch) -> None:

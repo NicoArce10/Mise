@@ -49,6 +49,49 @@ def get_client() -> Anthropic:
     return Anthropic(api_key=api_key)
 
 
+def _harden_schema_for_opus(schema: dict[str, Any]) -> dict[str, Any]:
+    """Opus 4.7 json_schema requires `additionalProperties: false` on every
+    object-typed schema (including nested `$defs`). Also strip Pydantic-only
+    keys the API rejects. Mutates-a-copy and returns it.
+    """
+    import copy
+
+    hardened = copy.deepcopy(schema)
+
+    # Keys Opus 4.7's json_schema mode rejects on specific types.
+    _REJECTED_NUMBER = {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"}
+    _REJECTED_STRING = {"minLength", "maxLength", "pattern", "format"}
+    _REJECTED_ARRAY = {"minItems", "maxItems", "uniqueItems"}
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            t = node.get("type")
+            if t == "object":
+                node.setdefault("additionalProperties", False)
+            if t == "number" or t == "integer":
+                for k in list(node.keys()):
+                    if k in _REJECTED_NUMBER:
+                        node.pop(k, None)
+            if t == "string":
+                for k in list(node.keys()):
+                    if k in _REJECTED_STRING:
+                        node.pop(k, None)
+            if t == "array":
+                for k in list(node.keys()):
+                    if k in _REJECTED_ARRAY:
+                        node.pop(k, None)
+            node.pop("title", None)
+            node.pop("default", None)
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(hardened)
+    return hardened
+
+
 def _build_system(system_prompt: str) -> list[dict[str, Any]]:
     """System prompt as a cached text block."""
     return [
@@ -61,13 +104,29 @@ def _build_system(system_prompt: str) -> list[dict[str, Any]]:
 
 
 def image_block(data: bytes, media_type: str) -> dict[str, Any]:
-    """Base64-encoded image content block. Works for PDFs on 4.7 too."""
+    """Base64 content block — picks `image` or `document` by media_type.
+
+    Anthropic's Messages API accepts PDFs as `type: "document"`; raster
+    images (`image/jpeg|png|gif|webp`) go as `type: "image"`. Both are
+    vision-native on Opus 4.7, so the extraction prompt does not need to
+    branch on which kind of evidence it receives.
+    """
+    encoded = base64.standard_b64encode(data).decode("ascii")
+    if media_type == "application/pdf":
+        return {
+            "type": "document",
+            "source": {
+                "type": "base64",
+                "media_type": media_type,
+                "data": encoded,
+            },
+        }
     return {
         "type": "image",
         "source": {
             "type": "base64",
             "media_type": media_type,
-            "data": base64.standard_b64encode(data).decode("ascii"),
+            "data": encoded,
         },
     }
 
@@ -103,7 +162,7 @@ def _request_kwargs(
             "effort": effort,
             "format": {
                 "type": "json_schema",
-                "json_schema": response_schema,
+                "schema": response_schema,
             },
         },
     }
@@ -189,7 +248,8 @@ def call_opus(
     On `ValidationError` a single deterministic retry is attempted with a
     tightened system prompt. A second failure raises `OpusCallError`.
     """
-    schema = response_schema or response_model.model_json_schema()
+    raw_schema = response_schema or response_model.model_json_schema()
+    schema = _harden_schema_for_opus(raw_schema)
     client = get_client()
 
     def _once(extra_system: str = "") -> BaseModel:

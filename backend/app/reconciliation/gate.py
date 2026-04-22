@@ -118,7 +118,13 @@ class GateSignals:
 
 
 def signals(a: DishCandidate, b: DishCandidate) -> GateSignals:
-    na, nb = normalize(a.raw_name), normalize(b.raw_name)
+    # The reconciler operates on the CLEAN form the extractor produced
+    # (typos fixed, redundant prefixes dropped, reorders collapsed). Using
+    # raw_name here would re-introduce differences the extractor already
+    # resolved ("Pizza Marghertia" vs "Margherita" would never converge).
+    name_a = a.normalized_name or a.raw_name
+    name_b = b.normalized_name or b.raw_name
+    na, nb = normalize(name_a), normalize(name_b)
     # Name similarity on token multisets preserves ordering-insensitivity.
     ta = " ".join(sorted(na.split()))
     tb = " ".join(sorted(nb.split()))

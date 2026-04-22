@@ -63,6 +63,12 @@ Rules:
    label like "Today", "Tonight", "Daily", "Chef's special", "Del giorno",
    "Plato del día", "Daily special". These don't belong in the stable
    catalog.
+   **IMPORTANT:** ephemeral listings ARE valid candidates — do NOT filter
+   them out as "not a dish". If the board says just "Chef's Special" with
+   no further body, emit one candidate with `raw_name="Chef's Special"`,
+   `normalized_name="Chef's Special"`, `is_ephemeral_candidate=true`,
+   empty `ingredients`, null `price_value`. The reviewer decides whether
+   the listing becomes stable; your job is to surface it, not to drop it.
 
 8. **inferred_dish_type** must be one of: `pizza`, `calzone`, `pasta`,
    `taco`, `quesadilla`, `salad`, `soup`, `sandwich`, `burger`, `toast`,
