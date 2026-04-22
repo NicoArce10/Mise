@@ -7,12 +7,13 @@ interface Props {
 type Match = { start: number; end: number; kind: 'merge' | 'no-merge' | 'routed' };
 
 const PATTERNS: { rx: RegExp; kind: Match['kind'] }[] = [
-  { rx: /\bmerged\b/gi, kind: 'merge' },
+  { rx: /\bextracted\b/gi, kind: 'merge' },
   { rx: /\bnot merged\b/gi, kind: 'no-merge' },
   { rx: /\bkept separate\b/gi, kind: 'no-merge' },
   { rx: /\brouted as modifier\b/gi, kind: 'routed' },
   { rx: /\brouted as ephemeral\b/gi, kind: 'routed' },
   { rx: /\brouted as canonical\b/gi, kind: 'routed' },
+  // "merged" pattern kept out on purpose — UI no longer highlights it.
 ];
 
 const COLORS: Record<Match['kind'], string> = {

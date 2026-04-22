@@ -59,11 +59,10 @@ tests/
 
 ## Contract
 
-Authoritative: [`docs/plans/2026-04-22-architecture.md`](../docs/plans/2026-04-22-architecture.md) §2.3 and §3. The frontend types in `frontend/src/domain/types.ts` mirror `app/domain/models.py` one-for-one.
+The frontend types in `frontend/src/domain/types.ts` mirror `app/domain/models.py` one-for-one. The JSON catalog shape served by `GET /api/catalog/{run_id}.json` is the external contract — anything else is internal and may change.
 
 ## Non-goals (frozen)
 
-- No Opus 4.7 calls here — those live in M4 (`4th_prompt.md`)
-- No external DB — scope frozen in `docs/scope_freeze.md`
+- No external DB — the stable JSON catalog is the external contract, persistence is out of MVP scope
 - No auth — not on the rubric
-- No websockets — polling is enough for three bundles
+- No websockets — short polling is enough for the demo bundles

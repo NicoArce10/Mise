@@ -26,20 +26,25 @@ export function ActionBar({ moderation, onModerate }: Props) {
           <button
             key={b.value}
             type="button"
-            onClick={() => onModerate(b.value)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onModerate(b.value);
+            }}
             className={clsx(
-              'caption transition-colors duration-[120ms] cursor-pointer',
+              'caption transition-all duration-[140ms] cursor-pointer hover:opacity-90',
             )}
             style={{
-              background: active ? b.activeBg : 'transparent',
-              color: active ? b.activeFg : 'var(--color-ink-muted)',
+              background: active ? b.activeFg : 'transparent',
+              color: active ? '#fff' : 'var(--color-ink-muted)',
               border: `1px solid ${active ? b.activeFg : 'var(--color-hairline)'}`,
               borderRadius: 'var(--radius-chip)',
               padding: '6px 12px',
               letterSpacing: '0.04em',
+              fontWeight: active ? 600 : 400,
+              boxShadow: active ? `0 1px 2px ${b.activeFg}40` : 'none',
             }}
           >
-            {b.label}
+            {active ? '✓ ' : ''}{b.label}
           </button>
         );
       })}

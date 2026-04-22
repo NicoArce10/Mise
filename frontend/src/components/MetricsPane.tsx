@@ -66,20 +66,23 @@ export function MetricsPane({ metrics }: Props) {
         <Metric label="Canonical" value={String(metrics.canonical_count)} />
         <Metric label="Modifiers" value={String(metrics.modifier_count)} />
         <Metric label="Ephemeral" value={String(metrics.ephemeral_count)} />
-        <Metric
-          label="Merge precision"
-          value={
-            metrics.merge_precision === null ? '—' : metrics.merge_precision.toFixed(2)
-          }
-        />
-        <Metric
-          label="Non-merge accuracy"
-          value={
-            metrics.non_merge_accuracy === null
-              ? '—'
-              : metrics.non_merge_accuracy.toFixed(2)
-          }
-        />
+        {/* The backend still tracks internal grouping precision across the
+            dish graph (useful for the eval harness), but end users don't
+            need those two numbers on a single-restaurant run. We render
+            them only if the eval report actually populated a value, under
+            plainer labels that don't leak the word "merge". */}
+        {metrics.merge_precision !== null && (
+          <Metric
+            label="Graph precision"
+            value={metrics.merge_precision.toFixed(2)}
+          />
+        )}
+        {metrics.non_merge_accuracy !== null && (
+          <Metric
+            label="Separation accuracy"
+            value={metrics.non_merge_accuracy.toFixed(2)}
+          />
+        )}
         <Metric
           label="Time to pack"
           value={

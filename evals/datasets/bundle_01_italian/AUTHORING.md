@@ -226,4 +226,4 @@ After all four assets exist, author the `expected.json` in this folder. Schema i
 - Asset 4 (Instagram post): 20 min
 - `expected.json`: 15 min
 
-Total: approximately 1 hour 50 minutes for bundle 01. Budget this into Wed afternoon per `docs/timeline.md`.
+Total: approximately 1 hour 50 minutes for bundle 01.

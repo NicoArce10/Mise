@@ -41,6 +41,7 @@ function emptyState(): CockpitState {
     adaptive_thinking_pairs: 0,
     started_at: now,
     ready_at: now,
+    recent_dishes: [],
   };
   const metrics: MetricsPreview = {
     sources_ingested: 0,
@@ -149,6 +150,7 @@ export function useCockpitState(mode: CockpitMode = { kind: 'empty' }): UseCockp
       const action = actionFromStatus(status);
 
       if (pid !== null && action !== null) {
+        console.info('[mise] moderate →', { kind, id, action, processingId: pid });
         void (async () => {
           try {
             const updated = await apiPostDecision(pid, {
@@ -156,11 +158,15 @@ export function useCockpitState(mode: CockpitMode = { kind: 'empty' }): UseCockp
               target_id: id,
               action,
             });
+            console.info('[mise] moderate OK — dish now', {
+              id,
+              newModeration: status,
+            });
             setState(updated);
             setSource('api');
             return;
           } catch (err) {
-            console.warn('[mise] decision POST failed, applying optimistic local update', err);
+            console.error('[mise] decision POST failed, falling back to local-only update', err);
           }
           // fallthrough to local update
           setState(applyLocalModeration(state, kind, id, status));

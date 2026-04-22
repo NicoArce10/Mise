@@ -1,7 +1,8 @@
 """Process-local in-memory store for batches and processing runs.
 
 Single-process only — the demo runs on one uvicorn worker. External DB
-is out of scope per docs/scope_freeze.md.
+is intentionally out of MVP scope; the stable JSON catalog served by
+`/api/catalog/{run_id}.json` is the external contract.
 """
 from __future__ import annotations
 
@@ -46,6 +47,20 @@ class InMemoryStore:
     def get_source_bytes(self, source_id: EntityId) -> bytes | None:
         with self._lock:
             return self._source_bytes.get(source_id)
+
+    def find_source(self, source_id: EntityId):
+        """Return the `SourceDocument` for this id by scanning all batches.
+
+        Used by the preview endpoint so the UI can render the menu the
+        reviewer actually uploaded. O(batches × sources) but batch counts
+        are trivially small for the demo.
+        """
+        with self._lock:
+            for batch in self._batches.values():
+                for src in batch.sources:
+                    if src.id == source_id:
+                        return src
+        return None
 
     # ----- batches -----
 
@@ -98,6 +113,39 @@ class InMemoryStore:
                     **({"ready_at": _now_iso()} if state == ProcessingState.READY else {}),
                 }
             )
+            self._run_meta[run_id] = updated
+            return updated
+
+    # Max names surfaced on the Processing screen. We keep the most recent
+    # so the chip wall churns as pages complete instead of quietly freezing.
+    _RECENT_DISHES_CAP = 24
+
+    def append_recent_dishes(
+        self, run_id: EntityId, names: list[str]
+    ) -> ProcessingRun | None:
+        """Append newly-extracted dish names to the run's live chip wall.
+
+        Dedup is case-insensitive, last-wins; the list is capped so the
+        ProcessingRun payload stays small across many polls.
+        """
+        clean = [n.strip() for n in names if n and n.strip()]
+        if not clean:
+            return self._run_meta.get(run_id)
+        with self._lock:
+            existing = self._run_meta.get(run_id)
+            if existing is None:
+                return None
+            merged = list(existing.recent_dishes)
+            seen_lower = {n.lower() for n in merged}
+            for name in clean:
+                key = name.lower()
+                if key in seen_lower:
+                    continue
+                merged.append(name)
+                seen_lower.add(key)
+            if len(merged) > self._RECENT_DISHES_CAP:
+                merged = merged[-self._RECENT_DISHES_CAP:]
+            updated = existing.model_copy(update={"recent_dishes": merged})
             self._run_meta[run_id] = updated
             return updated
 

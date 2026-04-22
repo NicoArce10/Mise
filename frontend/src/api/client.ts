@@ -1,5 +1,6 @@
 // Typed client for the Mise FastAPI backend.
-// Mirrors the contract in docs/plans/2026-04-22-architecture.md §3.
+// The external contract is `GET /api/catalog/{run_id}.json`; everything
+// else is internal and may change.
 //
 // Usage: on unreachable backend, every call throws — the caller is expected
 // to fall back to the local mock path (see App.tsx).
@@ -15,6 +16,26 @@ const API_BASE =
   (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://127.0.0.1:8000';
 
 export const apiBase = API_BASE;
+
+/**
+ * URL for the raw bytes of an uploaded source. Returns a URL (not a blob)
+ * so `<img>` and `<iframe>` tags can load it directly. The backend streams
+ * the original upload back with the right Content-Type so PDFs render
+ * inline and images show without a download prompt.
+ */
+export function sourceContentUrl(sourceId: UUID): string {
+  return `${API_BASE}/api/sources/${encodeURIComponent(sourceId)}/content`;
+}
+
+/**
+ * URL of the exportable dish-graph JSON for a processing run.
+ * Browser download target for the "Export JSON" button in TryIt — the
+ * backend sets `Content-Disposition: attachment` so the click saves the
+ * file instead of navigating the page.
+ */
+export function catalogUrl(processingId: UUID): string {
+  return `${API_BASE}/api/catalog/${encodeURIComponent(processingId)}.json`;
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -65,6 +86,44 @@ export async function apiGetReview(processingId: UUID): Promise<CockpitState> {
 
 export type TargetKind = 'canonical' | 'modifier' | 'ephemeral';
 export type Action = 'approve' | 'edit' | 'reject';
+
+// ---------- Natural-language search ----------
+
+export type SearchMatchedOn =
+  | 'alias'
+  | 'search_term'
+  | 'canonical_name'
+  | 'ingredient'
+  | 'menu_category'
+  | 'modifier'
+  | 'semantic_inference';
+
+export interface SearchMatch {
+  dish_id: UUID;
+  score: number;
+  reason: string;
+  matched_on: SearchMatchedOn[];
+}
+
+export interface SearchResult {
+  query: string;
+  interpretation: string;
+  matches: SearchMatch[];
+  used_adaptive_thinking: boolean;
+  latency_ms: number;
+  model: string;
+}
+
+export async function apiSearch(
+  processingId: UUID,
+  body: { query: string; top_k?: number },
+): Promise<SearchResult> {
+  return request(`/api/search/${encodeURIComponent(processingId)}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
 
 export async function apiPostDecision(
   processingId: UUID,

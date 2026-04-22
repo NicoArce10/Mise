@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Search, Download, LayoutList, LayoutGrid, Keyboard } from 'lucide-react';
+import { Search, LayoutList, LayoutGrid, Keyboard } from 'lucide-react';
 
 export type ViewDensity = 'card' | 'compact';
 
@@ -10,7 +10,6 @@ interface Props {
   onDensityChange: (d: ViewDensity) => void;
   dishCount: number;
   filteredCount: number;
-  onExport: () => void;
   onShowHelp?: () => void;
 }
 
@@ -21,7 +20,6 @@ export const CockpitToolbar = forwardRef<HTMLInputElement, Props>(function Cockp
   onDensityChange,
   dishCount,
   filteredCount,
-  onExport,
   onShowHelp,
 }, searchRef) {
   return (
@@ -47,7 +45,7 @@ export const CockpitToolbar = forwardRef<HTMLInputElement, Props>(function Cockp
           type="text"
           value={query}
           onChange={e => onQueryChange(e.target.value)}
-          placeholder="Filter dishes, modifiers, ephemerals…"
+          placeholder="Filter this view (text match, no AI)…"
           className="w-full bg-transparent outline-none"
           style={{
             fontSize: 14,
@@ -87,25 +85,6 @@ export const CockpitToolbar = forwardRef<HTMLInputElement, Props>(function Cockp
             <LayoutList size={14} strokeWidth={1.5} />
           </DensityButton>
         </div>
-        <button
-          type="button"
-          onClick={onExport}
-          className="caption cursor-pointer"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'transparent',
-            color: 'var(--color-ink)',
-            border: '1px solid var(--color-hairline)',
-            borderRadius: 'var(--radius-chip)',
-            padding: '6px 12px',
-            letterSpacing: '0.04em',
-          }}
-        >
-          <Download size={14} strokeWidth={1.5} />
-          Export JSON
-        </button>
         {onShowHelp && (
           <button
             type="button"

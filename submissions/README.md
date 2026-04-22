@@ -6,11 +6,9 @@ Deliverables for the hackathon submission.
 
 | File | State | Notes |
 |---|---|---|
-| `written_summary.md` | **Draft in repo.** Refresh on submission day after the final eval run. | Every number mirrors `metrics.json`. Video URL is the one placeholder to fill. |
-| `metrics.json` | **Snapshot in repo** (fallback mode, 2026-04-21). | Overwrite from the latest `evals/reports/*.json` after any re-run. Committed so reviewers can verify without booting the app. |
-| `written_summary_template.md` | Reference. | Keep for future hackathons — do not submit. |
+| `written_summary.md` | Committed. | Every number mirrors `metrics.json`. |
+| `metrics.json` | Committed. | Reproducible via `python evals/run_eval.py --bundle all`. |
 | `demo.mp4` | Not committed. | ≤ 3:00, hosted on YouTube unlisted or Loom. URL lives in this README. |
-| `hero_frame.png` | Not committed. | Still export of the opening shot; used in the written summary and README header. |
 
 ## Links (filled in on submission day)
 

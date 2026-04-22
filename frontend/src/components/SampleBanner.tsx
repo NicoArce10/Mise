@@ -29,11 +29,11 @@ export function SampleBanner({ onClear }: Props) {
           SAMPLE
         </span>
         <span style={{ fontSize: 14, lineHeight: '20px', color: 'var(--color-ink)' }}>
-          You&apos;re viewing the{' '}
+          You&apos;re exploring a{' '}
           <span className="font-accent" style={{ fontStyle: 'italic' }}>
-            italian pizzeria demo
+            pre-loaded bistró menu
           </span>
-          {' '}— intentional typos and ambiguous pairs, not your data.
+          {' '}— the real pipeline runs on whatever menu you upload.
         </span>
       </div>
       <button

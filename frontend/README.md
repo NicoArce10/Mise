@@ -1,13 +1,13 @@
 # frontend
 
-The Review Cockpit. Populated by `2nd_prompt.md`.
+Mise's web UI — search + JSON catalog export as the primary surface, with a Review Cockpit audit view underneath.
 
-Stack: React + Vite + TypeScript + Tailwind v4 + shadcn/ui.
+Stack: React 18 · Vite 5 · TypeScript (strict) · Tailwind v4 · shadcn/ui.
 
-Before implementing: read `docs/cockpit_visual_direction.md` and follow the tokens exactly.
+Design tokens and aesthetic are locked in `../docs/cockpit_visual_direction.md`.
 
 Run:
 ```bash
 npm install
-npm run dev
+npm run dev   # http://127.0.0.1:5173
 ```

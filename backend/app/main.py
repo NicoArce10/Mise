@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
-from .api import processing, review, upload
+from .api import catalog, processing, review, search, sources, upload
 from .core.config import settings
 
 # Surface `[mise]` logs (extraction request shape, 0-candidate warnings,
@@ -28,7 +28,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Mise",
         version=__version__,
-        description="Trust layer for dish-level menu data.",
+        description="Dish-understanding engine. Any menu, any language, exportable dish graph.",
     )
 
     app.add_middleware(
@@ -42,6 +42,9 @@ def create_app() -> FastAPI:
     app.include_router(upload.router)
     app.include_router(processing.router)
     app.include_router(review.router)
+    app.include_router(search.router)
+    app.include_router(sources.router)
+    app.include_router(catalog.router)
 
     @app.get("/api/health", tags=["meta"])
     async def health() -> dict[str, str]:

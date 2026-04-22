@@ -45,7 +45,7 @@ def test_processing_advances_to_ready(client: TestClient) -> None:
         body = r.json()
         if body["state"] == "reconciling":
             saw_reconciling = True
-            assert body.get("state_detail", "").startswith("Adaptive thinking")
+            assert body.get("state_detail", "").startswith("Building the dish graph")
         final_state = body["state"]
         if final_state == "ready":
             break

@@ -1,189 +1,612 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, FileText, Search } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface Props {
   onUpload: () => void;
   onSample: () => void;
 }
 
-const STEPS = [
-  {
-    n: '01',
-    label: 'Upload',
-    body: 'PDFs, photos, chalkboards, screenshots. Any format a restaurant actually has.',
-  },
-  {
-    n: '02',
-    label: 'Reconcile',
-    body:
-      'Opus 4.7 extracts candidates; a deterministic gate merges what obviously is the same dish; adaptive thinking resolves the ambiguous pairs.',
-  },
-  {
-    n: '03',
-    label: 'Review',
-    body:
-      'Every canonical dish carries aliases, provenance, confidence, and a one-line decision summary. Approve, edit, or reject — then export.',
-  },
-];
+// ─────────────────────────────────────────────────────────────
+//  Shared tokens
+// ─────────────────────────────────────────────────────────────
 
-interface PreviewDish {
-  name: string;
-  aliases: string[];
-  sources: string[];
-  lead: 'Merged' | 'Not merged' | 'Routed';
-  summary: string;
-  confidence: string;
-  emphasis?: boolean;
-}
+const CONTAINER_MAX = 1200;
+const SECTION_PX = 'px-6 md:px-10';
+const EASE = [0.22, 0.61, 0.36, 1] as const;
+const reveal = (delay = 0) => ({
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.32, ease: EASE, delay },
+});
 
-// Static preview rendered inline in place of a video. The three cards mirror
-// the exact demo-critical decisions the pipeline enforces (Margherita
-// merged across a typo, Pizza Funghi / Calzone Funghi kept separate) so a
-// visitor sees the *output* of Mise without needing to upload anything.
-const PREVIEW_DISHES: PreviewDish[] = [
-  {
-    name: 'Margherita',
-    aliases: ['Pizza Marghertia', 'Margherita'],
-    sources: ['PDF', 'PHOTO', 'BOARD'],
-    lead: 'Merged',
-    summary:
-      'after name matched past a typo and ingredients matched across three branches.',
-    confidence: '0.94',
-    emphasis: true,
-  },
-  {
-    name: 'Pizza Funghi',
-    aliases: ['Pizza Funghi'],
-    sources: ['PDF'],
-    lead: 'Not merged',
-    summary:
-      'with Calzone Funghi — shared mushrooms but different dish type (pizza vs calzone).',
-    confidence: '0.88',
-  },
-  {
-    name: 'Calzone Funghi',
-    aliases: ['Calzone Funghi'],
-    sources: ['PHOTO'],
-    lead: 'Not merged',
-    summary:
-      'with Pizza Funghi — different form factor; kept as a separate canonical record.',
-    confidence: '0.88',
-  },
-];
+// ─────────────────────────────────────────────────────────────
+//  Eyebrow
+// ─────────────────────────────────────────────────────────────
 
-function DishPreviewCard({ dish }: { dish: PreviewDish }) {
+function Eyebrow({ children, tone = 'subtle' }: { children: React.ReactNode; tone?: 'subtle' | 'strong' }) {
   return (
-    <article
-      className="flex min-w-0 flex-col gap-3"
+    <span
+      className="font-mono"
       style={{
-        background: dish.emphasis ? 'var(--color-paper-tint)' : 'var(--color-paper)',
-        border: '1px solid var(--color-hairline)',
-        borderRadius: 'var(--radius-card)',
-        boxShadow: dish.emphasis ? 'var(--shadow-atmosphere)' : 'none',
-        padding: 24,
+        fontSize: 12,
+        lineHeight: '16px',
+        letterSpacing: '0.18em',
+        textTransform: 'uppercase',
+        color: tone === 'strong' ? 'var(--color-ink-muted)' : 'var(--color-ink-subtle)',
       }}
     >
-      <header className="flex items-baseline justify-between gap-4">
-        <h3
-          className="font-display"
-          style={{
-            fontWeight: 500,
-            fontSize: 26,
-            lineHeight: '30px',
-            color: 'var(--color-ink)',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          {dish.name}
-        </h3>
-        <span
-          className="font-mono"
-          style={{
-            fontSize: 13,
-            lineHeight: '18px',
-            color:
-              parseFloat(dish.confidence) >= 0.9
-                ? 'var(--color-gold-leaf)'
-                : 'var(--color-ink)',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {dish.confidence}
-        </span>
-      </header>
+      {children}
+    </span>
+  );
+}
 
-      {dish.aliases.length > 1 && (
-        <p
+// ─────────────────────────────────────────────────────────────
+//  CTAs
+// ─────────────────────────────────────────────────────────────
+
+function PrimaryCta({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="cursor-pointer group"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 12,
+        background: 'var(--color-ink)',
+        color: 'var(--color-paper)',
+        border: '1px solid var(--color-ink)',
+        borderRadius: 'var(--radius-input)',
+        padding: '18px 28px',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 16,
+        fontWeight: 600,
+        letterSpacing: '-0.01em',
+        minHeight: 52,
+        transition: 'background-color 180ms ease, border-color 180ms ease',
+      }}
+    >
+      {children}
+      <ArrowRight
+        size={18}
+        strokeWidth={1.75}
+        style={{ transition: 'transform 180ms ease' }}
+        className="group-hover:translate-x-[2px]"
+      />
+    </button>
+  );
+}
+
+function SecondaryCta({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="cursor-pointer"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 10,
+        background: 'transparent',
+        color: 'var(--color-ink)',
+        border: 'none',
+        padding: '14px 4px 12px 4px',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 16,
+        fontWeight: 500,
+        borderBottom: '1px solid var(--color-ink)',
+        minHeight: 52,
+        letterSpacing: '-0.01em',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Evidence tiles
+// ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+//  Menu preview tile — one file representing the restaurant's
+//  actual menu. Not "three sources with the same dish" (that
+//  was the old reconciliation narrative). Just: this is what
+//  you upload, here's how Opus 4.7 sees the whole menu at once.
+// ─────────────────────────────────────────────────────────────
+
+function MenuPreviewTile() {
+  return (
+    <div
+      style={{
+        background: 'var(--color-paper-deep)',
+        border: '1px solid var(--color-hairline)',
+        borderRadius: 'var(--radius-input)',
+        padding: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        className="flex items-center gap-3"
+        style={{
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--color-hairline)',
+          background: 'var(--color-paper)',
+        }}
+      >
+        <div
+          className="flex shrink-0 items-center justify-center"
           style={{
-            fontSize: 13,
-            lineHeight: '18px',
+            width: 36,
+            height: 36,
+            background: 'var(--color-paper-deep)',
+            border: '1px solid var(--color-hairline)',
+            borderRadius: 'var(--radius-chip)',
             color: 'var(--color-ink-muted)',
           }}
         >
-          {dish.aliases.map((alias, i) => (
-            <span key={alias}>
-              {i > 0 && <span style={{ color: 'var(--color-ink-subtle)' }}>{' · '}</span>}
-              <span
-                className={alias.toLowerCase().includes('margh') && alias !== 'Margherita' ? 'font-accent' : ''}
-                style={
-                  alias.toLowerCase().includes('margh') && alias !== 'Margherita'
-                    ? { fontStyle: 'italic' }
-                    : undefined
-                }
-              >
-                {alias}
-              </span>
-            </span>
-          ))}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        {dish.sources.map(src => (
+          <FileText size={16} strokeWidth={1.5} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
           <span
-            key={src}
-            className="caption font-mono"
+            className="font-mono"
             style={{
-              background: 'var(--color-paper-deep)',
-              color: 'var(--color-ink-muted)',
-              border: '1px solid var(--color-hairline)',
-              borderRadius: 'var(--radius-chip)',
-              padding: '2px 8px',
-              letterSpacing: '0.04em',
-              fontSize: 11,
-              lineHeight: '16px',
+              fontSize: 10,
+              letterSpacing: '0.16em',
+              color: 'var(--color-ink-subtle)',
+              textTransform: 'uppercase',
             }}
           >
-            {src}
+            PDF · 2 pages
           </span>
-        ))}
+          <span
+            className="font-mono"
+            style={{
+              fontSize: 12,
+              color: 'var(--color-ink)',
+            }}
+          >
+            bistro_carta_otoño.pdf
+          </span>
+        </div>
       </div>
 
-      <p
+      <div
+        className="font-accent"
         style={{
-          fontSize: 14,
-          lineHeight: '20px',
+          padding: '24px 28px 28px',
+          fontStyle: 'italic',
           color: 'var(--color-ink)',
+          fontSize: 14,
+          lineHeight: '22px',
         }}
       >
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontStyle: 'normal',
+            fontSize: 10,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--color-ink-subtle)',
+            marginBottom: 10,
+          }}
+        >
+          — Principales —
+        </div>
+
+        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 8 }}>
+          <span>Milanesa Napolitana XL</span>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontStyle: 'normal',
+              fontSize: 12,
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            $18.500
+          </span>
+        </div>
+        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 8 }}>
+          <span>Lomito completo</span>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontStyle: 'normal',
+              fontSize: 12,
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            $16.200
+          </span>
+        </div>
+        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 8 }}>
+          <span>Ñoquis del 29 con tuco</span>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontStyle: 'normal',
+              fontSize: 12,
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            $9.800
+          </span>
+        </div>
+        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 14 }}>
+          <span>Provoleta a la parrilla</span>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontStyle: 'normal',
+              fontSize: 12,
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            $7.400
+          </span>
+        </div>
+
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontStyle: 'normal',
+            fontSize: 10,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--color-ink-subtle)',
+            marginBottom: 10,
+            marginTop: 6,
+          }}
+        >
+          — Sugerencias del chef —
+        </div>
+
+        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 6 }}>
+          <span>Berenjenas a la napoletana (veggie)</span>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontStyle: 'normal',
+              fontSize: 12,
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            $11.900
+          </span>
+        </div>
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontStyle: 'normal',
+            fontSize: 11,
+            color: 'var(--color-ink-subtle)',
+            marginTop: 14,
+            paddingTop: 14,
+            borderTop: '1px dashed var(--color-hairline)',
+            textAlign: 'right',
+          }}
+        >
+          … 23 more dishes on the menu
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Search frame — replaces the old "canonical record" card.
+//  This is the product's actual star: a human query resolves
+//  into an evidence-grounded dish match with aliases &
+//  matched_on reasons.
+// ─────────────────────────────────────────────────────────────
+
+function SearchPreviewCard() {
+  return (
+    <div
+      className="flex flex-col gap-4"
+      style={{
+        background: 'var(--color-paper-tint)',
+        border: '1px solid var(--color-hairline)',
+        borderRadius: 'var(--radius-card)',
+        padding: 24,
+        boxShadow: 'var(--shadow-atmosphere)',
+      }}
+    >
+      {/* Query bar */}
+      <div
+        className="flex items-center gap-3"
+        style={{
+          background: 'var(--color-paper)',
+          border: '1px solid var(--color-hairline)',
+          borderRadius: 'var(--radius-input)',
+          padding: '12px 16px',
+        }}
+      >
+        <Search size={16} strokeWidth={1.5} style={{ color: 'var(--color-ink-muted)' }} />
         <span
           className="font-accent"
           style={{
             fontStyle: 'italic',
-            color:
-              dish.lead === 'Merged'
-                ? 'var(--color-olive)'
-                : dish.lead === 'Not merged'
-                  ? 'var(--color-sienna)'
-                  : 'var(--color-ink)',
+            fontSize: 17,
+            lineHeight: '22px',
+            color: 'var(--color-ink)',
+            letterSpacing: '-0.005em',
           }}
         >
-          {dish.lead}
-        </span>{' '}
-        <span style={{ color: 'var(--color-ink-muted)' }}>{dish.summary}</span>
-      </p>
-    </article>
+          mila napo abundante
+        </span>
+      </div>
+
+      {/* Interpretation */}
+      <div className="flex flex-col gap-1">
+        <span
+          className="font-mono"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'var(--color-ink-subtle)',
+          }}
+        >
+          Interpretation
+        </span>
+        <p
+          className="font-accent"
+          style={{
+            fontStyle: 'italic',
+            fontSize: 15,
+            lineHeight: '22px',
+            color: 'var(--color-ink-muted)',
+          }}
+        >
+          “Looking for a large milanesa napolitana — breaded cutlet topped with ham, cheese, and tomato.”
+        </p>
+      </div>
+
+      {/* Match card */}
+      <div
+        className="flex items-start justify-between gap-4"
+        style={{
+          background: 'var(--color-paper)',
+          border: '1px solid var(--color-hairline)',
+          borderRadius: 'var(--radius-input)',
+          padding: 18,
+        }}
+      >
+        <div className="flex min-w-0 flex-col gap-2">
+          <h3
+            className="font-display"
+            style={{
+              fontWeight: 500,
+              fontSize: 26,
+              lineHeight: '30px',
+              color: 'var(--color-ink)',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Milanesa Napolitana XL
+          </h3>
+          <div
+            className="flex flex-wrap items-center gap-2"
+            style={{ fontSize: 12 }}
+          >
+            <span
+              className="font-mono"
+              style={{
+                background: 'var(--color-paper-tint)',
+                color: 'var(--color-ink-muted)',
+                border: '1px solid var(--color-hairline)',
+                borderRadius: 'var(--radius-chip)',
+                padding: '2px 8px',
+                letterSpacing: '0.12em',
+                fontSize: 10,
+                textTransform: 'uppercase',
+              }}
+            >
+              alias
+            </span>
+            <span
+              className="font-mono"
+              style={{
+                background: 'var(--color-paper-tint)',
+                color: 'var(--color-ink-muted)',
+                border: '1px solid var(--color-hairline)',
+                borderRadius: 'var(--radius-chip)',
+                padding: '2px 8px',
+                letterSpacing: '0.12em',
+                fontSize: 10,
+                textTransform: 'uppercase',
+              }}
+            >
+              search term
+            </span>
+            <span
+              style={{
+                fontSize: 12,
+                color: 'var(--color-ink-subtle)',
+                marginLeft: 4,
+              }}
+            >
+              also known as mila napo · mila a la napo · napo XL
+            </span>
+          </div>
+          <p
+            className="font-accent"
+            style={{
+              fontStyle: 'italic',
+              fontSize: 14,
+              lineHeight: '20px',
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            <span style={{ color: 'var(--color-olive)', fontStyle: 'italic', fontSize: 15 }}>Why</span>{' '}
+            alias “mila napo” matched · XL portion on the menu.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span
+            className="font-mono"
+            style={{
+              fontSize: 13,
+              color: 'var(--color-olive)',
+              fontVariantNumeric: 'tabular-nums',
+              letterSpacing: '0.04em',
+            }}
+          >
+            94%
+          </span>
+          <span
+            className="font-display"
+            style={{
+              fontWeight: 500,
+              fontSize: 20,
+              lineHeight: '24px',
+              color: 'var(--color-ink)',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            $18.500
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="flex items-center gap-2"
+        style={{
+          fontSize: 11,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: 'var(--color-ink-subtle)',
+          fontFamily: 'var(--font-mono)',
+        }}
+      >
+        <span style={{ color: 'var(--color-gold-leaf)' }}>◆</span>
+        <span>Adaptive thinking engaged · 1 ambiguous query</span>
+      </div>
+    </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────
+//  Pillars — reframed around understanding, not extraction
+// ─────────────────────────────────────────────────────────────
+
+const PILLARS = [
+  {
+    n: '01',
+    title: 'Vision-native ingestion',
+    body:
+      'PDFs, photos, chalkboards, and Instagram screenshots stream directly into Opus 4.7 vision. No OCR in the critical path, no chunker, no pre-processing pipeline to maintain.',
+  },
+  {
+    n: '02',
+    title: 'A dish graph, not a table',
+    body:
+      'Every dish carries canonical name, aliases, local-language search terms, category, ingredients, price, and provenance. The model writes how a diner would actually ask for the dish, grounded in the evidence.',
+  },
+  {
+    n: '03',
+    title: 'Natural-language search that honors intent',
+    body:
+      'Queries like "something veggie that isn\'t a salad", "a burger like a quarter-pounder" or "mila napo abundante" all resolve through the graph. Opus reads the query, honors exclusions, and returns only dishes the restaurant actually serves — with a one-line reason.',
+  },
+  {
+    n: '04',
+    title: 'Adaptive thinking, only when it is earned',
+    body:
+      'A deterministic gate classifies every dish pair and every query as obvious or ambiguous. Opus 4.7 adaptive thinking is invoked only on the ambiguous cases — the rest never touch the model.',
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+//  Principles — defensible architectural claims only.
+//  Every line here can be pointed at an exact place in the code
+//  or the demo video. No invented benchmarks.
+// ─────────────────────────────────────────────────────────────
+
+const PRINCIPLES = [
+  {
+    value: 'Evidence-grounded',
+    label: 'Never invents a dish',
+    hint: 'Results are filtered to the extracted dish graph, not the model\'s world knowledge.',
+  },
+  {
+    value: 'Vision-native',
+    label: 'No external OCR',
+    hint: 'PDFs as document blocks, photos as image blocks, direct to Opus 4.7.',
+  },
+  {
+    value: 'Schema-validated',
+    label: 'Zero parse failures',
+    hint: 'Every LLM call is JSON-schema constrained and re-validated by Pydantic.',
+  },
+  {
+    value: 'Adaptive thinking',
+    label: 'Only when it matters',
+    hint: 'A deterministic gate routes obvious cases; the model only thinks on the hard ones.',
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+//  Who it is for
+// ─────────────────────────────────────────────────────────────
+
+const INTEGRATIONS = [
+  {
+    target: 'Review & discovery apps',
+    example: 'Beli · Resy lists · dish-rating apps',
+    need: 'Stable dish IDs across branches, aliases for what diners type, ingredients for filtering.',
+    payload: 'canonical_name · aliases · search_terms · ingredients · sources',
+  },
+  {
+    target: 'Delivery platforms',
+    example: 'Rappi · PedidosYa · Uber Eats · DoorDash',
+    need: 'Item list with prices, grouped modifiers, no ephemeral specials polluting the menu.',
+    payload: 'dishes[].price · dishes[].modifiers · ephemerals filtered out',
+  },
+  {
+    target: 'POS / catalog migrations',
+    example: 'A chain of 12 locations with a PDF each',
+    need: 'Dedup across branch menus, typo normalization, structured modifiers.',
+    payload: 'reconciled dishes · typos folded into aliases · modifier relationships',
+  },
+  {
+    target: 'Voice & chat ordering agents',
+    example: 'WhatsApp bots, voice-AI waiters',
+    need: 'The vernacular real humans use — shorthand, regional names, misspellings.',
+    payload: 'search_terms populated by Opus from evidence + diner knowledge',
+  },
+];
+
+const AUDIENCES = [
+  {
+    title: 'Food delivery & discovery apps',
+    body:
+      'Turn raw menu PDFs into dish-level search the moment a restaurant is onboarded. Users ask for food, not SKUs.',
+  },
+  {
+    title: 'Restaurant groups & franchises',
+    body:
+      'Each location ships its own menu in whatever format the kitchen prefers. Customers get the same natural-language search everywhere — no designer, no menu operator, no spreadsheet.',
+  },
+  {
+    title: 'Restaurant software companies',
+    body:
+      'Ship natural-language menu search as a feature in hours, not quarters. The model handles the vernacular you never anticipated.',
+  },
+  {
+    title: 'Voice & chat ordering',
+    body:
+      'Customers never say "item-id-42". Mise gives your agent the aliases, categories, and search terms real humans use.',
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+//  Landing view
+// ─────────────────────────────────────────────────────────────
 
 export function Landing({ onUpload, onSample }: Props) {
   return (
@@ -191,224 +614,1032 @@ export function Landing({ onUpload, onSample }: Props) {
       className="flex min-h-screen flex-col"
       style={{ background: 'var(--color-paper)' }}
     >
+      {/* ═══════════════ HEADER ═══════════════ */}
       <header
-        className="flex items-baseline justify-between px-6 py-5 md:px-10"
-        style={{ borderBottom: '1px solid var(--color-hairline)' }}
+        className={`flex items-center justify-between py-5 md:py-6 ${SECTION_PX}`}
+        style={{
+          borderBottom: '1px solid var(--color-hairline)',
+          maxWidth: CONTAINER_MAX,
+          width: '100%',
+          margin: '0 auto',
+        }}
       >
-        <span
-          className="font-display"
-          style={{ fontWeight: 500, fontSize: 28, lineHeight: '32px' }}
-        >
-          Mise
-        </span>
-        <a
-          href="https://github.com/NicoArce10/Mise"
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            fontSize: 14,
-            lineHeight: '20px',
-            color: 'var(--color-ink-muted)',
-            textDecoration: 'none',
-            borderBottom: '1px solid var(--color-hairline)',
-            paddingBottom: 2,
-          }}
-        >
-          GitHub ↗
-        </a>
-      </header>
-
-      <main className="flex flex-1 flex-col">
-        {/* ---------- Hero block ---------- */}
-        <section
-          className="flex flex-col items-center gap-8 px-6 pb-12 pt-16 text-center md:px-10 md:pb-20 md:pt-24"
-          style={{ maxWidth: 1200, width: '100%', margin: '0 auto' }}
-        >
-          <h1
+        <div className="flex items-baseline gap-3">
+          <span
             className="font-display"
             style={{
               fontWeight: 500,
-              lineHeight: 0.95,
+              fontSize: 26,
+              lineHeight: '30px',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Mise
+          </span>
+          <span
+            className="font-mono hidden sm:inline"
+            style={{
+              fontSize: 11,
+              lineHeight: '14px',
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--color-ink-subtle)',
+            }}
+          >
+            The dish understanding engine
+          </span>
+        </div>
+        <div className="flex items-center gap-5">
+          <span
+            className="hidden md:inline font-mono"
+            style={{
+              fontSize: 11,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--color-ink-subtle)',
+            }}
+          >
+            Built on claude&#8209;opus&#8209;4&#8209;7
+          </span>
+          <a
+            href="https://github.com/NicoArce10/Mise"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              fontSize: 14,
+              lineHeight: '20px',
+              color: 'var(--color-ink-muted)',
+              textDecoration: 'none',
+              borderBottom: '1px solid var(--color-hairline)',
+              paddingBottom: 2,
+            }}
+          >
+            GitHub ↗
+          </a>
+        </div>
+      </header>
+
+      <main className="flex flex-1 flex-col">
+        {/* ═══════════════ HERO ═══════════════ */}
+        <section
+          className={`${SECTION_PX} pt-10 pb-16 md:pt-14 md:pb-20`}
+          style={{
+            maxWidth: CONTAINER_MAX,
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
+          <motion.div {...reveal(0)} className="mb-5 flex items-center gap-3">
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 28,
+                height: 1,
+                background: 'var(--color-ink-subtle)',
+              }}
+            />
+            <Eyebrow tone="strong">Dish understanding · upstream of ordering</Eyebrow>
+          </motion.div>
+
+          <motion.h1
+            {...reveal(0.04)}
+            className="font-display"
+            style={{
+              fontWeight: 500,
+              lineHeight: 1.02,
+              letterSpacing: '-0.025em',
+              color: 'var(--color-ink)',
+              fontSize: 'clamp(44px, 6.4vw, 80px)',
+              marginBottom: 20,
+              maxWidth: 1040,
+            }}
+          >
+            Any menu. Any language.{' '}
+            <span
+              className="font-accent"
+              style={{
+                fontStyle: 'italic',
+                letterSpacing: '-0.02em',
+                color: 'var(--color-ink)',
+              }}
+            >
+              Ask like a customer.
+            </span>
+          </motion.h1>
+
+          <motion.p
+            {...reveal(0.08)}
+            style={{
+              fontSize: 'clamp(16px, 1.4vw, 19px)',
+              lineHeight: 1.5,
+              color: 'var(--color-ink-muted)',
+              maxWidth: 680,
+              marginBottom: 28,
+            }}
+          >
+            Upload a PDF, a photo, a screenshot. Mise turns it into a{' '}
+            <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
+              searchable dish graph
+            </span>
+            {' '}and answers the way diners really ask — in Spanish, English, Japanese,
+            whatever your market speaks. Grounded in your menu, never invented.
+          </motion.p>
+
+          <motion.div {...reveal(0.12)} className="flex flex-wrap items-center gap-4 md:gap-6">
+            <PrimaryCta onClick={onSample}>Try the sample menu</PrimaryCta>
+            <SecondaryCta onClick={onUpload}>Upload your own</SecondaryCta>
+          </motion.div>
+
+          <motion.div
+            {...reveal(0.18)}
+            className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2"
+            style={{
+              fontSize: 11,
+              lineHeight: '16px',
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--color-ink-subtle)',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            <span>Real Claude Opus 4.7</span>
+            <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
+            <span>Evidence-grounded search</span>
+            <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
+            <span>No external OCR</span>
+            <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
+            <span>Open source · MIT</span>
+          </motion.div>
+        </section>
+
+        {/* ═══════════════ PROBLEM ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-24 md:py-32`}
+          style={{
+            background: 'var(--color-paper-tint)',
+            borderTop: '1px solid var(--color-hairline)',
+            borderBottom: '1px solid var(--color-hairline)',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: CONTAINER_MAX,
+              width: '100%',
+              margin: '0 auto',
+            }}
+          >
+            <div className="mb-10 flex items-center gap-3">
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block',
+                  width: 28,
+                  height: 1,
+                  background: 'var(--color-ink-subtle)',
+                }}
+              />
+              <Eyebrow tone="strong">The problem nobody shipped</Eyebrow>
+            </div>
+
+            <h2
+              className="font-display"
+              style={{
+                fontWeight: 500,
+                fontSize: 'clamp(36px, 5.5vw, 64px)',
+                lineHeight: 1.05,
+                letterSpacing: '-0.02em',
+                color: 'var(--color-ink)',
+                maxWidth: 980,
+                marginBottom: 40,
+              }}
+            >
+              Menus live as PDFs and photos.
+              <br />
+              <span
+                className="font-accent"
+                style={{ fontStyle: 'italic', color: 'var(--color-sienna)' }}
+              >
+                Humans don’t ask
+              </span>{' '}
+              in PDFs.
+            </h2>
+
+            <div
+              className="grid gap-10 md:gap-14"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
+            >
+              {[
+                ['Diners talk in vernacular', '"something veggie that isn\'t a salad", "a burger like a quarter-pounder", "mila napo abundante", "ramen light de shio". No catalog indexes any of that.'],
+                ['Menus don\'t fit a schema', 'Chalkboards, Instagram posts, WhatsApp photos, multi-page PDFs, seasonal inserts. Each format hides structure the next one exposes.'],
+                ['Keyword search misses intent', '"what do you have for a kid who doesn\'t like spicy" isn\'t a keyword — it\'s a constraint. Traditional search has no answer.'],
+              ].map(([title, body]) => (
+                <div key={title} className="flex flex-col gap-3">
+                  <h3
+                    className="font-display"
+                    style={{
+                      fontWeight: 500,
+                      fontSize: 22,
+                      lineHeight: '28px',
+                      color: 'var(--color-ink)',
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {title}
+                  </h3>
+                  <p
+                    style={{
+                      fontSize: 16,
+                      lineHeight: '26px',
+                      color: 'var(--color-ink-muted)',
+                    }}
+                  >
+                    {body}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════ EVIDENCE → SEARCH ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-24 md:py-32`}
+          style={{
+            maxWidth: CONTAINER_MAX,
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
+          <div className="mb-12 flex items-center gap-3">
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 28,
+                height: 1,
+                background: 'var(--color-ink-subtle)',
+              }}
+            />
+            <Eyebrow tone="strong">From the menu you already have · to the question your customer asks</Eyebrow>
+          </div>
+
+          <h2
+            className="font-display"
+            style={{
+              fontWeight: 500,
+              fontSize: 'clamp(32px, 4.5vw, 52px)',
+              lineHeight: 1.05,
               letterSpacing: '-0.02em',
               color: 'var(--color-ink)',
               maxWidth: 900,
-              fontStyle: 'normal',
+              marginBottom: 56,
             }}
           >
-            <span className="block text-[48px] md:text-[72px]">Messy menus.</span>
-            <span className="block text-[48px] md:text-[72px]">Clean catalogs.</span>
-          </h1>
+            Upload your menu once.{' '}
+            <span
+              className="font-accent"
+              style={{ fontStyle: 'italic', color: 'var(--color-ink)' }}
+            >
+              Answer every customer
+            </span>{' '}
+            forever.
+          </h2>
 
-          <p
-            className="text-[17px] leading-[26px] md:text-[20px] md:leading-[30px]"
+          <div
+            className="grid items-start gap-10 md:gap-12"
             style={{
-              color: 'var(--color-ink-muted)',
-              maxWidth: 640,
+              gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
             }}
           >
-            Drop any menu — PDF, photo, chalkboard, Instagram post. Mise
-            extracts every dish, resolves duplicates across sources, and
-            returns a catalog-ready JSON pack with provenance and confidence
-            on every decision.
-          </p>
+            {/* LEFT: A single menu — not three "sources" with the same dish.
+                One file representing the restaurant's actual menu, with a
+                handful of distinct dishes visible so the judge immediately
+                grasps "this is a whole menu, not a reconciliation trick". */}
+            <div className="flex flex-col gap-4">
+              <div
+                className="mb-2 flex items-center gap-2"
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                }}
+              >
+                <span>Your menu · any format</span>
+              </div>
 
-          <div className="flex flex-col flex-wrap items-center gap-5 sm:flex-row sm:gap-6" style={{ marginTop: 8 }}>
-            <button
-              type="button"
-              onClick={onSample}
-              className="cursor-pointer"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 10,
-                background: 'var(--color-ochre)',
-                color: 'var(--color-paper)',
-                border: '1px solid var(--color-ochre)',
-                borderRadius: 'var(--radius-input)',
-                padding: '14px 24px',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 15,
-                fontWeight: 600,
-                letterSpacing: '-0.01em',
-                minHeight: 44,
-              }}
+              <MenuPreviewTile />
+
+              <p
+                className="font-mono"
+                style={{
+                  fontSize: 11,
+                  lineHeight: '16px',
+                  letterSpacing: '0.08em',
+                  color: 'var(--color-ink-subtle)',
+                  marginTop: 4,
+                }}
+              >
+                One PDF shown. The pipeline is identical for a phone photo, a
+                chalkboard snapshot, an Instagram screenshot, or a multi-page
+                scan.
+              </p>
+            </div>
+
+            {/* CENTER: Arrow */}
+            <div
+              className="hidden md:flex flex-col items-center justify-center"
+              style={{ minWidth: 80, paddingTop: 80 }}
             >
-              Try a live sample
-            </button>
-            <button
-              type="button"
-              onClick={onUpload}
-              className="cursor-pointer"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                background: 'transparent',
-                color: 'var(--color-ink)',
-                border: 'none',
-                padding: '10px 4px',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 15,
-                fontWeight: 500,
-                borderBottom: '1px solid var(--color-ink)',
-                minHeight: 44,
-              }}
-            >
-              Upload your own menu
-              <ArrowRight size={16} strokeWidth={1.5} />
-            </button>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                  fontFamily: 'var(--font-mono)',
+                  marginBottom: 12,
+                  textAlign: 'center',
+                }}
+              >
+                Opus 4.7
+                <br />
+                vision
+                <br />
+                + search
+              </div>
+              <svg width="80" height="20" viewBox="0 0 80 20" fill="none" aria-hidden>
+                <line x1="0" y1="10" x2="68" y2="10" stroke="var(--color-ink)" strokeWidth="1" />
+                <polyline
+                  points="60,4 68,10 60,16"
+                  fill="none"
+                  stroke="var(--color-ink)"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                  fontFamily: 'var(--font-mono)',
+                  marginTop: 12,
+                  textAlign: 'center',
+                }}
+              >
+                Dish graph
+              </div>
+            </div>
+
+            {/* Mobile arrow */}
+            <div className="flex md:hidden items-center justify-center py-2">
+              <svg width="20" height="60" viewBox="0 0 20 60" fill="none" aria-hidden>
+                <line x1="10" y1="0" x2="10" y2="48" stroke="var(--color-ink)" strokeWidth="1" />
+                <polyline
+                  points="4,40 10,48 16,40"
+                  fill="none"
+                  stroke="var(--color-ink)"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+
+            {/* RIGHT: Search preview */}
+            <div className="flex flex-col gap-4">
+              <div
+                className="mb-2 flex items-center gap-2"
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                }}
+              >
+                <span>A customer · in their own words</span>
+              </div>
+              <SearchPreviewCard />
+              <p
+                className="font-mono"
+                style={{
+                  fontSize: 11,
+                  lineHeight: '16px',
+                  letterSpacing: '0.08em',
+                  color: 'var(--color-ink-subtle)',
+                  marginTop: 4,
+                }}
+              >
+                Shown in Spanish vernacular. The same pipeline handles English,
+                Japanese, Chinese, Portuguese, any cuisine — the model reads
+                whatever the menu speaks.
+              </p>
+            </div>
           </div>
-
-          <span
-            className="font-mono text-[11px] leading-[16px] md:text-[12px]"
-            style={{
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: 'var(--color-ink-subtle)',
-              marginTop: 4,
-              maxWidth: 820,
-            }}
-          >
-            Real Claude Opus 4.7 · Not a canned demo · Open source MIT
-          </span>
         </section>
 
-        {/* ---------- Product preview ---------- */}
+        {/* ═══════════════ METRICS ═══════════════ */}
         <section
-          className="px-6 pb-16 md:px-10 md:pb-24"
-          style={{ maxWidth: 1200, width: '100%', margin: '0 auto' }}
-          aria-label="Example output"
+          className={`${SECTION_PX} py-20 md:py-24`}
+          style={{
+            background: 'var(--color-ink)',
+            color: 'var(--color-paper)',
+          }}
         >
-          <div className="flex flex-col gap-3" style={{ marginBottom: 24 }}>
-            <span
-              className="caption"
-              style={{ color: 'var(--color-ink-subtle)', letterSpacing: '0.04em' }}
-            >
-              WHAT MISE RETURNS
-            </span>
-            <h2
-              className="font-display text-[28px] leading-[32px] md:text-[32px] md:leading-[36px]"
-              style={{
-                fontWeight: 500,
-                color: 'var(--color-ink)',
-                letterSpacing: '-0.01em',
-                maxWidth: 720,
-              }}
-            >
-              One trustworthy record per dish, across every source.
-            </h2>
-          </div>
           <div
-            className="grid gap-6"
             style={{
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              maxWidth: CONTAINER_MAX,
+              width: '100%',
+              margin: '0 auto',
             }}
           >
-            {PREVIEW_DISHES.map(dish => (
-              <DishPreviewCard key={dish.name} dish={dish} />
+            <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-8">
+              <div className="flex flex-col gap-2">
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-paper-deep)',
+                  }}
+                >
+                  Architectural guarantees
+                </span>
+                <h2
+                  className="font-display"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: 'clamp(28px, 3.6vw, 44px)',
+                    lineHeight: 1.1,
+                    letterSpacing: '-0.015em',
+                    color: 'var(--color-paper)',
+                    maxWidth: 720,
+                  }}
+                >
+                  Every claim below is{' '}
+                  <span className="font-accent" style={{ fontStyle: 'italic' }}>
+                    enforced by code
+                  </span>
+                  , not by a benchmark.
+                </h2>
+              </div>
+              <p
+                className="font-mono"
+                style={{
+                  fontSize: 12,
+                  lineHeight: '18px',
+                  color: 'var(--color-paper-deep)',
+                  maxWidth: 260,
+                }}
+              >
+                Benchmarks live in{' '}
+                <code style={{ color: 'var(--color-paper)' }}>
+                  submissions/metrics.json
+                </code>{' '}
+                — reproducible via <code style={{ color: 'var(--color-paper)' }}>evals/run_eval.py</code>.
+              </p>
+            </div>
+
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                borderTop: '1px solid rgba(251, 248, 242, 0.15)',
+              }}
+            >
+              {PRINCIPLES.map((m, i) => (
+                <div
+                  key={m.label}
+                  className="flex flex-col gap-2"
+                  style={{
+                    padding: '28px 24px 28px 0',
+                    borderRight:
+                      i < PRINCIPLES.length - 1
+                        ? '1px solid rgba(251, 248, 242, 0.15)'
+                        : 'none',
+                    paddingLeft: i === 0 ? 0 : 24,
+                  }}
+                >
+                  <span
+                    className="font-display"
+                    style={{
+                      fontWeight: 500,
+                      fontSize: 'clamp(22px, 2.4vw, 30px)',
+                      lineHeight: '32px',
+                      letterSpacing: '-0.01em',
+                      color: 'var(--color-paper)',
+                    }}
+                  >
+                    {m.value}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 14,
+                      lineHeight: '20px',
+                      color: 'var(--color-paper)',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {m.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      lineHeight: '20px',
+                      color: 'var(--color-paper-deep)',
+                    }}
+                  >
+                    {m.hint}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════ FOUR PILLARS ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-24 md:py-32`}
+          style={{
+            maxWidth: CONTAINER_MAX,
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
+          <div className="mb-12 flex items-center gap-3">
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 28,
+                height: 1,
+                background: 'var(--color-ink-subtle)',
+              }}
+            />
+            <Eyebrow tone="strong">How Opus 4.7 is used, concretely</Eyebrow>
+          </div>
+
+          <h2
+            className="font-display"
+            style={{
+              fontWeight: 500,
+              fontSize: 'clamp(32px, 4.5vw, 48px)',
+              lineHeight: 1.05,
+              letterSpacing: '-0.02em',
+              color: 'var(--color-ink)',
+              maxWidth: 880,
+              marginBottom: 56,
+            }}
+          >
+            Four load-bearing pillars.{' '}
+            <span
+              className="font-accent"
+              style={{ fontStyle: 'italic' }}
+            >
+              Every one visible
+            </span>{' '}
+            in the product, not just the deck.
+          </h2>
+
+          <div
+            className="grid gap-x-16 gap-y-14"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}
+          >
+            {PILLARS.map(p => (
+              <div
+                key={p.n}
+                className="flex flex-col gap-4"
+                style={{ borderTop: '1px solid var(--color-hairline)', paddingTop: 24 }}
+              >
+                <div className="flex items-baseline justify-between gap-4">
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: 12,
+                      letterSpacing: '0.18em',
+                      color: 'var(--color-ink-subtle)',
+                    }}
+                  >
+                    {p.n}
+                  </span>
+                </div>
+                <h3
+                  className="font-display"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: 26,
+                    lineHeight: '32px',
+                    letterSpacing: '-0.01em',
+                    color: 'var(--color-ink)',
+                  }}
+                >
+                  {p.title}
+                </h3>
+                <p
+                  style={{
+                    fontSize: 17,
+                    lineHeight: '28px',
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  {p.body}
+                </p>
+              </div>
             ))}
           </div>
         </section>
 
-        {/* ---------- Three steps ---------- */}
+        {/* ═══════════════ WHO IT IS FOR ═══════════════ */}
         <section
-          className="grid gap-10 px-6 py-16 md:px-10 md:py-20"
+          className={`${SECTION_PX} py-24 md:py-32`}
           style={{
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            maxWidth: 1200,
+            background: 'var(--color-paper-tint)',
+            borderTop: '1px solid var(--color-hairline)',
+            borderBottom: '1px solid var(--color-hairline)',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: CONTAINER_MAX,
+              width: '100%',
+              margin: '0 auto',
+            }}
+          >
+            <div className="mb-12 flex items-center gap-3">
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block',
+                  width: 28,
+                  height: 1,
+                  background: 'var(--color-ink-subtle)',
+                }}
+              />
+              <Eyebrow tone="strong">Built for anyone shipping food software</Eyebrow>
+            </div>
+
+            <h2
+              className="font-display"
+              style={{
+                fontWeight: 500,
+                fontSize: 'clamp(32px, 4.5vw, 48px)',
+                lineHeight: 1.05,
+                letterSpacing: '-0.02em',
+                color: 'var(--color-ink)',
+                maxWidth: 880,
+                marginBottom: 48,
+              }}
+            >
+              Menu search shouldn’t need a data team.{' '}
+              <span
+                className="font-accent"
+                style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
+              >
+                Now it doesn’t.
+              </span>
+            </h2>
+
+            <div
+              className="grid gap-x-10 gap-y-10"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
+            >
+              {AUDIENCES.map(a => (
+                <div key={a.title} className="flex items-start gap-4">
+                  <div
+                    className="flex shrink-0 items-center justify-center"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 'var(--radius-chip)',
+                      background: 'var(--color-paper)',
+                      border: '1px solid var(--color-hairline)',
+                      color: 'var(--color-ink-muted)',
+                    }}
+                  >
+                    <Search size={16} strokeWidth={1.5} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <h3
+                      className="font-display"
+                      style={{
+                        fontWeight: 500,
+                        fontSize: 20,
+                        lineHeight: '26px',
+                        letterSpacing: '-0.005em',
+                        color: 'var(--color-ink)',
+                      }}
+                    >
+                      {a.title}
+                    </h3>
+                    <p
+                      style={{
+                        fontSize: 15,
+                        lineHeight: '24px',
+                        color: 'var(--color-ink-muted)',
+                      }}
+                    >
+                      {a.body}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════ PLUG IT INTO ANYTHING ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-24 md:py-32`}
+          style={{
+            maxWidth: CONTAINER_MAX,
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
+          <div className="mb-10 flex items-center gap-3">
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 28,
+                height: 1,
+                background: 'var(--color-ink-subtle)',
+              }}
+            />
+            <Eyebrow tone="strong">Plug it into anything</Eyebrow>
+          </div>
+
+          <h2
+            className="font-display"
+            style={{
+              fontWeight: 500,
+              fontSize: 'clamp(32px, 4.5vw, 48px)',
+              lineHeight: 1.05,
+              letterSpacing: '-0.02em',
+              color: 'var(--color-ink)',
+              maxWidth: 920,
+              marginBottom: 16,
+            }}
+          >
+            One ingest with Opus.{' '}
+            <span
+              className="font-accent"
+              style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
+            >
+              Any search engine at integration time.
+            </span>
+          </h2>
+
+          <p
+            style={{
+              fontSize: 'clamp(15px, 1.3vw, 17px)',
+              lineHeight: 1.55,
+              color: 'var(--color-ink-muted)',
+              maxWidth: 760,
+              marginBottom: 16,
+            }}
+          >
+            Upload a menu, then <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.92em', color: 'var(--color-ink)' }}>GET /api/catalog/&lt;run_id&gt;.json</span>.
+            The graph ships with aliases, search terms, ingredients and categories already populated, so the
+            dishes are indexable by <strong style={{ color: 'var(--color-ink)', fontWeight: 500 }}>Postgres full-text, Elasticsearch, Algolia or a vector DB</strong>{' '}
+            in milliseconds. No LLM in the hot path. No ML team.
+          </p>
+
+          <div
+            style={{
+              background: 'var(--color-paper-tint)',
+              border: '1px solid var(--color-hairline)',
+              borderRadius: 'var(--radius-card)',
+              padding: '20px 24px',
+              marginBottom: 40,
+              maxWidth: 760,
+              fontSize: 14,
+              lineHeight: '22px',
+              color: 'var(--color-ink-muted)',
+              display: 'flex',
+              gap: 16,
+              alignItems: 'flex-start',
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: 'var(--color-gold-leaf)',
+                marginTop: 7,
+                flexShrink: 0,
+              }}
+            />
+            <span>
+              <strong style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
+                Where Opus runs, explicitly.
+              </strong>
+              {' '}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Ingest</span>: once per menu, for vision + identity + alias generation.
+              {' '}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Playground</span>: to help you judge the graph before integrating.
+              {' '}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Your integration</span>: never — your users search a static JSON, indexed however you like.
+            </span>
+          </div>
+
+          <div
+            className="grid gap-6"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}
+          >
+            {INTEGRATIONS.map(i => (
+              <div
+                key={i.target}
+                style={{
+                  background: 'var(--color-paper)',
+                  border: '1px solid var(--color-hairline)',
+                  borderRadius: 'var(--radius-card)',
+                  padding: 24,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                }}
+              >
+                <h3
+                  className="font-display"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: 20,
+                    lineHeight: '26px',
+                    letterSpacing: '-0.005em',
+                    color: 'var(--color-ink)',
+                  }}
+                >
+                  {i.target}
+                </h3>
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-ink-subtle)',
+                  }}
+                >
+                  {i.example}
+                </span>
+                <p
+                  style={{
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  {i.need}
+                </p>
+                <div
+                  style={{
+                    borderTop: '1px solid var(--color-hairline)',
+                    paddingTop: 10,
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 12,
+                    lineHeight: '18px',
+                    color: 'var(--color-ink)',
+                    letterSpacing: '0.01em',
+                  }}
+                >
+                  {i.payload}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ═══════════════ FINAL CTA ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-24 md:py-32`}
+          style={{
+            maxWidth: CONTAINER_MAX,
             width: '100%',
             margin: '0 auto',
             borderTop: '1px solid var(--color-hairline)',
           }}
         >
-          {STEPS.map(step => (
-            <div key={step.n} className="flex flex-col gap-3">
+          <div className="flex flex-col items-start gap-10">
+            <div className="flex items-center gap-3">
               <span
-                className="font-mono"
+                aria-hidden
                 style={{
-                  fontSize: 12,
-                  lineHeight: '16px',
-                  color: 'var(--color-ink-subtle)',
-                  letterSpacing: '0.14em',
+                  display: 'inline-block',
+                  width: 28,
+                  height: 1,
+                  background: 'var(--color-ink-subtle)',
                 }}
-              >
-                {step.n}
-              </span>
-              <h3
-                className="font-display"
-                style={{
-                  fontWeight: 500,
-                  fontSize: 22,
-                  lineHeight: '26px',
-                  color: 'var(--color-ink)',
-                }}
-              >
-                {step.label}
-              </h3>
-              <p
-                style={{
-                  fontSize: 15,
-                  lineHeight: '22px',
-                  color: 'var(--color-ink-muted)',
-                }}
-              >
-                {step.body}
-              </p>
+              />
+              <Eyebrow tone="strong">Drop a menu. Ask like a customer.</Eyebrow>
             </div>
-          ))}
+            <h2
+              className="font-display"
+              style={{
+                fontWeight: 500,
+                fontSize: 'clamp(40px, 6vw, 72px)',
+                lineHeight: 1.0,
+                letterSpacing: '-0.025em',
+                color: 'var(--color-ink)',
+                maxWidth: 960,
+              }}
+            >
+              See Mise understand{' '}
+              <span
+                className="font-accent"
+                style={{ fontStyle: 'italic' }}
+              >
+                a real menu
+              </span>
+              . Then upload your own.
+            </h2>
+            <p
+              style={{
+                fontSize: 'clamp(17px, 1.6vw, 20px)',
+                lineHeight: 1.5,
+                color: 'var(--color-ink-muted)',
+                maxWidth: 680,
+              }}
+            >
+              The sample runs against a pre-computed bundle. Upload runs against Opus 4.7 live,
+              vision-native, with adaptive thinking only when the query is actually ambiguous.
+            </p>
+            <div className="flex flex-wrap items-center gap-5 md:gap-8">
+              <PrimaryCta onClick={onSample}>Try the sample menu</PrimaryCta>
+              <SecondaryCta onClick={onUpload}>Upload your own</SecondaryCta>
+            </div>
+          </div>
         </section>
       </main>
 
+      {/* ═══════════════ FOOTER ═══════════════ */}
       <footer
-        className="flex flex-col items-start justify-between gap-2 px-6 py-5 md:flex-row md:items-center md:px-10"
         style={{
           borderTop: '1px solid var(--color-hairline)',
-          fontSize: 13,
-          color: 'var(--color-ink-subtle)',
+          background: 'var(--color-paper)',
         }}
       >
-        <span>Open source · MIT · Built for the Built with Opus 4.7 hackathon</span>
-        <span className="font-mono" style={{ fontSize: 12 }}>claude-opus-4-7</span>
+        <div
+          className={`flex flex-col items-start justify-between gap-3 py-8 md:flex-row md:items-center ${SECTION_PX}`}
+          style={{
+            fontSize: 13,
+            color: 'var(--color-ink-subtle)',
+            maxWidth: CONTAINER_MAX,
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span
+              className="font-display"
+              style={{
+                fontWeight: 500,
+                fontSize: 17,
+                lineHeight: '22px',
+                color: 'var(--color-ink)',
+                letterSpacing: '-0.005em',
+              }}
+            >
+              Mise
+            </span>
+            <span aria-hidden>·</span>
+            <span>Open source · MIT</span>
+            <span aria-hidden>·</span>
+            <span>Built for the Claude Opus 4.7 hackathon</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span
+              className="font-mono"
+              style={{
+                fontSize: 11,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+              }}
+            >
+              claude&#8209;opus&#8209;4&#8209;7
+            </span>
+            <a
+              href="https://github.com/NicoArce10/Mise"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                color: 'var(--color-ink-muted)',
+                textDecoration: 'none',
+                borderBottom: '1px solid var(--color-hairline)',
+                paddingBottom: 1,
+              }}
+            >
+              GitHub ↗
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   );

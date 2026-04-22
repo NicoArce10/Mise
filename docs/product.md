@@ -1,55 +1,56 @@
 # Mise Product Brief
 
 ## Hero line
-Mise turns messy menu evidence into trustworthy dish-level data.
+Any menu. Any language. Ask like a customer.
 
 ## One sentence
-Mise is the trust layer upstream of menu management.
+Mise is a dish understanding engine: it turns any restaurant menu — PDF, photo, chalkboard, social post — into a searchable dish graph you can query in natural language.
 
 ## Problem
-Food products do not fail because menus are unavailable.
-They fail because dish identity fragments across PDFs, screenshots, chalkboards, social posts, branch-level variations, typos, and modifiers.
+Menus live as PDFs, chalkboards, Instagram screenshots, and WhatsApp photos.
+Even a beautifully laid-out PDF is useless for search: the dishes are printed, not indexed.
+And diners don't ask for food the way catalogs are organized.
 
-Once that happens:
-- search breaks
-- rankings get noisy
-- analytics split across duplicates
-- modifiers mix with dishes
-- catalog operations become manual
+Once this mismatch exists:
+- traditional search misses real intent (*algo veggie que no sea ensalada*)
+- vernacular aliases (*mila napo*, *lomito completo*, *provo*) never make it into the index
+- analogies (*lomito como steak sandwich*) are impossible to resolve
+- dishes stay trapped in the file format they were saved in
 
 ## What Mise does
-Mise ingests messy menu evidence, extracts dish candidates, reconciles aliases and duplicates, separates modifiers and ephemeral specials, and produces canonical, reviewable dish records with provenance and confidence.
+1. **Ingests** any menu — PDFs, photos, chalkboards, social posts — vision-natively through Opus 4.7.
+2. **Extracts** dish candidates plus aliases and diner-style search terms written by the model as it reads the evidence.
+3. **Builds** a dish graph with canonical names, categories, prices, modifiers, ingredients, and source provenance.
+4. **Answers** natural-language queries against that graph — honoring exclusions, analogies, and multi-constraint intent — with one-line reasons for every match.
 
 ## Why this matters
-This is not OCR.
-This is identity reasoning under ambiguity.
-
-The value is not “reading a menu.”
-The value is deciding when conflicting evidence refers to the same dish, when it does not, and why.
+This is not OCR. This is not keyword search.
+Mise writes how a diner would ask for each dish, and then answers those questions against grounded evidence. Nothing is invented.
 
 ## Users
-- Food delivery platforms
-- Restaurant software companies
-- Multi-location restaurant groups
-- Catalog ops teams
-- Food discovery products
+- Food delivery & discovery platforms onboarding restaurants without a POS
+- Restaurant groups and franchises with many branches, one brand
+- Restaurant-software companies shipping search or voice-ordering features
+- Single-location owners who want their menu searchable the day they photograph it
+- Catalog operations teams replacing spreadsheet-based menu ingestion
 
 ## Core workflow
-1. Upload menu evidence from one or more branches
-2. Extract dish candidates from each source
-3. Reconcile identities into canonical dish records
-4. Route edge cases using deterministic logic
-5. Review and approve in a provenance-rich cockpit
+1. Drop one or more files (PDF, image, post, chalkboard).
+2. Opus 4.7 reads them vision-natively and emits candidates with aliases, search terms, ingredients, category, price, and source evidence.
+3. A deterministic gate resolves obvious duplicates; adaptive thinking handles the ambiguous pairs.
+4. The dish graph is ready. Ask it anything a diner would ask.
+5. A lightweight review surface flags any dish with confidence below threshold for a human to approve, edit, or reject.
 
-## Demo-critical decisions
-- Marghertia -> Margherita
-- Pizza Funghi != Calzone Funghi
-- add burrata +3 -> modifier
-- Chef's special -> ephemeral
+## Demo-critical queries (vernacular · evidence-grounded)
+- `mila napo abundante` → alias match, XL portion
+- `algo veggie que no sea ensalada` → intent + exclusion, adaptive thinking
+- `lomito como steak sandwich` → cross-cultural analogy
+- `algo para compartir tipo tabla` → size/group constraint
 
 ## What Mise is not
-- Not OCR-only
-- Not menu management
+- Not OCR
+- Not a menu-management tool
 - Not a POS
 - Not a delivery marketplace
+- Not a chat UI on top of a static PDF
 - Not a feature of any prior product

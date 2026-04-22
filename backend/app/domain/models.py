@@ -3,9 +3,8 @@
 Authoritative contract for the entire stack. The frontend TypeScript types
 in `frontend/src/domain/types.ts` mirror this file one-for-one.
 
-Source of truth: docs/plans/2026-04-22-architecture.md §2.3 (flat `modifiers`
-extension approved in Gate 2). IDs are opaque strings so human-readable
-fixture IDs like `dish-margherita` are accepted as-is.
+IDs are opaque strings so human-readable fixture IDs like `dish-margherita`
+are accepted as-is.
 """
 from __future__ import annotations
 
@@ -90,6 +89,12 @@ class DishCandidate(BaseModel):
     price_currency: str | None = None
     is_modifier_candidate: bool = False
     is_ephemeral_candidate: bool = False
+    # Populated by Opus during extraction — these feed the /api/search
+    # endpoint so natural-language queries in Spanish / Spanglish can land
+    # on the dish without manual curation.
+    aliases: list[str] = Field(default_factory=list)
+    search_terms: list[str] = Field(default_factory=list)
+    menu_category: str | None = None
     evidence: EvidenceRecord
 
 
@@ -127,7 +132,7 @@ class DecisionSummary(BaseModel):
     """The product-surface decision. Never contains raw thinking."""
 
     text: str = Field(max_length=240)
-    lead_word: Literal["Merged", "Not merged", "Routed", "Held"]
+    lead_word: Literal["Extracted", "Merged", "Not merged", "Routed", "Held"]
     confidence: float = Field(ge=0.0, le=1.0)
 
 
@@ -147,7 +152,14 @@ class CanonicalDish(BaseModel):
     id: EntityId
     canonical_name: str
     aliases: list[str] = Field(default_factory=list)
+    # Natural-language search handles. These are the terms a diner might
+    # use in Spanish / Spanglish / shorthand — populated by Opus from the
+    # evidence plus the model's knowledge of how locals talk about food.
+    search_terms: list[str] = Field(default_factory=list)
+    menu_category: str | None = None
     ingredients: list[str] = Field(default_factory=list)
+    price_value: float | None = None
+    price_currency: str | None = None
     source_ids: list[EntityId]
     modifier_ids: list[EntityId] = Field(default_factory=list)
     decision: DecisionSummary
@@ -173,6 +185,11 @@ class ProcessingRun(BaseModel):
     adaptive_thinking_pairs: int = 0
     started_at: str
     ready_at: str | None = None
+    # Live-extracted dish names, streamed during the EXTRACTING stage.
+    # The Processing screen renders these as an animated chip wall so a
+    # long Opus call on a 5-page menu never feels like a frozen spinner.
+    # Deduped (case-insensitive) and capped server-side — see the store.
+    recent_dishes: list[str] = Field(default_factory=list)
 
 
 class MetricsPreview(BaseModel):
@@ -192,9 +209,7 @@ class CockpitState(BaseModel):
 
     `modifiers` is the flat list of ALL modifiers (attached + unattached).
     The UI derives the "unattached lane" client-side as the subset where
-    `parent_dish_id is None`. This supersedes the earlier
-    `unattached_modifiers` split in architecture plan §2.3; the extension
-    was approved in Gate 2 (see docs/preflight.md).
+    `parent_dish_id is None`.
     """
 
     processing: ProcessingRun

@@ -1,7 +1,8 @@
 """Mise backend — FastAPI + Pydantic v2.
 
-Architecture contract: ../docs/plans/2026-04-22-architecture.md
-Milestone plan: ../docs/plans/2026-04-23-backend.md
+External contract: `GET /api/catalog/{run_id}.json` returns the dish graph
+as plug-it-anywhere JSON. Domain models are in `app.domain.models`; the
+frontend mirror lives in `frontend/src/domain/types.ts`.
 """
 
 __version__ = "0.1.0"

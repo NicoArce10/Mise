@@ -21,9 +21,19 @@ export function CanonicalDishCard({ dish, sources, modifiers, onModerate, hero }
     .filter((s): s is SourceDocument => Boolean(s));
   const attached = modifiers.filter(m => m.parent_dish_id === dish.id);
 
+  // UI never says "Merged". Single-restaurant menus never trigger a pairwise
+  // merge narrative for the reviewer — the dish was simply extracted from
+  // the menu. The backend still distinguishes cases for eval purposes.
   const variant: 'merged' | 'not-merged' =
     dish.decision.lead_word === 'Not merged' ? 'not-merged' : 'merged';
-  const chipLabel = dish.decision.lead_word === 'Not merged' ? 'Kept separate' : 'Merged';
+  const chipLabel =
+    dish.decision.lead_word === 'Not merged'
+      ? 'Kept separate'
+      : dish.decision.lead_word === 'Routed'
+        ? 'Modifier'
+        : dish.decision.lead_word === 'Held'
+          ? 'Needs review'
+          : 'Extracted';
 
   return (
     <article

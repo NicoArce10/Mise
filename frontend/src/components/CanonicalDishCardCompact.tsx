@@ -47,11 +47,11 @@ export function CanonicalDishCardCompact({ dish, sources, modifiers, onModerate,
           </span>
           {typoAlias && (
             <span
-              className="font-accent"
-              style={{ fontStyle: 'italic', fontSize: 13, color: 'var(--color-ink-muted)' }}
-              title={`alias: ${typoAlias}`}
+              style={{ fontSize: 13, color: 'var(--color-ink-subtle)' }}
+              title={`also seen as: ${typoAlias}`}
             >
-              ≡ {typoAlias}
+              <span className="caption" style={{ marginRight: 4 }}>also:</span>
+              <span className="font-accent" style={{ fontStyle: 'italic' }}>{typoAlias}</span>
             </span>
           )}
         </div>
@@ -82,7 +82,15 @@ export function CanonicalDishCardCompact({ dish, sources, modifiers, onModerate,
         </span>
       )}
 
-      <Chip variant={variant}>{dish.decision.lead_word === 'Not merged' ? 'Separate' : 'Merged'}</Chip>
+      <Chip variant={variant}>
+        {dish.decision.lead_word === 'Not merged'
+          ? 'Separate'
+          : dish.decision.lead_word === 'Routed'
+            ? 'Modifier'
+            : dish.decision.lead_word === 'Held'
+              ? 'Review'
+              : 'Extracted'}
+      </Chip>
 
       <div className="flex items-center gap-3">
         <Confidence value={dish.decision.confidence} />

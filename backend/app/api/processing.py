@@ -37,18 +37,26 @@ def _advance_pipeline_mock(run_id: EntityId, batch_id: EntityId) -> None:
     """Worker-thread mock pipeline. Advances state with short sleeps."""
     try:
         time.sleep(_MOCK_STAGE_SECONDS)
-        store.update_state(run_id, ProcessingState.EXTRACTING, state_detail=None)
+        store.update_state(
+            run_id,
+            ProcessingState.EXTRACTING,
+            state_detail="Reading the menu",
+        )
 
         time.sleep(_MOCK_STAGE_SECONDS)
         store.update_state(
             run_id,
             ProcessingState.RECONCILING,
-            state_detail="Adaptive thinking engaged on 2 pairs",
-            adaptive_thinking_pairs=2,
+            state_detail="Building the dish graph",
+            adaptive_thinking_pairs=0,
         )
 
         time.sleep(_MOCK_STAGE_SECONDS)
-        store.update_state(run_id, ProcessingState.ROUTING, state_detail=None)
+        store.update_state(
+            run_id,
+            ProcessingState.ROUTING,
+            state_detail="Organizing the catalog",
+        )
 
         time.sleep(_MOCK_STAGE_SECONDS)
         store.materialize_ready_cockpit(run_id, batch_id)
@@ -100,21 +108,30 @@ def _advance_pipeline_real(run_id: EntityId, batch_id: EntityId) -> None:
         def _on_stage(stage: str, detail: str | None, extra: dict[str, Any] | None) -> None:
             adaptive = int(extra.get("adaptive", 0)) if extra else 0
             if stage == "extracting":
+                # Names-only tick (a page just returned its candidates): append
+                # to the live chip wall WITHOUT touching state_detail so the
+                # page-counter stays intact between detail updates.
+                new_names = list(extra.get("new_dish_names") or []) if extra else []
+                if new_names and detail is None:
+                    store.append_recent_dishes(run_id, new_names)
+                    return
                 store.update_state(
                     run_id,
                     ProcessingState.EXTRACTING,
                     state_detail=detail or "Reading your menus",
                     adaptive_thinking_pairs=adaptive,
                 )
+                if new_names:
+                    store.append_recent_dishes(run_id, new_names)
             elif stage == "reconciling":
                 total = int(extra.get("total", 0)) if extra else 0
                 pair = int(extra.get("pair", 0)) if extra else 0
                 if detail is None and total > 0:
-                    detail = f"Checking for duplicates ({pair}/{total})"
+                    detail = f"Normalizing dish names ({pair}/{total})"
                 store.update_state(
                     run_id,
                     ProcessingState.RECONCILING,
-                    state_detail=detail or "Looking for duplicates",
+                    state_detail=detail or "Building the dish graph",
                     adaptive_thinking_pairs=adaptive,
                 )
             elif stage == "routing":
@@ -163,12 +180,32 @@ def _advance_pipeline_real(run_id: EntityId, batch_id: EntityId) -> None:
         # pipeline error instead of a misleading result.
         logger.warning("[mise] real pipeline failed: %s", exc)
         from ..domain.models import CockpitState, MetricsPreview
+        from ..pipeline import PipelineExtractionFailure  # noqa: WPS433
+
+        # Translate the exception into a user-facing detail string. The UI
+        # keys off this string to decide whether to show "try again" vs
+        # "this file can't be read".
+        if isinstance(exc, PipelineExtractionFailure):
+            if exc.transient:
+                failure_detail = (
+                    "Claude’s API had a hiccup while reading your menu. "
+                    "It happens — hit retry and it usually goes through."
+                )
+            else:
+                names = ", ".join(f.filename for f in exc.failures[:3])
+                more = f" (+{len(exc.failures) - 3} more)" if len(exc.failures) > 3 else ""
+                failure_detail = (
+                    f"Couldn’t read: {names}{more}. "
+                    "Try a cleaner photo, a smaller file, or a different format."
+                )
+        else:
+            failure_detail = f"pipeline error: {type(exc).__name__}"
 
         batch = store.get_batch(batch_id)
         store.update_state(
             run_id,
             ProcessingState.FAILED,
-            state_detail=f"pipeline error: {type(exc).__name__}",
+            state_detail=failure_detail,
         )
         run = store.get_run_meta(run_id)
         if run is None or batch is None:

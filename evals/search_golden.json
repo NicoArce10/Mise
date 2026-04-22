@@ -1,0 +1,80 @@
+{
+  "fixture": "bistro_argentino",
+  "description": "Golden queries that the demo script leans on. `expected_top_1` is the canonical dish id that must rank first. `negatives` are queries the menu cannot satisfy — Mise must refuse to invent a match rather than surface a low-confidence hallucination.",
+  "queries": [
+    {
+      "query": "mila napo abundante",
+      "expected_top_1": "dish-milanesa-napolitana-xl",
+      "intent": "vernacular shorthand + portion cue"
+    },
+    {
+      "query": "algo veggie que no sea ensalada",
+      "expected_top_1": "dish-provoleta",
+      "intent": "semantic exclusion — vegetarian without salad"
+    },
+    {
+      "query": "burger doble cheddar con papas",
+      "expected_top_1": "dish-burger-doble-cheddar",
+      "intent": "direct name + side"
+    },
+    {
+      "query": "lomito como steak sandwich",
+      "expected_top_1": "dish-lomito-completo",
+      "intent": "cross-cultural analogy"
+    },
+    {
+      "query": "algo tipo cuarto de libra",
+      "expected_top_1": "dish-burger-doble-cheddar",
+      "intent": "category analogy — McD shorthand → local burger"
+    },
+    {
+      "query": "algo para compartir tipo tabla",
+      "expected_top_1": "dish-tabla-fiambres-quesos",
+      "intent": "portion intent + format"
+    },
+    {
+      "query": "sandwich de carne argentino",
+      "expected_top_1": "dish-lomito-completo",
+      "intent": "descriptive phrase, no brand"
+    },
+    {
+      "query": "postre con dulce de leche",
+      "expected_top_1": "dish-flan-dulce-leche",
+      "intent": "single-ingredient anchor"
+    },
+    {
+      "query": "empanadas veggie",
+      "expected_top_1": "dish-empanadas-verdura",
+      "intent": "category + dietary constraint"
+    },
+    {
+      "query": "pasta con salsa de carne",
+      "expected_top_1": "dish-noquis-con-tuco",
+      "intent": "category + sauce synonym (tuco)"
+    },
+    {
+      "query": "corte clásico a la parrilla",
+      "expected_top_1": "dish-bife-de-chorizo",
+      "intent": "descriptive category resolve"
+    },
+    {
+      "query": "mila con papas fritas",
+      "expected_top_1": "dish-milanesa-clasica",
+      "intent": "specificity disambiguation vs XL napolitana"
+    }
+  ],
+  "negatives": [
+    {
+      "query": "ramen de miso",
+      "rationale": "Argentine bistró menu has no ramen. Mise must return zero matches."
+    },
+    {
+      "query": "sushi de salmon",
+      "rationale": "No sushi on the menu."
+    },
+    {
+      "query": "pad thai de pollo",
+      "rationale": "No pan-asian dishes."
+    }
+  ]
+}

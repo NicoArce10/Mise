@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from .ai.extraction import extract_fallback, extract_from_bytes
+from .ai.extraction import ExtractionFailure, extract_fallback, extract_from_bytes
 from .ai.reconciliation import reconcile_deterministic, reconcile_pair
 from .ai.routing import route_candidate
 from .core.metrics import apply_latest_report
@@ -56,28 +56,89 @@ class PipelineInput:
     filepath: Path | None = None  # optional, used by `real` mode when data is None
 
 
+class PipelineExtractionFailure(RuntimeError):
+    """Every source failed during extraction — the pipeline can't continue.
+
+    Carries the list of failed filenames and whether the failure was
+    transient (5xx / rate limit / timeout on the model API) so the API
+    layer can craft a user-facing "try again in a moment" message instead
+    of a generic pipeline error.
+    """
+
+    def __init__(self, failures: list[ExtractionFailure]) -> None:
+        self.failures = failures
+        self.transient = any(f.transient for f in failures)
+        filenames = ", ".join(f.filename for f in failures) or "—"
+        super().__init__(
+            f"{len(failures)} source(s) failed extraction: {filenames} "
+            f"({'transient' if self.transient else 'permanent'})"
+        )
+
+
 def _run_extraction(
     inputs: list[PipelineInput],
     mode: Mode,
-    on_source_done: Callable[[int, int], None] | None = None,
-) -> list[DishCandidate]:
+    on_source_progress: Callable[[str, dict[str, Any]], None] | None = None,
+) -> tuple[list[DishCandidate], list[ExtractionFailure]]:
+    """Run extraction per source. Collect both successes and per-source
+    failures so the caller can decide how to present partial results.
+
+    `on_source_progress(stage, extra)` is invoked with:
+      - stage="page_done", extra={source_idx, source_total, source_name,
+                                   pages_done, pages_total}
+      - stage="dishes_found", extra={names: list[str]}
+    """
     all_candidates: list[DishCandidate] = []
+    failures: list[ExtractionFailure] = []
     total = len(inputs)
-    for idx, inp in enumerate(inputs, 1):
-        if mode == "real":
-            data = inp.data
-            if data is None and inp.filepath is not None:
-                data = inp.filepath.read_bytes()
-            if data is None:
-                logger.warning("[mise] no data for %s; using fallback", inp.source.filename)
-                all_candidates.extend(extract_fallback(inp.source))
+    for source_idx, inp in enumerate(inputs, 1):
+
+        def _on_page(done: int, pages_total: int, _source_idx: int = source_idx,
+                     _source_name: str = inp.source.filename) -> None:
+            if on_source_progress is not None:
+                on_source_progress(
+                    "page_done",
+                    {
+                        "source_idx": _source_idx,
+                        "source_total": total,
+                        "source_name": _source_name,
+                        "pages_done": done,
+                        "pages_total": pages_total,
+                    },
+                )
+
+        def _on_names(names: list[str]) -> None:
+            if on_source_progress is not None and names:
+                on_source_progress("dishes_found", {"names": names})
+
+        try:
+            if mode == "real":
+                data = inp.data
+                if data is None and inp.filepath is not None:
+                    data = inp.filepath.read_bytes()
+                if data is None:
+                    logger.warning("[mise] no data for %s; using fallback", inp.source.filename)
+                    cands = extract_fallback(inp.source)
+                    all_candidates.extend(cands)
+                    _on_names([c.raw_name for c in cands])
+                    _on_page(1, 1)
+                else:
+                    all_candidates.extend(
+                        extract_from_bytes(
+                            inp.source,
+                            data,
+                            on_page_done=_on_page,
+                            on_candidates_found=_on_names,
+                        )
+                    )
             else:
-                all_candidates.extend(extract_from_bytes(inp.source, data))
-        else:
-            all_candidates.extend(extract_fallback(inp.source))
-        if on_source_done is not None:
-            on_source_done(idx, total)
-    return all_candidates
+                cands = extract_fallback(inp.source)
+                all_candidates.extend(cands)
+                _on_names([c.raw_name for c in cands])
+                _on_page(1, 1)
+        except ExtractionFailure as exc:
+            failures.append(exc)
+    return all_candidates, failures
 
 
 def _reconcile_all(
@@ -189,19 +250,66 @@ def _build_cockpit(
 
     for root_id, members in groups.items():
         members.sort(key=lambda c: c.normalized_name or c.raw_name)
-        # Pick the non-typo / longest normalized name as canonical.
-        canonical_name = sorted(
-            {m.normalized_name for m in members if m.normalized_name},
-            key=lambda n: (n == "Marghertia", len(n.replace(" ", "")), n),
-        )[0] if members else "Unknown"
-        # Keep typo variants as aliases.
-        aliases = sorted(
-            {m.raw_name for m in members if m.raw_name != canonical_name}
-        )
+        # Canonical name = the normalized_name shared by most members. The
+        # extractor already cleans typos and redundant prefixes, so we do
+        # not second-guess it here. Tie-break on the longest form (most
+        # informative: "Milanesa Napolitana" beats "Milanesa") and then
+        # alphabetically for determinism.
+        name_counts: dict[str, int] = {}
+        for m in members:
+            if m.normalized_name:
+                name_counts[m.normalized_name] = name_counts.get(m.normalized_name, 0) + 1
+        if name_counts:
+            canonical_name = sorted(
+                name_counts.items(),
+                key=lambda kv: (-kv[1], -len(kv[0]), kv[0]),
+            )[0][0]
+        else:
+            canonical_name = "Unknown"
+        # Aliases = every variant spelling we saw, plus the extractor-proposed
+        # aliases from each member. Drop the canonical name itself from the list.
+        alias_set: set[str] = set()
+        for m in members:
+            if m.raw_name and m.raw_name != canonical_name:
+                alias_set.add(m.raw_name)
+            if m.normalized_name and m.normalized_name != canonical_name:
+                alias_set.add(m.normalized_name)
+            for a in m.aliases:
+                if a and a != canonical_name:
+                    alias_set.add(a)
+        aliases = sorted(alias_set)
+        # Search terms = union from every member, deduped case-insensitively.
+        seen_terms: set[str] = set()
+        search_terms: list[str] = []
+        for m in members:
+            for t in m.search_terms:
+                key = t.strip().lower()
+                if key and key not in seen_terms:
+                    seen_terms.add(key)
+                    search_terms.append(t.strip())
         ingredients = sorted(
             {ing for m in members for ing in m.ingredients}
         )
         source_ids = sorted({m.source_id for m in members})
+        # Representative price: first member that has one (sources usually
+        # agree within a branch; the Detail rail still surfaces the full set).
+        price_value: float | None = None
+        price_currency: str | None = None
+        for m in members:
+            if m.price_value is not None:
+                price_value = m.price_value
+                price_currency = m.price_currency
+                break
+        # Majority menu_category across members; ignore None.
+        cat_counts: dict[str, int] = {}
+        for m in members:
+            if m.menu_category:
+                cat_counts[m.menu_category] = cat_counts.get(m.menu_category, 0) + 1
+        menu_category = (
+            sorted(cat_counts.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+            if cat_counts
+            else None
+        )
 
         # Find a reconciliation record that contributed to this group.
         merged_here = [
@@ -246,7 +354,11 @@ def _build_cockpit(
                 id=dish_id,
                 canonical_name=canonical_name,
                 aliases=aliases,
+                search_terms=search_terms,
+                menu_category=menu_category,
                 ingredients=ingredients,
+                price_value=price_value,
+                price_currency=price_currency,
                 source_ids=source_ids,
                 modifier_ids=[],
                 decision=decision,
@@ -337,20 +449,68 @@ def run_pipeline(
     sources = [inp.source for inp in inputs]
 
     if on_stage is not None:
-        on_stage("extracting", f"Reading {len(inputs)} source{'s' if len(inputs) != 1 else ''}", {"done": 0, "total": len(inputs)})
+        on_stage(
+            "extracting",
+            f"Reading {len(inputs)} source{'s' if len(inputs) != 1 else ''}",
+            {"done": 0, "total": len(inputs)},
+        )
 
-    def _on_source_done(i: int, n: int) -> None:
-        if on_stage is not None:
+    def _on_source_progress(stage: str, extra: dict[str, Any]) -> None:
+        if on_stage is None:
+            return
+        if stage == "page_done":
+            name = extra.get("source_name", "")
+            pages_done = int(extra.get("pages_done", 0))
+            pages_total = int(extra.get("pages_total", 1))
+            source_idx = int(extra.get("source_idx", 1))
+            source_total = int(extra.get("source_total", 1))
+            if pages_total > 1:
+                detail = (
+                    f"Reading {name} · page {pages_done} of {pages_total}"
+                    if source_total == 1
+                    else f"Source {source_idx}/{source_total} · page {pages_done} of {pages_total}"
+                )
+            else:
+                detail = (
+                    f"Reading {name}"
+                    if source_total == 1
+                    else f"Read {source_idx} of {source_total} sources"
+                )
             on_stage(
                 "extracting",
-                f"Read {i} of {n} source{'s' if n != 1 else ''}",
-                {"done": i, "total": n},
+                detail,
+                {
+                    "done": source_idx - (0 if pages_done < pages_total else 0),
+                    "total": source_total,
+                    "pages_done": pages_done,
+                    "pages_total": pages_total,
+                    "source_idx": source_idx,
+                },
             )
+        elif stage == "dishes_found":
+            names = extra.get("names") or []
+            on_stage("extracting", None, {"new_dish_names": names})
 
-    candidates = _run_extraction(inputs, mode, on_source_done=_on_source_done)
+    candidates, failures = _run_extraction(
+        inputs, mode, on_source_progress=_on_source_progress
+    )
+
+    # If every source died during extraction, don't continue to reconciliation
+    # and routing — that would build a "success" cockpit with zero dishes and
+    # send the user to an empty search view. Raise so the API layer marks the
+    # run FAILED with a transient/permanent hint for the UI.
+    if failures and len(failures) == len(inputs):
+        raise PipelineExtractionFailure(failures)
+
+    if failures:
+        logger.warning(
+            "[mise] pipeline: %d/%d sources failed extraction (continuing with the rest)",
+            len(failures),
+            len(inputs),
+        )
 
     if on_stage is not None:
-        on_stage("reconciling", "Looking for duplicates across sources", {"pair": 0, "total": 0, "adaptive": 0})
+        on_stage("reconciling", "Normalizing dish names", {"pair": 0, "total": 0, "adaptive": 0})
 
     def _on_pair_done(i: int, n: int, adaptive: int) -> None:
         if on_stage is not None:
@@ -374,6 +534,15 @@ def run_pipeline(
         candidates=candidates,
         reconciliations=reconciliations,
         elapsed_s=elapsed,
+    )
+
+    logger.info(
+        "[mise] pipeline ready: %d canonical / %d modifiers / %d ephemerals / %d candidates total / %.1fs elapsed",
+        len(cockpit.canonical_dishes),
+        len(cockpit.modifiers),
+        len(cockpit.ephemerals),
+        len(candidates),
+        elapsed,
     )
 
     if on_stage is not None:

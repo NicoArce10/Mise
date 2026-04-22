@@ -1,18 +1,20 @@
 <p align="center">
-  <img src="assets/mise-hero-banner.png" alt="Mise — the trust layer for dish-level menu data" width="100%">
+  <img src="assets/mise-hero-banner.png" alt="Mise — any menu, any language, ask like a customer" width="100%">
 </p>
 
 <p align="center">
-  <em>Three messy sources in. One trustworthy dish record out.</em>
+  <em>Any menu. Any language. Ask like a customer.</em>
 </p>
 
 <p align="center">
-  <a href="#quickstart">Quickstart</a> ·
+  <a href="#why-mise-exists">Why</a> ·
+  <a href="#what-it-does">What it does</a> ·
+  <a href="#the-json-catalog">JSON catalog</a> ·
   <a href="#architecture">Architecture</a> ·
-  <a href="#demo-critical-decisions">Demo decisions</a> ·
-  <a href="docs/demo_script.md">Demo script</a> ·
-  <a href="docs/evals.md">Evals</a> ·
-  <a href="docs/judging_strategy.md">Judging strategy</a>
+  <a href="#plug-it-into-anything">Integrations</a> ·
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="docs/demo_script.md">Demo</a> ·
+  <a href="docs/evals.md">Evals</a>
 </p>
 
 <p align="center">
@@ -24,58 +26,72 @@
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-ab5c3e?style=flat-square&labelColor=f6f2ea">
 </p>
 
-<p align="center">
-  <img alt="Gate 0" src="https://img.shields.io/badge/Gate%200-green-6d7145?style=flat-square">
-  <img alt="Gate 1" src="https://img.shields.io/badge/Gate%201-green-6d7145?style=flat-square">
-  <img alt="Gate 2" src="https://img.shields.io/badge/Gate%202-green-6d7145?style=flat-square">
-  <img alt="Gate 3" src="https://img.shields.io/badge/Gate%203-green-6d7145?style=flat-square">
-  <img alt="Gate 4" src="https://img.shields.io/badge/Gate%204-pending-b78b3d?style=flat-square">
-  <img alt="Gate 5" src="https://img.shields.io/badge/Gate%205-pending-b78b3d?style=flat-square">
-</p>
-
 ---
 
 ## Why Mise exists
 
-Food products do not fail because menus are unavailable. They fail because **dish identity fragments** across PDFs, screenshots, chalkboards, social posts, branch-level variations, typos, and modifiers. When identity breaks, search breaks, rankings go noisy, analytics split across duplicates, and catalog operations become manual.
+Every food product — delivery app, review platform, POS, dish-reviews side-project — eventually hits the same wall: **menus are unstructured**. PDFs, phone photos, chalkboards, Instagram specials, in three languages, with typos, with branch-level variations, with modifiers that look like dishes and dishes that look like modifiers. Somebody then spends weeks manually loading that catalog into their system, one restaurant at a time.
 
-Mise is the **trust layer** upstream of menu management. It ingests noisy evidence and produces canonical, reviewable dish records with **provenance, confidence, and a decision summary for every merge or split**.
+Mise removes that wall.
 
-It is not OCR. It is **identity reasoning under ambiguity**, powered by `claude-opus-4-7`.
+**Drop any menu. Get a searchable dish graph.** A JSON catalog with canonical names, prices, ingredients, and the *natural-language handles* a diner actually types — `mila napo`, `napo con papas`, `burger doble cheddar`, `quesa simple`. Then plug that catalog into anything: a search box, a delivery feed, a POS import, a review app.
+
+It is not OCR. It is a **dish-understanding engine** powered by `claude-opus-4-7` — vision-native, identity-aware, and search-ready by construction.
 
 ## What it does
 
-1. **Ingests** multi-source menu evidence — PDFs, photos, chalkboards, social posts — directly to Opus 4.7 vision. No external OCR in the critical path.
-2. **Extracts** dish candidates from each source with structured output validated by Pydantic.
-3. **Reconciles** candidates through a deterministic prefilter that only escalates ambiguous pairs to Opus 4.7 with **adaptive thinking**.
-4. **Routes** edge cases deterministically — `canonical` · `modifier` · `ephemeral` · `needs-review`.
-5. **Presents** the Review Cockpit with decision summaries, provenance back to every source, and a confidence score per decision.
+1. **Ingests** multi-source menu evidence — PDFs, photos, chalkboards, social posts, in any language — directly to Opus 4.7 vision. No external OCR in the critical path.
+2. **Extracts** dish candidates with typo correction, reordered-compound normalization, and the diner-vernacular aliases and search terms — from a single Opus 4.7 structured-output call per source.
+3. **Reconciles** candidates across sources through a deterministic prefilter that escalates only ambiguous pairs to Opus 4.7 with **adaptive thinking**, so one dish stays one dish across branches and typos.
+4. **Routes** edge cases deterministically — `canonical` · `modifier` · `ephemeral` · `needs-review` — so a delivery feed never shows "add burrata +3" as a standalone item.
+5. **Serves it back** two ways: a natural-language **search** endpoint (`POST /api/search`) that takes "algo abundante con queso" and returns the right dishes, and an **export** endpoint (`GET /api/catalog/:run_id.json`) with the full catalog ready to plug into any system.
 
-## Demo-critical decisions
+## The JSON catalog
 
-These four decisions anchor the demo video and the evaluation harness. Every decision surfaces with provenance and a human-readable summary.
+The primary output. One endpoint, one shape, zero custom integration per restaurant:
 
-| Evidence | Decision | Why |
+```json
+{
+  "id": "dish-abc123",
+  "canonical_name": "Milanesa Napolitana",
+  "price": { "value": 8500, "currency": "ARS" },
+  "aliases": ["Mila Napo", "Milanesa a la Napolitana", "Napolitana"],
+  "search_terms": ["mila napo", "napo con papas", "milanesa abundante con queso y jamon"],
+  "ingredients": ["breaded beef", "tomato", "mozzarella", "ham"],
+  "modifiers": [{ "name": "add papas rústicas", "price_delta": 1200 }],
+  "sources": [{ "filename": "menu_pdf.pdf", "span": "p3" }],
+  "confidence": 0.92
+}
+```
+
+Every restaurant tech company re-invents this shape manually. Mise generates it from a photo.
+
+## Identity reasoning — why the search works
+
+The search is only as good as the identity graph underneath it. These four demo decisions — anchored in the eval harness and the video — prove the identity layer holds up:
+
+| Evidence | Decision | Why it matters for search |
 |---|---|---|
-| `Marghertia` (typo in Branch A) · `Margherita` (Branch B) · `+burrata` (Branch C) | **Merged** as `Margherita`, typo becomes an alias, burrata becomes a modifier | Name matches after typo normalization; ingredients match across two branches |
-| `Pizza Funghi` · `Calzone Funghi` (identical ingredients) | **Kept separate** | Dish type differs despite ingredient overlap |
-| `add burrata +3` on a chalkboard | Routed as **modifier** attached to `Margherita` | Matches `add <ingredient> <±price>` under an extras heading |
-| `Chef's Special` from an Instagram post | Routed as **ephemeral** | No stable name across sources, no fixed price |
+| `Marghertia` (typo, Branch A) · `Margherita` (Branch B) · `+burrata` (Branch C) | **Merged** as `Margherita`, typo becomes an alias, burrata becomes a modifier | A query for "margarita con burrata" resolves to one dish, not three partial matches |
+| `Pizza Funghi` · `Calzone Funghi` (identical ingredients) | **Kept separate** | Query "funghi sin masa cerrada" correctly returns the pizza, not the calzone |
+| `add burrata +3` on a chalkboard | Routed as **modifier** attached to `Margherita` | Search never surfaces "add burrata" as a dish, and "margherita con burrata" composes the modifier into the result |
+| `Chef's Special` from an Instagram post | Routed as **ephemeral** | The catalog doesn't fossilize a one-night special into a permanent dish |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   subgraph Client
-    UI[Review Cockpit<br/>React + Vite + TS]
+    UI[Search + Catalog UI<br/>React + Vite + TS]
   end
 
   subgraph API[FastAPI + Pydantic v2]
     UP[POST /api/upload]
     PR[POST /api/process/:batch_id]
     PS[GET /api/process/:run_id]
+    SE[POST /api/search]
+    CA[GET /api/catalog/:run_id.json]
     RV[GET /api/review/:run_id]
-    DC[POST /api/review/:run_id/decisions]
   end
 
   subgraph Pipeline
@@ -90,25 +106,43 @@ flowchart LR
     OX[extraction call<br/>vision: PDF / image]
     OR_A[reconciliation call<br/>adaptive thinking]
     ORT[routing call<br/>edge cases only]
+    OS[search call<br/>adaptive thinking]
   end
 
-  UI --> UP & PR & PS & RV & DC
+  UI --> UP & PR & PS & RV & SE & CA
   UP --> ST
   PR --> EX --> OX --> VA --> RE
   RE -. gate = ambiguous .-> OR_A --> VA --> RT
   RT -. regex-unclassified .-> ORT --> VA --> ST
-  ST --> RV
-  DC --> ST
+  ST --> RV & CA
+  SE --> OS --> ST
 ```
 
-Four deterministic layers. Opus 4.7 is **core-guaranteed** in two of them (extraction per source; reconciliation on ambiguous pairs) and **optional** in one (routing, only for regex-unclassified lines). The deterministic reconciliation gate is specified in [`docs/plans/2026-04-22-architecture.md`](docs/plans/2026-04-22-architecture.md) §2.1.
+Four deterministic layers plus two read surfaces. Opus 4.7 is **core-guaranteed** in four of them — extraction per source (structured output with diner-vernacular aliases and search terms), reconciliation on ambiguous pairs (adaptive thinking), routing of edge cases (`modifier` / `ephemeral` / `needs-review`), and natural-language search over the dish graph.
+
+## Plug it into anything
+
+The dish graph is the product. Every integration is the same two steps:
+
+1. `POST /api/upload` → `POST /api/process/:batch_id` with the restaurant's menus.
+2. `GET /api/catalog/:run_id.json` → drop the JSON into your system.
+
+Three concrete integrations the demo targets:
+
+| Target | What they need | What Mise gives them |
+|---|---|---|
+| **Review & discovery apps** onboarding a restaurant | Canonical dishes, aliases for user-typed reviews, stable IDs across branches | The full catalog. A reviewer typing "mila napo" matches the canonical "Milanesa Napolitana" via `search_terms`. |
+| **Delivery platforms** importing non-POS restaurants (Rappi / PedidosYa / Uber Eats) | Item list with prices, grouped modifiers, no ephemeral specials polluting the menu | `canonical` items with `price`, `modifiers[]`, and `ephemeral` items filtered out at ingest. |
+| **POS / catalog migrations** | Dedup across branch menus, typo normalization, structured modifiers | Reconciled items with typos folded into `aliases`, branch variants merged, modifiers attached. |
+
+The catalog is versioned per `run_id`, so re-uploading a new menu produces a diffable JSON the downstream system can apply as an update.
 
 ## Stack
 
 - **Frontend** — React 18 · Vite 5 · TypeScript (strict, no `any`) · Tailwind v4 with `@theme` tokens · shadcn/ui · Fraunces / Instrument Serif / IBM Plex Sans / IBM Plex Mono
 - **Backend** — Python 3.11+ · FastAPI 0.115 · Pydantic v2 · uvicorn · pytest
 - **AI** — Anthropic Messages API with `claude-opus-4-7`. No LangChain, no LlamaIndex, no external OCR, no orchestration wrappers.
-- **Storage** — process-local in-memory store. External DB is **frozen out of scope** — see [`docs/scope_freeze.md`](docs/scope_freeze.md).
+- **Storage** — process-local in-memory store. A stable JSON catalog is the external contract; persistence is intentionally out of scope for the MVP.
 
 ## Quickstart
 
@@ -139,67 +173,40 @@ cd ..
 python scripts/smoke_api.py                  # exits 0 if the key works
 ```
 
-Open the Cockpit at <http://127.0.0.1:5173>. Click **New batch** → drop menu PDFs/photos → watch the pipeline advance → land on the Review Cockpit with the four demo-critical decisions. Click **Present** for the hero frame.
+Open the app at <http://127.0.0.1:5173>. Drop a menu PDF/photo on the landing TryIt panel → the pipeline runs → the dish graph appears with search ("algo abundante con queso"), aliases, and the full JSON catalog ready to export. The internal Review Cockpit (for auditing merge/split decisions) is available at <http://127.0.0.1:5173/cockpit>.
 
 ## Repository layout
 
 ```
 Mise/
-├── assets/                                   # Banner and public visual assets
-├── frontend/                                 # Review Cockpit (Vite + React + TS)
-├── backend/                                  # FastAPI service (Pydantic v2, in-memory store)
-├── evals/                                    # Synthetic golden set + harness + reports
-│   └── datasets/bundle_{01,02,03}/           # Italian trattoria · Taqueria · Modern bistro
-├── docs/                                     # Product, strategy, design, and execution plans
-│   └── plans/                                # Architecture plan + per-milestone implementation plans
-├── scripts/                                  # smoke_api.py + eval bundle generator
-├── submissions/                              # Video, written summary, metrics JSON
-└── {1,2,3,4}st_prompt.md                     # Milestone entry points (Claude Code / agent use)
+├── assets/         Banner and public visual assets
+├── frontend/       Search + catalog UI, Cockpit audit view (Vite + React + TS)
+├── backend/        FastAPI service (Pydantic v2, in-memory store)
+├── evals/          Synthetic golden set + harness + reports
+│   └── datasets/   bundle_01 italian · bundle_02 taqueria · bundle_03 bistro
+├── docs/           Product, architecture, design, evals contract
+├── scripts/        smoke_api.py + eval bundle generator
+└── submissions/    Video link, written summary, metrics JSON
 ```
 
 ## Documentation
 
-Strategy and contract:
-
 - [`docs/product.md`](docs/product.md) — product brief
-- [`docs/project_brief.md`](docs/project_brief.md) — deep brief for contributors
-- [`docs/judging_strategy.md`](docs/judging_strategy.md) — how Mise targets the rubric
-- [`docs/scope_freeze.md`](docs/scope_freeze.md) — authoritative MVP/out-of-scope decisions
-- [`docs/hackathon_rules.md`](docs/hackathon_rules.md) — competition guardrails
-- [`docs/acceptance_criteria.md`](docs/acceptance_criteria.md) — what must be true to submit
-
-Design:
-
-- [`docs/cockpit_visual_direction.md`](docs/cockpit_visual_direction.md) — editorial / cartographic design tokens
 - [`docs/demo_script.md`](docs/demo_script.md) — three-minute shot list
-- [`docs/demo_recording_plan.md`](docs/demo_recording_plan.md) — tooling and day-of workflow
-
-Execution:
-
-- [`docs/plans/2026-04-22-architecture.md`](docs/plans/2026-04-22-architecture.md) — frozen architecture contract (Milestone 1)
-- [`docs/plans/2026-04-22-cockpit.md`](docs/plans/2026-04-22-cockpit.md) — Cockpit implementation plan (Milestone 2)
-- [`docs/plans/2026-04-23-backend.md`](docs/plans/2026-04-23-backend.md) — Backend implementation plan (Milestone 3)
-- [`docs/timeline.md`](docs/timeline.md) — day-by-day plan with buffer rules
-- [`docs/preflight.md`](docs/preflight.md) — green-light checklist per milestone
+- [`docs/cockpit_visual_direction.md`](docs/cockpit_visual_direction.md) — editorial / cartographic design tokens
 - [`docs/evals.md`](docs/evals.md) — evaluation harness specification
-- [`docs/extras.md`](docs/extras.md) — bonus prize strategy
-- [`docs/submission_plan.md`](docs/submission_plan.md) — submission-day workflow
-
-Agent orientation:
-
-- [`AGENTS.md`](AGENTS.md) — read order, hard rules, skill matrix for AI agents working on this repo
-- [`CLAUDE.md`](CLAUDE.md) — identity and scope summary for Claude sessions
+- [`docs/references.md`](docs/references.md) — notes and sources
 
 ## For hackathon judges
 
 If you are reviewing this submission:
 
 1. **Demo video** — link in [`submissions/README.md`](submissions/README.md)
-2. **Written summary** — `submissions/written_summary.md`
-3. **Measured metrics** — `submissions/metrics.json` (reproducible via `python evals/run_eval.py --bundle all`)
-4. **Why Opus 4.7** — see [`docs/extras.md`](docs/extras.md) and the "Decisions" rail in the Cockpit
+2. **Written summary** — [`submissions/written_summary.md`](submissions/written_summary.md)
+3. **Measured metrics** — [`submissions/metrics.json`](submissions/metrics.json), reproducible via `python evals/run_eval.py --bundle all`
+4. **Try it live** — the Quickstart above is copy-pasteable; smoke-test completes in under a minute.
 
-Every quantitative claim in the video comes from `evals/run_eval.py`. Any number not produced by that harness is not in the video. See [`docs/evals.md`](docs/evals.md) for the contract.
+Every quantitative claim in the demo video is produced by `evals/run_eval.py`. If a number isn't in that report, it isn't in the video. The contract is in [`docs/evals.md`](docs/evals.md).
 
 ## License
 

@@ -17,8 +17,7 @@ export function Upload({ onStart }: Props) {
     setErrorMsg(null);
 
     if (files.length === 0) {
-      // No files — keep legacy mock path so the demo survives a zero-click walk-through.
-      onStart(null);
+      setErrorMsg('Add at least one menu file, or use "Try the sample menu" on the home page.');
       return;
     }
 
@@ -28,11 +27,11 @@ export function Upload({ onStart }: Props) {
       const start = await apiStartProcessing(batch.id);
       onStart(start.processing_id);
     } catch (err) {
-      console.warn('[mise] upload path failed, falling back to mock', err);
+      console.warn('[mise] upload path failed, falling back to sample', err);
       setErrorMsg(
         err instanceof Error
-          ? `${err.message} — continuing with local mock`
-          : 'Backend unreachable — continuing with local mock',
+          ? `Backend unreachable (${err.message}). Showing the sample catalog so you can still see the output shape.`
+          : 'Backend unreachable. Showing the sample catalog so you can still see the output shape.',
       );
       onStart(null);
     } finally {
@@ -56,7 +55,7 @@ export function Upload({ onStart }: Props) {
           className="caption"
           style={{ color: 'var(--color-ink-subtle)', letterSpacing: '0.04em' }}
         >
-          Upload · evidence bundle
+          Upload · your menu
         </span>
       </header>
       <main className="mx-auto flex w-full max-w-[800px] flex-col gap-8 px-10 py-16">
@@ -65,7 +64,7 @@ export function Upload({ onStart }: Props) {
             className="font-display"
             style={{ fontWeight: 500, fontSize: 56, lineHeight: '60px', letterSpacing: '-0.01em' }}
           >
-            Drop menu evidence
+            Drop your menu.
           </h1>
           <p
             className="font-accent"
@@ -76,7 +75,7 @@ export function Upload({ onStart }: Props) {
               color: 'var(--color-ink-muted)',
             }}
           >
-            PDFs, photos, chalkboards, social posts. Mise reads them natively.
+            PDF, photo, screenshot, chalkboard. Any format, any language.
           </p>
         </div>
         <label
@@ -102,7 +101,7 @@ export function Upload({ onStart }: Props) {
         >
           <UploadCloud size={36} strokeWidth={1.5} color="var(--color-ink-muted)" />
           <p style={{ color: 'var(--color-ink)' }}>
-            Drag four files into the drop zone
+            Drag your menu files here, or click to select
           </p>
           <p
             className="caption"
@@ -155,7 +154,7 @@ export function Upload({ onStart }: Props) {
           <button
             type="button"
             onClick={handleStart}
-            disabled={submitting}
+            disabled={submitting || files.length === 0}
             className="caption cursor-pointer"
             style={{
               background: 'var(--color-ink)',
@@ -164,10 +163,11 @@ export function Upload({ onStart }: Props) {
               borderRadius: 'var(--radius-chip)',
               padding: '12px 20px',
               letterSpacing: '0.04em',
-              opacity: submitting ? 0.6 : 1,
+              opacity: submitting || files.length === 0 ? 0.5 : 1,
+              cursor: submitting || files.length === 0 ? 'not-allowed' : 'pointer',
             }}
           >
-            {submitting ? 'Uploading…' : 'Start reconciliation'}
+            {submitting ? 'Uploading…' : 'Build my dish graph'}
           </button>
         </div>
       </main>

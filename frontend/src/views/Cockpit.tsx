@@ -12,16 +12,18 @@ import { DishCategoryGroup } from '../components/DishCategoryGroup';
 import { EditorialMeta } from '../components/EditorialMeta';
 import { HelpDialog } from '../components/HelpDialog';
 import { ExtractionDetailDialog } from '../components/ExtractionDetailDialog';
+import { SourcePreviewModal } from '../components/SourcePreviewModal';
 import { useShortcuts } from '../hooks/useShortcuts';
 import type { ModerateTargetKind } from '../hooks/useCockpitState';
+import { downloadCatalog } from '../api/exportCatalog';
 
 interface Props {
   state: CockpitState;
   onModerate: (kind: ModerateTargetKind, id: string, status: 'approved' | 'edited' | 'rejected') => void;
-  onPresent: () => void;
   onRestart: () => void;
   onUpload: () => void;
   onLoadSample: () => void;
+  onOpenTryIt?: () => void;
 }
 
 const CATEGORY_ORDER = [
@@ -81,27 +83,13 @@ function matchesQuery(dish: CanonicalDish, q: string): boolean {
   return hay.includes(q.toLowerCase());
 }
 
-function downloadJSON(filename: string, payload: unknown) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: 'application/json',
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 export function Cockpit({
   state,
   onModerate,
-  onPresent,
   onRestart,
   onUpload,
   onLoadSample,
+  onOpenTryIt,
 }: Props) {
   const [selectedId, setSelectedId] = useState<string>(
     state.canonical_dishes[0]?.id ?? '',
@@ -112,6 +100,7 @@ export function Cockpit({
   );
   const [helpOpen, setHelpOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const selected = state.canonical_dishes.find(d => d.id === selectedId) ?? null;
@@ -185,30 +174,16 @@ export function Cockpit({
     return [...known, ...extra];
   }, [byCategory]);
 
-  const handleExport = () => {
-    const canonicalPack = {
-      exported_at: new Date().toISOString(),
-      processing_id: state.processing.id,
-      source_count: state.sources.length,
-      canonical_dishes: state.canonical_dishes.map(d => ({
-        canonical_name: d.canonical_name,
-        aliases: d.aliases,
-        ingredients: d.ingredients,
-        source_ids: d.source_ids,
-        modifier_ids: d.modifier_ids,
-        decision: d.decision,
-        moderation: d.moderation,
-      })),
-      modifiers: state.modifiers,
-      ephemerals: state.ephemerals.map(e => ({
-        text: e.text,
-        source_ids: e.source_ids,
-        decision: e.decision,
-        moderation: e.moderation,
-      })),
-    };
-    downloadJSON(`mise-canonical-pack-${state.processing.id}.json`, canonicalPack);
-  };
+  // Single source of truth for the JSON export — shared with TryIt so both
+  // surfaces produce an identical file. The helper honors the Reject button
+  // (excludes rejected dishes from the export) and stamps approved/edited
+  // dishes with a `review_status` field for downstream consumers.
+  const handleExport = useCallback(() => {
+    const pid = state.processing.id.startsWith('run-sample')
+      ? 'sample'
+      : state.processing.id;
+    downloadCatalog(state, pid);
+  }, [state]);
 
   const hasDishes = state.canonical_dishes.length > 0;
   const hasAnything =
@@ -253,9 +228,14 @@ export function Cockpit({
   return (
     <div className="flex min-h-screen flex-col">
       <TopBar
-        adaptivePairs={state.processing.adaptive_thinking_pairs}
-        onPresent={onPresent}
+        dishCount={state.canonical_dishes.length}
+        onExport={handleExport}
+        canExport={state.canonical_dishes.length > 0}
         onRestart={onRestart}
+        onOpenTryIt={onOpenTryIt}
+        onViewMenu={
+          state.sources.length > 0 ? () => setPreviewOpen(true) : undefined
+        }
       />
       <main
         className="grid flex-1"
@@ -278,14 +258,20 @@ export function Cockpit({
                     color: 'var(--color-ink)',
                   }}
                 >
-                  Review pack
+                  Catalog
                 </h1>
                 <span
                   className="font-mono"
                   style={{ fontSize: 13, color: 'var(--color-ink-subtle)' }}
                 >
-                  {state.canonical_dishes.length} dish{state.canonical_dishes.length === 1 ? '' : 'es'} ·{' '}
-                  {state.modifiers.length} mod · {state.ephemerals.length} eph
+                  {state.canonical_dishes.length} dish
+                  {state.canonical_dishes.length === 1 ? '' : 'es'}
+                  {state.modifiers.length > 0 && (
+                    <> · {state.modifiers.length} modifier{state.modifiers.length === 1 ? '' : 's'}</>
+                  )}
+                  {state.ephemerals.length > 0 && (
+                    <> · {state.ephemerals.length} special{state.ephemerals.length === 1 ? '' : 's'}</>
+                  )}
                 </span>
               </div>
               {state.processing.state_detail && (
@@ -308,7 +294,6 @@ export function Cockpit({
             onDensityChange={setDensity}
             dishCount={state.canonical_dishes.length}
             filteredCount={filtered.length}
-            onExport={handleExport}
             onShowHelp={() => setHelpOpen(true)}
           />
 
@@ -534,6 +519,15 @@ export function Cockpit({
         onClose={() => setDetailOpen(false)}
         processing={state.processing}
         sources={state.sources}
+      />
+      <SourcePreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        sources={state.sources}
+        dishes={state.canonical_dishes}
+        // Sample run ids start with `run-sample-` (see frontend mock and
+        // evals/fixtures/bistro_argentino.py). Real uploads carry a UUID.
+        isSample={state.processing.id.startsWith('run-sample')}
       />
     </div>
   );

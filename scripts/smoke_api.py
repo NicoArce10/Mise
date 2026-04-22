@@ -357,8 +357,8 @@ def main() -> int:
     if warnings:
         print(
             f"Core OK ({len(core_probes)}/{len(core_probes)}), but {len(warnings)} guardrail "
-            "probe(s) warned. Review the messages above and update `docs/project_brief.md` and "
-            "`docs/plans/2026-04-22-architecture.md` §0 if your deployment differs from the docs."
+            "probe(s) warned. Review the messages above — your deployment may differ from the "
+            "default Opus 4.7 API shape documented in `AGENTS.md`."
         )
     else:
         print(f"OK — {model} passes all probes (core and guardrail). Gate 0 is green.")

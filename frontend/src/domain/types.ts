@@ -1,5 +1,4 @@
-// Mirrors backend/app/domain/models.py (§2.3 of docs/plans/2026-04-22-architecture.md).
-// Keep in sync. No `any`.
+// Mirrors backend/app/domain/models.py. Keep in sync. No `any`.
 
 export type UUID = string;
 export type ISODate = string;
@@ -46,7 +45,17 @@ export const ProcessingState = {
 } as const;
 export type ProcessingState = typeof ProcessingState[keyof typeof ProcessingState];
 
-export type LeadWord = 'Merged' | 'Not merged' | 'Routed' | 'Held';
+// "Extracted" is the single-restaurant default: no cross-branch merge decision,
+// the dish simply comes from the menu. "Merged" / "Not merged" stay for
+// multi-source dedup cases that the backend still handles internally. The UI
+// collapses all non-"Not merged" values into a single neutral label because
+// end users don't care about pairwise dedup narrative.
+export type LeadWord =
+  | 'Extracted'
+  | 'Merged'
+  | 'Not merged'
+  | 'Routed'
+  | 'Held';
 
 export interface SourceDocument {
   id: UUID;
@@ -75,6 +84,9 @@ export interface DishCandidate {
   price_currency: string | null;
   is_modifier_candidate: boolean;
   is_ephemeral_candidate: boolean;
+  aliases: string[];
+  search_terms: string[];
+  menu_category: string | null;
   evidence: EvidenceRecord;
 }
 
@@ -116,7 +128,11 @@ export interface CanonicalDish {
   id: UUID;
   canonical_name: string;
   aliases: string[];
+  search_terms: string[];
+  menu_category: string | null;
   ingredients: string[];
+  price_value: number | null;
+  price_currency: string | null;
   source_ids: UUID[];
   modifier_ids: UUID[];
   decision: DecisionSummary;
@@ -139,6 +155,10 @@ export interface ProcessingRun {
   adaptive_thinking_pairs: number;
   started_at: ISODate;
   ready_at: ISODate | null;
+  // Live feed of dish names as Opus 4.7 extracts them page-by-page.
+  // Empty until the first page returns; bounded server-side so the
+  // ProcessingRun payload never balloons across many polls.
+  recent_dishes: string[];
 }
 
 export interface MetricsPreview {

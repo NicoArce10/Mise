@@ -1,6 +1,6 @@
 """Thin Anthropic Messages-API wrapper scoped to Mise's hard rules.
 
-Enforces the API shape frozen in `docs/plans/2026-04-22-architecture.md` §0:
+Enforces the Opus 4.7 API shape (see `AGENTS.md`):
 - Model: `claude-opus-4-7`, no fallback.
 - Thinking: `{"type": "adaptive"}` or absent. Never `{"type": "enabled"}` and
   never `budget_tokens`.
@@ -20,7 +20,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from anthropic import Anthropic
+from anthropic import (
+    Anthropic,
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    InternalServerError,
+    RateLimitError,
+)
 from pydantic import BaseModel, ValidationError
 
 from ..core.config import settings
@@ -29,9 +36,25 @@ logger = logging.getLogger(__name__)
 
 MODEL_ID = "claude-opus-4-7"
 
+# Anthropic's 5xx and 429 are transient. The SDK already retries with
+# exponential backoff; we bump `max_retries` above the default (2) and
+# wrap the call with our own guardrail so a single bad minute on the
+# API doesn't nuke a live demo upload.
+_SDK_MAX_RETRIES = 5
+_SDK_TIMEOUT_S = 180.0
+
 
 class OpusCallError(RuntimeError):
-    """Raised when a call fails validation twice or the SDK surfaces an error."""
+    """Raised when a call fails validation twice or the SDK surfaces a fatal error."""
+
+
+class OpusTransientError(OpusCallError):
+    """Raised when every retry layer exhausted on a 5xx / 429 / network hiccup.
+
+    Callers should treat this as a retry-later signal, not a bug in our
+    code. The user-facing message should read "the model API is having a
+    moment, try again" — never a generic 500.
+    """
 
 
 @lru_cache(maxsize=1)
@@ -46,7 +69,11 @@ def get_client() -> Anthropic:
         raise OpusCallError(
             f"ANTHROPIC_MODEL must be '{MODEL_ID}', got '{configured_model}'"
         )
-    return Anthropic(api_key=api_key)
+    return Anthropic(
+        api_key=api_key,
+        max_retries=_SDK_MAX_RETRIES,
+        timeout=_SDK_TIMEOUT_S,
+    )
 
 
 def _harden_schema_for_opus(schema: dict[str, Any]) -> dict[str, Any]:
@@ -242,7 +269,18 @@ def _parse_json_from_response(response: Any) -> dict[str, Any]:
     """Extract the first text block's JSON payload from a Messages response.
 
     Accepts both SDK objects (with `.type`/`.text` attrs) and raw dicts.
+    Logs a prominent warning when the response was cut off by `max_tokens`
+    so the crash is diagnosable — a truncated JSON looks like a cryptic
+    `Unterminated string` error otherwise.
     """
+    stop_reason = getattr(response, "stop_reason", None)
+    if stop_reason == "max_tokens":
+        logger.warning(
+            "[mise] opus response was truncated by max_tokens — the JSON will "
+            "likely fail to parse. Raise `max_tokens` on the call site or "
+            "split the input."
+        )
+
     for block in getattr(response, "content", None) or []:
         if isinstance(block, dict):
             btype = block.get("type")
@@ -251,7 +289,15 @@ def _parse_json_from_response(response: Any) -> dict[str, Any]:
             btype = getattr(block, "type", None)
             btext = getattr(block, "text", None)
         if btype == "text" and btext:
-            return json.loads(btext)
+            try:
+                return json.loads(btext)
+            except json.JSONDecodeError as exc:
+                if stop_reason == "max_tokens":
+                    raise OpusCallError(
+                        f"Opus response truncated by max_tokens — "
+                        f"response length {len(btext)} chars. Raise max_tokens."
+                    ) from exc
+                raise
     raise OpusCallError("Opus response had no text block")
 
 
@@ -261,44 +307,221 @@ def call_opus(
     user_content: list[dict[str, Any]],
     response_model: type[BaseModel],
     response_schema: dict[str, Any] | None = None,
+    fallback_response_model: type[BaseModel] | None = None,
+    fallback_response_schema: dict[str, Any] | None = None,
     adaptive_thinking: bool = False,
     effort: str = "high",
-    max_tokens: int = 4096,
+    max_tokens: int = 16384,
 ) -> BaseModel:
     """Call Opus 4.7 and parse the response into `response_model`.
 
-    On `ValidationError` a single deterministic retry is attempted with a
-    tightened system prompt. A second failure raises `OpusCallError`.
+    Retry layers, outer → inner:
+
+    1. We own an outer retry loop (2 extra attempts with jitter) for transient
+       5xx / 429 / network errors that escape the SDK's own retry budget.
+    2. The SDK retries 5xx / 429 up to `_SDK_MAX_RETRIES` times internally
+       with exponential backoff.
+    3. On `ValidationError` we do one strict-mode retry with a tightened
+       system prompt before surfacing `OpusCallError`.
+    4. On "Grammar compilation timed out" (retryable 400), after
+       `_GRAMMAR_FALLBACK_AFTER` failures we swap the primary schema for
+       `fallback_response_schema` (a smaller shape). The response is
+       validated against `fallback_response_model` — callers that opt into
+       this must treat both possible return types uniformly. This is the
+       single most important resilience knob for the demo: the primary
+       schema can time-out on Anthropic's side for reasons outside our
+       control, and shipping a minimal-but-correct catalog beats shipping
+       an error screen.
+
+    Transient failures raise `OpusTransientError`; validation failures and
+    unrecoverable SDK errors raise `OpusCallError`.
     """
+    import random
+    import time as _time
+
     raw_schema = response_schema or response_model.model_json_schema()
-    schema = _harden_schema_for_opus(raw_schema)
+    primary_schema = _harden_schema_for_opus(raw_schema)
+    fallback_schema = None
+    if fallback_response_schema is not None:
+        fallback_schema = _harden_schema_for_opus(fallback_response_schema)
+    elif fallback_response_model is not None:
+        fallback_schema = _harden_schema_for_opus(fallback_response_model.model_json_schema())
     client = get_client()
+
+    # State shared across retries. The stages of recovery from a
+    # grammar-compiler saturation are, in order:
+    #   0. Primary schema + adaptive thinking / full effort (as requested).
+    #   1. Minimal schema (swapped on the FIRST grammar-compile 400 — we
+    #      used to wait for the second, but in practice the compiler is
+    #      already hot by then and all subsequent primary calls fail too).
+    #   2. Minimal schema + effort="low" (shrinks output tokens and the
+    #      grammar the compiler has to produce).
+    #   3. No json_schema at all: prompt-only JSON, parsed and coerced
+    #      into the minimal model. Last-resort rescue so we still ship a
+    #      catalog when the grammar pool is entirely blocked.
+    active: dict[str, Any] = {
+        "schema": primary_schema,
+        "model": response_model,
+        "stage": 0,  # 0=primary, 1=minimal, 2=minimal+low, 3=no-schema
+        "effort": effort,
+    }
 
     def _once(extra_system: str = "") -> BaseModel:
         prompt = system_prompt + ("\n\n" + extra_system if extra_system else "")
-        kwargs = _request_kwargs(
-            system_prompt=prompt,
-            user_content=user_content,
-            response_schema=schema,
-            adaptive_thinking=adaptive_thinking,
-            effort=effort,
-            max_tokens=max_tokens,
-        )
-        response = client.messages.create(**kwargs)
-        _maybe_log_raw(response, response_model.__name__)
+        stage = int(active["stage"])
+        current_model: type[BaseModel] = active["model"]
+        if stage >= 3:
+            # No json_schema — ask for JSON with a tight prompt. The model
+            # still emits well-formed JSON; we parse, then validate against
+            # the minimal model (or primary if no fallback was provided).
+            no_schema_kwargs: dict[str, Any] = {
+                "model": MODEL_ID,
+                "max_tokens": max_tokens,
+                "system": _build_system(
+                    prompt
+                    + "\n\nRESCUE MODE: structured outputs unavailable. "
+                    "Emit a single JSON object with a `candidates` array. "
+                    "Each candidate must have `raw_name` and `normalized_name` "
+                    "(strings) and may have `price_value` (number or null), "
+                    "`price_currency` (string or null), `aliases` (string[]), "
+                    "`search_terms` (string[]). No preface, no trailing text."
+                ),
+                "messages": [{"role": "user", "content": user_content}],
+                "output_config": {"effort": "low"},
+            }
+            response = client.messages.create(**no_schema_kwargs)
+        else:
+            kwargs = _request_kwargs(
+                system_prompt=prompt,
+                user_content=user_content,
+                response_schema=active["schema"],
+                adaptive_thinking=adaptive_thinking and stage == 0,
+                effort=str(active["effort"]),
+                max_tokens=max_tokens,
+            )
+            response = client.messages.create(**kwargs)
+        _maybe_log_raw(response, current_model.__name__)
         payload = _parse_json_from_response(response)
-        return response_model.model_validate(payload)
+        return current_model.model_validate(payload)
 
-    try:
-        return _once()
-    except ValidationError as exc:
-        logger.warning("[mise] opus response failed validation, retrying: %s", exc)
-        tightened = (
-            "STRICT MODE: your previous response failed JSON-schema validation. "
-            "Return ONLY a valid JSON object matching the requested schema. "
-            "No preface, no trailing text, no explanations."
-        )
+    def _call_with_validation_retry() -> BaseModel:
         try:
-            return _once(tightened)
-        except ValidationError as exc2:
-            raise OpusCallError(f"validation failed twice: {exc2}") from exc2
+            return _once()
+        except ValidationError as exc:
+            logger.warning("[mise] opus response failed validation, retrying: %s", exc)
+            tightened = (
+                "STRICT MODE: your previous response failed JSON-schema validation. "
+                "Return ONLY a valid JSON object matching the requested schema. "
+                "No preface, no trailing text, no explanations."
+            )
+            try:
+                return _once(tightened)
+            except ValidationError as exc2:
+                raise OpusCallError(f"validation failed twice: {exc2}") from exc2
+
+    # Some 400-class errors from Anthropic are technically invalid_request
+    # but are in practice transient — the server-side compiler/pipeline
+    # timed out or hit an internal limit. We retry those with backoff
+    # rather than surface them as hard "your file is broken" failures.
+    #
+    # "Grammar compilation timed out" fires when the structured-outputs
+    # json_schema compiler is under load (typically: several parallel
+    # calls with the same complex schema). Retrying after a short pause
+    # almost always succeeds.
+    _RETRYABLE_400_SUBSTRINGS = (
+        "grammar compilation timed out",
+        "overloaded",
+        "please try again",
+    )
+
+    def _is_retryable_400(exc: APIStatusError) -> bool:
+        if exc.status_code != 400:
+            return False
+        msg = (str(exc.message) if exc.message else str(exc)).lower()
+        return any(s in msg for s in _RETRYABLE_400_SUBSTRINGS)
+
+    last_transient: Exception | None = None
+
+    def _advance_stage(reason: str) -> None:
+        """Move to the next recovery stage and log the transition."""
+        stage = int(active["stage"])
+        if stage == 0 and fallback_schema is not None:
+            active["stage"] = 1
+            active["schema"] = fallback_schema
+            active["model"] = fallback_response_model or response_model
+            logger.warning("[mise] escalation stage 0→1 (minimal schema): %s", reason)
+            return
+        if stage <= 1:
+            active["stage"] = 2
+            active["effort"] = "low"
+            # Make sure a minimal schema is active if it exists.
+            if fallback_schema is not None:
+                active["schema"] = fallback_schema
+                active["model"] = fallback_response_model or response_model
+            logger.warning("[mise] escalation stage →2 (minimal + effort=low): %s", reason)
+            return
+        if stage == 2:
+            active["stage"] = 3
+            # Keep the minimal model for validation; no_schema mode emits
+            # JSON that matches that shape.
+            if fallback_response_model is not None:
+                active["model"] = fallback_response_model
+            logger.warning("[mise] escalation stage 2→3 (no json_schema rescue): %s", reason)
+            return
+
+    # Total attempts: 6. Stage transitions happen on grammar-compile
+    # timeouts; plain 5xx only bump the attempt counter.
+    for attempt in range(6):
+        try:
+            return _call_with_validation_retry()
+        except (
+            InternalServerError,
+            APITimeoutError,
+            APIConnectionError,
+            RateLimitError,
+        ) as exc:
+            last_transient = exc
+            logger.warning(
+                "[mise] opus transient error on attempt %d/6 (%s, stage=%s): %s",
+                attempt + 1,
+                type(exc).__name__,
+                active["stage"],
+                exc,
+            )
+            if attempt == 5:
+                break
+            sleep_s = min(2.0 + 2.0 * attempt + random.random() * 1.5, 12.0)
+            _time.sleep(sleep_s)
+        except APIStatusError as exc:
+            if _is_retryable_400(exc):
+                last_transient = exc
+                logger.warning(
+                    "[mise] opus retryable 400 on attempt %d/6 (stage=%s): %s",
+                    attempt + 1,
+                    active["stage"],
+                    exc.message or exc,
+                )
+                # Advance one stage on EVERY grammar-compile timeout.
+                # Empirically the compiler pool does not recover fast
+                # enough for backoff alone — we have to shrink the grammar
+                # (or drop it entirely) to make progress.
+                _advance_stage(f"retryable 400 on attempt {attempt + 1}")
+                if attempt == 5:
+                    break
+                # Grammar-compiler saturation benefits from a longer backoff
+                # than a plain 5xx — it means the whole grammar pool is hot,
+                # not just this one request.
+                sleep_s = min(4.0 + 3.0 * attempt + random.random() * 2.0, 20.0)
+                _time.sleep(sleep_s)
+                continue
+            # Other 400/401/403/413/etc. are real user-input problems —
+            # surface immediately so the UI shows the real cause.
+            raise OpusCallError(
+                f"Anthropic API status {exc.status_code}: {exc.message or exc}"
+            ) from exc
+
+    assert last_transient is not None
+    raise OpusTransientError(
+        f"Anthropic API unavailable after {_SDK_MAX_RETRIES + 6} attempts "
+        f"({type(last_transient).__name__}: {last_transient})"
+    ) from last_transient

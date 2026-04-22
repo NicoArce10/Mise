@@ -1,85 +1,11 @@
 {
-  "note": "Produced by python evals/run_eval.py --bundle all --mode real on 2026-04-21. Measured on live claude-opus-4-7 via the Anthropic Messages API. Every number here also appears in submissions/written_summary.md.",
-  "source_report": "evals/reports/eval_real.json",
-  "run_timestamp": "2026-04-21",
-  "mode": "real",
-  "model": "claude-opus-4-7",
-  "api_footprint": {
-    "total_calls": 23,
-    "extraction_calls": 10,
-    "reconciliation_calls": 13,
-    "input_tokens": 29602,
-    "output_tokens": 5540,
-    "cache_read_input_tokens": 27981,
-    "cache_creation_input_tokens": 3109,
-    "estimated_cost_usd": 0.96,
-    "cache_hit_ratio": 0.461
-  },
-  "aggregate": {
-    "bundles": 3,
-    "merge_precision": 0.944,
-    "merge_recall": 1.0,
-    "non_merge_accuracy": 1.0,
-    "modifier_routing_accuracy": 1.0,
-    "ephemeral_routing_accuracy": 0.667,
-    "time_to_review_pack_seconds": 37.799,
-    "sources_ingested": 10,
-    "canonical_count": 15,
-    "modifier_count": 5,
-    "ephemeral_count": 2,
-    "demo_critical_all_pass": true
-  },
-  "bundles": [
-    {
-      "bundle_id": "bundle_01_italian",
-      "sources_ingested": 4,
-      "canonical_count": 6,
-      "modifier_count": 2,
-      "ephemeral_count": 1,
-      "merge_precision": 0.833,
-      "merge_recall": 1.0,
-      "non_merge_accuracy": 1.0,
-      "modifier_routing_accuracy": 1.0,
-      "ephemeral_routing_accuracy": 1.0,
-      "time_to_review_pack_seconds": 39.49,
-      "demo_critical": {
-        "marghertia_to_margherita": true,
-        "pizza_vs_calzone_funghi_separate": true,
-        "add_burrata_modifier": true
-      }
-    },
-    {
-      "bundle_id": "bundle_02_taqueria",
-      "sources_ingested": 3,
-      "canonical_count": 4,
-      "modifier_count": 3,
-      "ephemeral_count": 0,
-      "merge_precision": 1.0,
-      "merge_recall": 1.0,
-      "non_merge_accuracy": 1.0,
-      "modifier_routing_accuracy": 1.0,
-      "ephemeral_routing_accuracy": 1.0,
-      "time_to_review_pack_seconds": 55.604,
-      "demo_critical": {
-        "tacos_al_pastor_reorder_merge": true,
-        "add_guacamole_modifier": true
-      }
-    },
-    {
-      "bundle_id": "bundle_03_bistro",
-      "sources_ingested": 3,
-      "canonical_count": 5,
-      "modifier_count": 0,
-      "ephemeral_count": 1,
-      "merge_precision": 1.0,
-      "merge_recall": 1.0,
-      "non_merge_accuracy": 1.0,
-      "modifier_routing_accuracy": 1.0,
-      "ephemeral_routing_accuracy": 0.0,
-      "time_to_review_pack_seconds": 18.304,
-      "demo_critical": {
-        "chef_special_ephemeral": true
-      }
-    }
-  ]
+  "fixture": "bistro_argentino",
+  "mode": "fallback",
+  "positives_count": 12,
+  "negatives_count": 3,
+  "top1_accuracy": 1.0,
+  "top3_accuracy": 1.0,
+  "zero_invention_rate": 1.0,
+  "generated_at": "2026-04-22T16:28:20Z",
+  "reproduce_with": "python evals/run_search_eval.py --mode fallback"
 }

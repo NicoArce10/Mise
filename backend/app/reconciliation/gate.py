@@ -1,8 +1,8 @@
 """Deterministic pre-filter for reconciliation pairs.
 
-Implements `docs/plans/2026-04-22-architecture.md` §2.1 verbatim. Pure Python,
-no LLM. Only pairs classified AMBIGUOUS are allowed to trigger adaptive
-thinking in `app.ai.reconciliation`.
+Pure Python, no LLM. Only pairs classified AMBIGUOUS are allowed to trigger
+adaptive thinking in `app.ai.reconciliation`. This keeps the expensive
+identity calls rare and the cheap decisions deterministic.
 """
 from __future__ import annotations
 

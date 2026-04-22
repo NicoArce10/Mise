@@ -1,47 +1,52 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { apiGetProcessing } from '../api/client';
+import { RotateCcw, UploadCloud } from 'lucide-react';
+import { apiGetProcessing, ApiError } from '../api/client';
 import type { ProcessingState, UUID } from '../domain/types';
 
 interface Props {
   processingId: UUID | null;
   adaptiveThinkingPairs: number;
   onReady: () => void;
+  onSkipToSample?: () => void;
+  onRetryUpload?: () => void;
 }
 
 /**
- * Human-language labels for each state. "Extracting", "Reconciling", and
- * "Routing" are pipeline internals — a reviewer should not need to learn
- * them. Each title is a verb sentence; each whisper is one line of colour.
+ * Human-language labels for each stage. The pipeline internals ("extracting",
+ * "reconciling", "routing") are never shown verbatim — a reviewer should not
+ * need to learn them. Each title is a verb sentence; each whisper is one
+ * supporting line. The labels were written for the single-restaurant case,
+ * which is the real-world default.
  */
 const STAGES: Record<ProcessingState, { title: string; whisper: string }> = {
   queued: {
-    title: 'Lining up your menus',
-    whisper: 'The batch is accepted. We are about to start reading.',
+    title: 'Lining up your menu',
+    whisper: 'The upload is accepted. Opus 4.7 is about to start reading.',
   },
   extracting: {
-    title: 'Reading your menus',
+    title: 'Reading your menu',
     whisper:
-      'Claude Opus 4.7 is looking at every PDF, photo, and board the way a careful librarian would.',
+      'Claude Opus 4.7 is looking at every PDF and photo vision-natively — no OCR, no pre-processing.',
   },
   reconciling: {
-    title: 'Comparing dishes across sources',
+    title: 'Building the dish graph',
     whisper:
-      'The same plate can appear three ways — a typo on one PDF, a different word order on another. We decide which ones are actually the same.',
+      'The model is writing the aliases and local-language search terms real diners actually use for each dish.',
   },
   routing: {
     title: 'Organizing your catalog',
     whisper:
-      'Modifiers, daily specials, and standalone dishes each get their own lane so the review is readable.',
+      'Modifiers, daily specials, and standalone dishes each get their own lane so the catalog is readable.',
   },
   ready: {
-    title: 'Ready to review',
-    whisper: 'Your canonical dish pack is prepared. Opening the review surface.',
+    title: 'Ready to ask',
+    whisper: 'Your searchable dish graph is prepared. Opening the search view.',
   },
   failed: {
     title: 'Something went wrong',
     whisper:
-      'The pipeline stopped before finishing. The review surface will tell you what we know.',
+      'The pipeline stopped before finishing. The catalog view will tell you what we know.',
   },
 };
 
@@ -54,16 +59,25 @@ function stageIndex(s: ProcessingState): number {
   return i < 0 ? 0 : i;
 }
 
-export function Processing({ processingId, adaptiveThinkingPairs, onReady }: Props) {
+export function Processing({
+  processingId,
+  adaptiveThinkingPairs,
+  onReady,
+  onSkipToSample,
+  onRetryUpload,
+}: Props) {
   const [state, setState] = useState<ProcessingState>('queued');
   const [detail, setDetail] = useState<string | null>(null);
   const [liveAdaptivePairs, setLiveAdaptivePairs] = useState(adaptiveThinkingPairs);
   const [startedAt] = useState(() => Date.now());
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [recentDishes, setRecentDishes] = useState<string[]>([]);
   const cancelled = useRef(false);
 
   // Wall-clock ticker so the user sees the run isn't frozen even when a
-  // backend stage takes its time (real-mode reconciliation can run ~30-60s).
+  // backend stage takes its time. A vision-native Opus 4.7 extraction of a
+  // two-page menu is typically 30–60 s on the real pipeline; this keeps the
+  // reviewer reassured.
   useEffect(() => {
     const t = window.setInterval(() => setElapsedMs(Date.now() - startedAt), 200);
     return () => window.clearInterval(t);
@@ -82,16 +96,40 @@ export function Processing({ processingId, adaptiveThinkingPairs, onReady }: Pro
           if (run.adaptive_thinking_pairs > 0) {
             setLiveAdaptivePairs(run.adaptive_thinking_pairs);
           }
+          if (Array.isArray(run.recent_dishes)) {
+            setRecentDishes(run.recent_dishes);
+          }
           if (run.state === 'ready') {
             setTimeout(() => !cancelled.current && onReady(), 600);
             return;
           }
           if (run.state === 'failed') {
-            setTimeout(() => !cancelled.current && onReady(), 600);
+            // Do NOT auto-advance to the empty TryIt view. Stay on this
+            // screen so the user sees the real `state_detail` from the
+            // backend and can choose between retrying or falling back
+            // to the sample menu.
             return;
           }
-          setTimeout(tick, 500);
+          // 1.2s polling is the sweet spot: fast enough that "Reading page
+          // 3 of 5" feels responsive, slow enough that a 90s extraction
+          // doesn't spam the backend with ~200 GETs (which also dirties
+          // the server log and makes real errors hard to spot).
+          setTimeout(tick, 1200);
         } catch (err) {
+          // A 404 here means the run_id we're polling doesn't exist on the
+          // backend anymore — almost always because uvicorn hot-reloaded
+          // and wiped the in-memory store, and this browser tab is stuck
+          // polling a stale run_id. Don't fall through to the mock (that
+          // ends with a fake "ready" → empty TryIt screen): surface the
+          // session as expired and push the user back to upload.
+          if (err instanceof ApiError && err.status === 404) {
+            cancelled.current = true;
+            setState('failed');
+            setDetail(
+              'This processing session expired (the backend restarted). Upload your menu again — it takes a few seconds.',
+            );
+            return;
+          }
           console.warn('[mise] processing poll failed, falling back to mock timeline', err);
           runMockTimeline();
         }
@@ -130,6 +168,27 @@ export function Processing({ processingId, adaptiveThinkingPairs, onReady }: Pro
   const stage = STAGES[state] ?? STAGES.queued;
 
   const elapsedSeconds = Math.floor(elapsedMs / 1000);
+  // Show the Skip CTA only when we're running live (processingId != null) AND
+  // the wait is starting to feel long. A 12-second threshold keeps it out of
+  // the way for quick runs but rescues long live extractions before boredom.
+  const showSkip =
+    onSkipToSample !== undefined &&
+    processingId !== null &&
+    elapsedSeconds >= 12 &&
+    state !== 'ready' &&
+    state !== 'failed';
+
+  // Demo resilience: on a real run (processingId != null), if we've been
+  // extracting for 45s+ and still have zero dishes, the Anthropic side is
+  // probably having a bad minute. We don't cancel the background run — it
+  // will finish (or not) on its own — but we surface a prominent rescue
+  // ramp so the demo video never dies waiting on a flaky extraction.
+  const extractionStalled =
+    onSkipToSample !== undefined &&
+    processingId !== null &&
+    state === 'extracting' &&
+    elapsedSeconds >= 45 &&
+    recentDishes.length === 0;
 
   return (
     <div
@@ -212,18 +271,27 @@ export function Processing({ processingId, adaptiveThinkingPairs, onReady }: Pro
               >
                 {stage.whisper}
               </p>
-              {detail && state !== 'ready' && state !== 'failed' && (
+              {detail && state !== 'ready' && (
                 <p
                   style={{
                     fontSize: 14,
                     lineHeight: '22px',
-                    color: 'var(--color-ink-muted)',
+                    color:
+                      state === 'failed'
+                        ? 'var(--color-sienna)'
+                        : 'var(--color-ink-muted)',
                     marginTop: 4,
                   }}
                 >
                   <span
                     className="font-mono"
-                    style={{ color: 'var(--color-ink-subtle)', marginRight: 8 }}
+                    style={{
+                      color:
+                        state === 'failed'
+                          ? 'var(--color-sienna)'
+                          : 'var(--color-ink-subtle)',
+                      marginRight: 8,
+                    }}
                   >
                     ·
                   </span>
@@ -245,6 +313,7 @@ export function Processing({ processingId, adaptiveThinkingPairs, onReady }: Pro
             }}
           >
             <motion.div
+              initial={{ width: '0%' }}
               animate={{ width: `${progress * 100}%` }}
               transition={{ duration: 0.6, ease: [0.22, 0.61, 0.36, 1] }}
               style={{
@@ -289,18 +358,16 @@ export function Processing({ processingId, adaptiveThinkingPairs, onReady }: Pro
                       fontWeight: active ? 600 : 400,
                     }}
                   >
-                    {/* Short labels on the tracker, the big title above is the human copy. */}
                     {s === 'queued'
                       ? 'Queued'
                       : s === 'extracting'
                         ? 'Reading'
                         : s === 'reconciling'
-                          ? 'Comparing'
+                          ? 'Graph'
                           : s === 'routing'
                             ? 'Organizing'
                             : 'Ready'}
                   </span>
-                  {/* Hidden visually — used by screen readers and snapshot tests. */}
                   <span hidden>{stageInfo.title}</span>
                 </li>
               );
@@ -318,11 +385,286 @@ export function Processing({ processingId, adaptiveThinkingPairs, onReady }: Pro
                 marginTop: 4,
               }}
             >
-              Two plates looked close enough to deserve deeper thinking — we are
-              letting the model reason about {liveAdaptivePairs} of them now.
+              Some items were ambiguous enough to deserve deeper reasoning —
+              Opus 4.7 is thinking about {liveAdaptivePairs} of them now.
             </motion.p>
           )}
         </section>
+
+        {/* Live extraction feed. Shown only during `extracting` on a real
+            run. The chip wall churns as Opus 4.7 finishes each page of a
+            multi-page PDF, so a 90s extraction no longer looks like a
+            frozen spinner. Also proves to the user that YES, their file
+            is being read right now — we didn't just hang. */}
+        <AnimatePresence>
+          {(state === 'extracting' || state === 'reconciling') &&
+            processingId !== null &&
+            recentDishes.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col gap-3"
+                style={{
+                  borderTop: '1px solid var(--color-hairline)',
+                  paddingTop: 20,
+                }}
+              >
+                <div className="flex items-baseline justify-between">
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: '0.16em',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-ink-subtle)',
+                    }}
+                  >
+                    Found so far
+                  </span>
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      color: 'var(--color-ink-subtle)',
+                    }}
+                  >
+                    {recentDishes.length} dish{recentDishes.length === 1 ? '' : 'es'}
+                  </span>
+                </div>
+                <ul className="flex flex-wrap gap-2">
+                  <AnimatePresence initial={false}>
+                    {recentDishes.map((name) => (
+                      <motion.li
+                        key={name}
+                        layout
+                        initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.24, ease: [0.22, 0.61, 0.36, 1] }}
+                        style={{
+                          background: 'var(--color-paper-tint)',
+                          border: '1px solid var(--color-hairline)',
+                          borderRadius: 'var(--radius-chip)',
+                          padding: '6px 12px',
+                          fontSize: 13,
+                          color: 'var(--color-ink)',
+                          lineHeight: '18px',
+                        }}
+                      >
+                        {name}
+                      </motion.li>
+                    ))}
+                  </AnimatePresence>
+                </ul>
+              </motion.section>
+            )}
+        </AnimatePresence>
+
+        {/* Failure recovery panel — we stay on Processing with state=failed
+            so the user sees the backend's state_detail AND gets real next
+            steps instead of being dumped into an empty TryIt view. */}
+        <AnimatePresence>
+          {state === 'failed' && (
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.24 }}
+              className="flex flex-col gap-4"
+              style={{
+                background: 'var(--color-paper-tint)',
+                border: '1px solid var(--color-sienna)',
+                borderRadius: 'var(--radius-card)',
+                padding: 24,
+              }}
+            >
+              <div className="flex flex-col gap-1">
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-sienna)',
+                  }}
+                >
+                  What now
+                </span>
+                <p
+                  className="font-accent"
+                  style={{
+                    fontStyle: 'italic',
+                    fontSize: 18,
+                    lineHeight: '26px',
+                    color: 'var(--color-ink)',
+                  }}
+                >
+                  Retry is almost always the right answer — most failures
+                  here are transient hiccups on the model side. If you just
+                  want to poke around the product, the sample menu below is
+                  pre-processed.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {onRetryUpload && (
+                  <button
+                    type="button"
+                    onClick={onRetryUpload}
+                    className="cursor-pointer inline-flex items-center gap-2"
+                    style={{
+                      background: 'var(--color-ink)',
+                      color: 'var(--color-paper)',
+                      border: '1px solid var(--color-ink)',
+                      borderRadius: 'var(--radius-chip)',
+                      padding: '10px 16px',
+                      fontSize: 13,
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    <RotateCcw size={13} strokeWidth={1.7} />
+                    Try again with another file
+                  </button>
+                )}
+                {onSkipToSample && (
+                  <button
+                    type="button"
+                    onClick={onSkipToSample}
+                    className="cursor-pointer inline-flex items-center gap-2"
+                    style={{
+                      background: 'transparent',
+                      color: 'var(--color-ink)',
+                      border: '1px solid var(--color-hairline)',
+                      borderRadius: 'var(--radius-chip)',
+                      padding: '10px 16px',
+                      fontSize: 13,
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    <UploadCloud size={13} strokeWidth={1.7} />
+                    See the sample menu instead
+                  </button>
+                )}
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        {/* Extraction-stalled rescue panel. Shown when we've been reading
+            for 45s+ with zero dishes surfaced — a clear signal that the
+            upstream model call is having a bad minute. Gives the user a
+            prominent path to the pre-computed sample menu so the demo
+            momentum never dies. The background run keeps polling. */}
+        <AnimatePresence>
+          {extractionStalled && (
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.24 }}
+              className="flex flex-col gap-4"
+              style={{
+                background: 'var(--color-paper-tint)',
+                border: '1px solid var(--color-hairline)',
+                borderRadius: 'var(--radius-card)',
+                padding: 24,
+              }}
+            >
+              <div className="flex flex-col gap-2">
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-ink-subtle)',
+                  }}
+                >
+                  Taking longer than usual
+                </span>
+                <p
+                  className="font-accent"
+                  style={{
+                    fontStyle: 'italic',
+                    fontSize: 18,
+                    lineHeight: '26px',
+                    color: 'var(--color-ink)',
+                  }}
+                >
+                  Your menu is still being read in the background. If you
+                  want to see the search and export flow right now, the
+                  sample menu is pre-processed and ready.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onSkipToSample}
+                  className="cursor-pointer inline-flex items-center gap-2"
+                  style={{
+                    background: 'var(--color-ink)',
+                    color: 'var(--color-paper)',
+                    border: '1px solid var(--color-ink)',
+                    borderRadius: 'var(--radius-chip)',
+                    padding: '10px 16px',
+                    fontSize: 13,
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  <UploadCloud size={13} strokeWidth={1.7} />
+                  See the sample catalog now
+                </button>
+                <span
+                  className="font-mono"
+                  style={{ fontSize: 11, color: 'var(--color-ink-subtle)' }}
+                >
+                  Your upload keeps running in the background.
+                </span>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        {/* Reassurance (not a sample-CTA) after ~15s on a live run. A user
+            who uploaded their REAL menu does not want to be pushed to "try
+            the sample instead" mid-wait — that reads as the demo giving up
+            on them. We just tell them the clock is normal for long menus. */}
+        <AnimatePresence>
+          {showSkip && !extractionStalled && (
+            <motion.section
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.24 }}
+              className="flex flex-col gap-1"
+              style={{
+                background: 'var(--color-paper-tint)',
+                border: '1px dashed var(--color-hairline)',
+                borderRadius: 'var(--radius-card)',
+                padding: 20,
+              }}
+            >
+              <span
+                className="font-mono"
+                style={{
+                  fontSize: 11,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                }}
+              >
+                Still reading
+              </span>
+              <p style={{ fontSize: 14, color: 'var(--color-ink-muted)' }}>
+                Long menus take longer. Opus 4.7 is reading every page in
+                parallel — each dish is confirmed by the model, not guessed.
+                The search view opens as soon as it&apos;s done.
+              </p>
+            </motion.section>
+          )}
+        </AnimatePresence>
       </main>
 
       <footer
@@ -334,8 +676,9 @@ export function Processing({ processingId, adaptiveThinkingPairs, onReady }: Pro
         }}
       >
         <span>
-          Large menus can take a minute or two. The preview on the next screen
-          is what you will approve.
+          One-page menus land in ~15 s. Big multi-page PDFs take longer —
+          every page is read by Opus 4.7 itself, not a faster OCR shortcut.
+          The search view opens as soon as the dish graph is ready.
         </span>
         <span className="font-mono" style={{ fontSize: 12 }}>
           claude-opus-4-7

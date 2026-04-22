@@ -35,14 +35,16 @@ def client() -> Iterator[TestClient]:
     importlib.reload(store_mod)
 
     # re-import every module that captured `store` at import time
-    import app.api.upload as upload_mod
+    import app.api.catalog as catalog_mod
     import app.api.processing as processing_mod
     import app.api.review as review_mod
+    import app.api.upload as upload_mod
     import app.main as main_mod
 
     importlib.reload(upload_mod)
     importlib.reload(processing_mod)
     importlib.reload(review_mod)
+    importlib.reload(catalog_mod)
     importlib.reload(main_mod)
 
     with TestClient(main_mod.app) as c:

@@ -65,3 +65,39 @@ backend/.venv/
 
 # User-provided menus (not part of the eval bundle spec)
 Menus/
+
+# ─────────────────────────────────────────────────────────────────────────
+# Repo goes PUBLIC. Anything below is kept on disk for the builder's own
+# workflow but is NOT shipped to GitHub — either because it leaks
+# hackathon-strategy internals, or because it's AI-agent tooling that
+# doesn't belong in the deliverable.
+# ─────────────────────────────────────────────────────────────────────────
+
+# Agent skills & tooling — local dev only, not product artifacts.
+.agents/
+skills-lock.json
+
+# Milestone entry prompts — these are the recipe the builder used to drive
+# successive Claude Code runs. Not a deliverable, and publishing them
+# tells the reader "here's how I sequenced Claude to build this."
+1st_prompt.md
+2nd_prompt.md
+3rd_prompt.md
+4th_prompt.md
+[0-9]*_prompt.md
+private_notes/
+
+# Internal hackathon strategy docs. The evaluators reading the repo will
+# see product docs; the "how-we-plan-to-win" docs stay in our workspace.
+docs/judging_strategy.md
+docs/scope_freeze.md
+docs/preflight.md
+docs/timeline.md
+docs/submission_plan.md
+docs/demo_recording_plan.md
+docs/extras.md
+docs/hackathon_rules.md
+docs/acceptance_criteria.md
+docs/project_brief.md
+docs/plans/
+submissions/written_summary_template.md
