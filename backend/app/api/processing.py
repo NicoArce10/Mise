@@ -19,6 +19,7 @@ import logging
 import os
 import threading
 import time
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -92,30 +93,66 @@ def _advance_pipeline_real(run_id: EntityId, batch_id: EntityId) -> None:
         else:
             pipeline_mode = "fallback"
 
-        store.update_state(
-            run_id,
-            ProcessingState.RECONCILING,
-            state_detail="Adaptive thinking engaged on ambiguous pairs",
-        )
+        # Stage callback — translates pipeline ticks into the ProcessingRun
+        # state machine the Cockpit polls. No more starting in 'reconciling';
+        # the UI now sees 'extracting N/M' first, then 'reconciling i/pairs',
+        # then 'routing', then 'ready'.
+        def _on_stage(stage: str, detail: str | None, extra: dict[str, Any] | None) -> None:
+            adaptive = int(extra.get("adaptive", 0)) if extra else 0
+            if stage == "extracting":
+                store.update_state(
+                    run_id,
+                    ProcessingState.EXTRACTING,
+                    state_detail=detail or "Reading your menus",
+                    adaptive_thinking_pairs=adaptive,
+                )
+            elif stage == "reconciling":
+                total = int(extra.get("total", 0)) if extra else 0
+                pair = int(extra.get("pair", 0)) if extra else 0
+                if detail is None and total > 0:
+                    detail = f"Checking for duplicates ({pair}/{total})"
+                store.update_state(
+                    run_id,
+                    ProcessingState.RECONCILING,
+                    state_detail=detail or "Looking for duplicates",
+                    adaptive_thinking_pairs=adaptive,
+                )
+            elif stage == "routing":
+                store.update_state(
+                    run_id,
+                    ProcessingState.ROUTING,
+                    state_detail=detail or "Organizing your catalog",
+                    adaptive_thinking_pairs=adaptive,
+                )
+            # 'ready' is handled after the cockpit is stored.
 
         cockpit = run_pipeline(
             processing_id=run_id,
             batch_id=batch_id,
             inputs=inputs,
             mode=pipeline_mode,  # type: ignore[arg-type]
+            on_stage=_on_stage,
         )
         store.set_cockpit(run_id, cockpit)
-        store.update_state(
-            run_id,
-            ProcessingState.ROUTING,
-            state_detail=None,
-            adaptive_thinking_pairs=cockpit.processing.adaptive_thinking_pairs,
-        )
-        # Finalize state.
+
+        # Honest READY summary: reflects what actually came out, not just that
+        # we finished running. Empty extraction now reads 'No dishes extracted
+        # — open Review to see why', so the user never guesses.
+        dish_count = len(cockpit.canonical_dishes)
+        if dish_count == 0:
+            ready_detail = "No dishes extracted from the uploaded sources"
+        else:
+            mod_count = len(cockpit.modifiers)
+            eph_count = len(cockpit.ephemerals)
+            ready_detail = (
+                f"{dish_count} dish{'es' if dish_count != 1 else ''} · "
+                f"{mod_count} modifier{'s' if mod_count != 1 else ''} · "
+                f"{eph_count} ephemeral{'s' if eph_count != 1 else ''}"
+            )
         store.update_state(
             run_id,
             ProcessingState.READY,
-            state_detail=f"Pipeline mode: {pipeline_mode}",
+            state_detail=ready_detail,
             adaptive_thinking_pairs=cockpit.processing.adaptive_thinking_pairs,
         )
     except Exception as exc:

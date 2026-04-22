@@ -15,9 +15,10 @@ import itertools
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from .ai.extraction import extract_fallback, extract_from_bytes
 from .ai.reconciliation import reconcile_deterministic, reconcile_pair
@@ -43,6 +44,10 @@ logger = logging.getLogger(__name__)
 
 Mode = Literal["real", "fallback"]
 
+# Progress callback: invoked as (stage, detail, extra).
+# Stages: 'extracting' | 'reconciling' | 'routing' | 'ready'.
+StageCallback = "Callable[[str, str | None, dict[str, object] | None], None]"
+
 
 @dataclass
 class PipelineInput:
@@ -52,10 +57,13 @@ class PipelineInput:
 
 
 def _run_extraction(
-    inputs: list[PipelineInput], mode: Mode
+    inputs: list[PipelineInput],
+    mode: Mode,
+    on_source_done: Callable[[int, int], None] | None = None,
 ) -> list[DishCandidate]:
     all_candidates: list[DishCandidate] = []
-    for inp in inputs:
+    total = len(inputs)
+    for idx, inp in enumerate(inputs, 1):
         if mode == "real":
             data = inp.data
             if data is None and inp.filepath is not None:
@@ -63,28 +71,37 @@ def _run_extraction(
             if data is None:
                 logger.warning("[mise] no data for %s; using fallback", inp.source.filename)
                 all_candidates.extend(extract_fallback(inp.source))
-                continue
-            all_candidates.extend(extract_from_bytes(inp.source, data))
+            else:
+                all_candidates.extend(extract_from_bytes(inp.source, data))
         else:
             all_candidates.extend(extract_fallback(inp.source))
+        if on_source_done is not None:
+            on_source_done(idx, total)
     return all_candidates
 
 
 def _reconcile_all(
-    candidates: list[DishCandidate], mode: Mode
+    candidates: list[DishCandidate],
+    mode: Mode,
+    on_pair_done: Callable[[int, int, int], None] | None = None,
 ) -> list[ReconciliationResult]:
     """Pairwise reconciliation over non-modifier, non-ephemeral candidates."""
-    # Only reconcile candidates that were routed as canonical — modifiers and
-    # ephemerals do not need identity resolution.
     non_flagged = [
         c for c in candidates
         if not c.is_modifier_candidate and not c.is_ephemeral_candidate
     ]
     results: list[ReconciliationResult] = []
     fn = reconcile_pair if mode == "real" else reconcile_deterministic
-    for a, b in itertools.combinations(non_flagged, 2):
+    pairs = list(itertools.combinations(non_flagged, 2))
+    total = len(pairs)
+    adaptive = 0
+    for i, (a, b) in enumerate(pairs, 1):
         result = fn(a, b)
         results.append(result)
+        if result.used_adaptive_thinking:
+            adaptive += 1
+        if on_pair_done is not None:
+            on_pair_done(i, total, adaptive)
     return results
 
 
@@ -300,8 +317,17 @@ def run_pipeline(
     batch_id: EntityId,
     inputs: list[PipelineInput],
     mode: Mode = "fallback",
+    on_stage: Callable[[str, str | None, dict[str, Any] | None], None] | None = None,
 ) -> CockpitState:
     """Run extraction → reconciliation → routing and materialize a CockpitState.
+
+    `on_stage(stage, detail, extra)` is invoked as the pipeline advances so
+    the caller can update a state machine the UI polls. Stages:
+
+        'extracting'   — one call per source; extra = {'done': i, 'total': n}
+        'reconciling'  — pair-level merge; extra = {'pair': i, 'total': n, 'adaptive': k}
+        'routing'      — classify modifiers / ephemerals / canonicals
+        'ready'        — done
 
     In `fallback` mode this uses deterministic fixtures — safe for CI and
     offline demos. In `real` mode it calls Opus 4.7 with vision-native
@@ -309,8 +335,37 @@ def run_pipeline(
     """
     t0 = time.time()
     sources = [inp.source for inp in inputs]
-    candidates = _run_extraction(inputs, mode)
-    reconciliations = _reconcile_all(candidates, mode)
+
+    if on_stage is not None:
+        on_stage("extracting", f"Reading {len(inputs)} source{'s' if len(inputs) != 1 else ''}", {"done": 0, "total": len(inputs)})
+
+    def _on_source_done(i: int, n: int) -> None:
+        if on_stage is not None:
+            on_stage(
+                "extracting",
+                f"Read {i} of {n} source{'s' if n != 1 else ''}",
+                {"done": i, "total": n},
+            )
+
+    candidates = _run_extraction(inputs, mode, on_source_done=_on_source_done)
+
+    if on_stage is not None:
+        on_stage("reconciling", "Looking for duplicates across sources", {"pair": 0, "total": 0, "adaptive": 0})
+
+    def _on_pair_done(i: int, n: int, adaptive: int) -> None:
+        if on_stage is not None:
+            on_stage(
+                "reconciling",
+                None,
+                {"pair": i, "total": n, "adaptive": adaptive},
+            )
+
+    reconciliations = _reconcile_all(candidates, mode, on_pair_done=_on_pair_done)
+
+    if on_stage is not None:
+        adaptive = sum(1 for r in reconciliations if r.used_adaptive_thinking)
+        on_stage("routing", "Organizing your catalog", {"adaptive": adaptive})
+
     elapsed = time.time() - t0
     cockpit = _build_cockpit(
         processing_id=processing_id,
@@ -320,4 +375,8 @@ def run_pipeline(
         reconciliations=reconciliations,
         elapsed_s=elapsed,
     )
+
+    if on_stage is not None:
+        on_stage("ready", None, {"adaptive": cockpit.processing.adaptive_thinking_pairs})
+
     return cockpit

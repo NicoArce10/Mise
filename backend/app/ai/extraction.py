@@ -93,6 +93,17 @@ def extract_from_bytes(
     except OpusCallError as exc:
         logger.error("[mise] extraction failed on %s: %s", source.filename, exc)
         return []
+    except Exception as exc:
+        # Any other SDK-level error (BadRequestError, RateLimitError, network
+        # blip) on a single source must not bring the whole pipeline down —
+        # the reviewer still benefits from the sources that did succeed.
+        logger.error(
+            "[mise] extraction crashed on %s (%s): %s",
+            source.filename,
+            type(exc).__name__,
+            exc,
+        )
+        return []
 
     assert isinstance(parsed, ExtractionResponse)
 
