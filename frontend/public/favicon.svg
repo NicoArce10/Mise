@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <rect width="48" height="48" rx="6" fill="#FBF8F2"/>
+  <rect x="1" y="1" width="46" height="46" rx="5" fill="none" stroke="#E7E5E1" stroke-width="1"/>
+  <text
+    x="50%"
+    y="55%"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="Fraunces, Georgia, serif"
+    font-weight="500"
+    font-size="26"
+    fill="#1C1917"
+    font-style="italic"
+  >Mi</text>
+  <circle cx="38" cy="38" r="2.5" fill="#B59046"/>
+</svg>
