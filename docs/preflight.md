@@ -44,13 +44,13 @@ Owner decisions locked:
 - [x] All three `evals/datasets/bundle_*/evidence/` folders are populated (done via `scripts/generate_eval_bundles.py`)
 - [x] The deterministic adaptive-thinking gate is frozen at `docs/plans/2026-04-22-architecture.md` §2.1; no ad-hoc loosening
 
-## Gate 4 — Before recording the demo video
+## Gate 4 — Before recording the demo video ✅ MEASURED 2026-04-21
 
-- [x] `python evals/run_eval.py --bundle all` runs end-to-end and produces a report (fallback mode, 2026-04-21)
-- [x] Each of the four demo-critical decisions passes in the report (`demo_critical_all_pass: true`)
+- [x] `python evals/run_eval.py --bundle all --mode real` runs end-to-end and produces `evals/reports/eval_real.json` (live `claude-opus-4-7`, 47 calls, USD 2.03)
+- [x] All six demo-critical decisions pass in the real-mode report (`demo_critical_all_pass: true`); merge_precision=1.00, merge_recall=1.00, non_merge_accuracy=1.00
 - [x] The metrics pane in the Cockpit reads from the latest eval report (T4.9 — `backend/app/core/metrics.py`, `apply_latest_report()` called in `pipeline._build_cockpit`)
-- [x] The written summary draft exists and is internally consistent with the measured metrics (`submissions/written_summary.md` + `submissions/metrics.json`, 2026-04-21)
-- [ ] The hero frame renders with real data at the chosen browser size (1440×900 reference) — pending: `MISE_PIPELINE_MODE=fallback` boot + Upload → Processing → Cockpit walk, 5-minute visual smoke
+- [x] The written summary is consistent with `submissions/metrics.json` — every number copied verbatim from the real-mode report
+- [ ] The hero frame renders with real data at the chosen browser size (1440×900 reference) — pending: `MISE_PIPELINE_MODE=real` boot + Upload → Processing → Cockpit walk, 5-minute visual smoke
 - [ ] At least two clean takes of each demo beat exist — pending: user records per `docs/demo_recording_plan.md`
 
 ## Gate 5 — Before submission

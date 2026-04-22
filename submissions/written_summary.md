@@ -1,6 +1,6 @@
 # Mise — Hackathon Written Summary
 
-> Draft prepared ahead of submission day. Every number below is copied verbatim from `submissions/metrics.json`, which in turn reflects `evals/reports/eval_fallback.json`. Re-run `python evals/run_eval.py --bundle all` and refresh this file if anything upstream changes.
+> Every number below is copied verbatim from `submissions/metrics.json`, which mirrors the latest `evals/reports/eval_real.json`. **Measured on live `claude-opus-4-7` via the Anthropic Messages API on 2026-04-21.** Re-run `python evals/run_eval.py --bundle all --mode real` to regenerate.
 
 ## Problem
 
@@ -27,7 +27,7 @@ All four pillars are exercised and verified by the 53-test backend suite (`pytes
 
 ## Measured outcomes
 
-Produced by `python evals/run_eval.py --bundle all`, mode `fallback`, run on 2026-04-21. Raw report: `submissions/metrics.json`. Re-run against `MISE_PIPELINE_MODE=real` before the final submission will replace these numbers (the harness writes `evals/reports/*.json` which the Cockpit reads at run time).
+Produced by `python evals/run_eval.py --bundle all --mode real` against live `claude-opus-4-7` on 2026-04-21. Raw report: `evals/reports/eval_real.json` (mirrored in `submissions/metrics.json`).
 
 | Metric | Value |
 |---|---|
@@ -35,20 +35,24 @@ Produced by `python evals/run_eval.py --bundle all`, mode `fallback`, run on 202
 | Sources ingested (all bundles) | 10 |
 | Canonical dishes produced | 14 |
 | Modifiers routed | 5 |
-| Ephemerals routed | 2 |
+| Ephemerals routed | 4 |
 | Merge precision | 1.00 |
-| Merge recall | 0.917 |
+| Merge recall | 1.00 |
 | Non-merge accuracy | 1.00 |
 | Modifier routing accuracy | 1.00 |
-| Ephemeral routing accuracy | 1.00 |
-| Time to review pack (aggregate) | 0.045 s |
+| Time to review pack (aggregate) | 33.68 s |
+| Total Opus 4.7 calls | 47 (23 extraction + 24 reconciliation) |
+| Cache hit ratio on input tokens | 49.1% |
+| Live-run cost | USD 2.03 |
 
-All four demo-critical decisions passed in this run:
+All six demo-critical decisions passed in this run:
 
-- `Marghertia` → `Margherita` — merged, typo preserved as alias, adaptive thinking engaged.
-- `Pizza Funghi` and `Calzone Funghi` — kept separate on `type_differ`.
-- `add burrata +3` — routed as modifier, attached to the Margherita dish on the same source.
-- `Chef's special` — routed as ephemeral on the ephemeral-hint regex.
+- `Marghertia` → `Margherita` — merged after typo normalization across three branches, adaptive thinking engaged.
+- `Pizza Funghi` vs `Calzone Funghi` — kept separate on `type_differ` despite ingredient overlap.
+- `add burrata +3` — routed as modifier attached to the Margherita dish on the same source.
+- `Tacos al Pastor` vs `Al Pastor Tacos` — merged after token-order normalization, zero LLM call (deterministic gate).
+- `add guacamole +2` — routed as unattached modifier (chalkboard had no parent dish).
+- `Chef's Special` — routed as ephemeral via the extractor's `is_ephemeral_candidate` flag.
 
 ## Architecture at a glance
 
@@ -59,8 +63,8 @@ Four pure layers, one contract. **Evidence ingest** stores bytes and metadata in
 - **Demo video:** `<YouTube unlisted URL — to be filled on submission day>` (≤ 3:00, ≥ 2:45)
 - **Repo:** <https://github.com/NicoArce10/Mise>
 - **License:** MIT (see `LICENSE`)
-- **Live metrics:** `submissions/metrics.json` → mirrors `evals/reports/eval_fallback.json`
-- **Eval harness:** `python evals/run_eval.py --bundle all`
+- **Live metrics:** `submissions/metrics.json` → mirrors `evals/reports/eval_real.json` (live `claude-opus-4-7` run on 2026-04-21)
+- **Eval harness:** `python evals/run_eval.py --bundle all --mode real`
 - **Preflight gates:** `docs/preflight.md`
 
 ## Acknowledgement
