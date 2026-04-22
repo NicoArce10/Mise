@@ -74,6 +74,8 @@ export function App() {
             onModerate={cockpit.moderate}
             onPresent={() => setHeroOpen(true)}
             onRestart={goToLanding}
+            onUpload={goToUpload}
+            onLoadSample={loadSample}
           />
         </>
       )}

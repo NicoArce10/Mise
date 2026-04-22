@@ -1,12 +1,27 @@
 """FastAPI app factory. Boots with `uvicorn app.main:app --reload --port 8000`."""
 from __future__ import annotations
 
+import logging
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
 from .api import processing, review, upload
 from .core.config import settings
+
+# Surface `[mise]` logs (extraction request shape, 0-candidate warnings,
+# pipeline fallbacks) on stdout so a user reproducing a bug can copy the
+# terminal output into an issue. Uvicorn installs its own handlers for the
+# `uvicorn.*` loggers; this only configures the root handler once and only
+# if nothing upstream has wired it — so test runs (which may set their own
+# level) aren't overridden.
+_LOG_LEVEL = os.environ.get("MISE_LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=_LOG_LEVEL,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 
 def create_app() -> FastAPI:

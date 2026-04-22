@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { CanonicalDish, CockpitState } from '../domain/types';
 import { EphemeralCard } from '../components/EphemeralCard';
@@ -11,6 +11,7 @@ import { CockpitToolbar, type ViewDensity } from '../components/CockpitToolbar';
 import { DishCategoryGroup } from '../components/DishCategoryGroup';
 import { EditorialMeta } from '../components/EditorialMeta';
 import { HelpDialog } from '../components/HelpDialog';
+import { ExtractionDetailDialog } from '../components/ExtractionDetailDialog';
 import { useShortcuts } from '../hooks/useShortcuts';
 import type { ModerateTargetKind } from '../hooks/useCockpitState';
 
@@ -19,6 +20,8 @@ interface Props {
   onModerate: (kind: ModerateTargetKind, id: string, status: 'approved' | 'edited' | 'rejected') => void;
   onPresent: () => void;
   onRestart: () => void;
+  onUpload: () => void;
+  onLoadSample: () => void;
 }
 
 const CATEGORY_ORDER = [
@@ -92,7 +95,14 @@ function downloadJSON(filename: string, payload: unknown) {
   URL.revokeObjectURL(url);
 }
 
-export function Cockpit({ state, onModerate, onPresent, onRestart }: Props) {
+export function Cockpit({
+  state,
+  onModerate,
+  onPresent,
+  onRestart,
+  onUpload,
+  onLoadSample,
+}: Props) {
   const [selectedId, setSelectedId] = useState<string>(
     state.canonical_dishes[0]?.id ?? '',
   );
@@ -101,6 +111,7 @@ export function Cockpit({ state, onModerate, onPresent, onRestart }: Props) {
     state.canonical_dishes.length > 10 ? 'compact' : 'card',
   );
   const [helpOpen, setHelpOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const selected = state.canonical_dishes.find(d => d.id === selectedId) ?? null;
@@ -200,7 +211,44 @@ export function Cockpit({ state, onModerate, onPresent, onRestart }: Props) {
   };
 
   const hasDishes = state.canonical_dishes.length > 0;
+  const hasAnything =
+    hasDishes ||
+    state.modifiers.length > 0 ||
+    state.ephemerals.length > 0;
   const processingFailed = state.processing.state === 'failed';
+  // `empty` mode fires before any batch has been processed (no sources, no
+  // processing id). The live-upload-with-0-dishes bug is the opposite: there
+  // ARE sources but Opus returned nothing — that's the case we explain.
+  const hasSources = state.sources.length > 0;
+  const extractionEmpty =
+    !hasAnything && !processingFailed && hasSources;
+  const coldStart = !hasAnything && !processingFailed && !hasSources;
+
+  // Shared button tokens — kept inline so this file stays the only surface
+  // that renders the Cockpit recovery states. If we need another empty
+  // state later we'll hoist these.
+  const primaryBtn: CSSProperties = {
+    background: 'var(--color-ink)',
+    color: 'var(--color-paper)',
+    border: '1px solid var(--color-ink)',
+    borderRadius: 'var(--radius-chip)',
+    padding: '10px 18px',
+    fontSize: 14,
+    lineHeight: '18px',
+    letterSpacing: '0.02em',
+    cursor: 'pointer',
+  };
+  const secondaryBtn: CSSProperties = {
+    background: 'transparent',
+    color: 'var(--color-ink)',
+    border: '1px solid var(--color-hairline)',
+    borderRadius: 'var(--radius-chip)',
+    padding: '10px 18px',
+    fontSize: 14,
+    lineHeight: '18px',
+    letterSpacing: '0.02em',
+    cursor: 'pointer',
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -264,29 +312,136 @@ export function Cockpit({ state, onModerate, onPresent, onRestart }: Props) {
             onShowHelp={() => setHelpOpen(true)}
           />
 
-          {!hasDishes && processingFailed && (
+          {processingFailed && (
             <div
-              className="flex flex-col gap-2"
+              className="flex flex-col gap-4"
               style={{
                 background: 'var(--color-paper-tint)',
                 border: '1px dashed var(--color-sienna)',
                 borderRadius: 'var(--radius-card)',
-                padding: 24,
+                padding: 28,
               }}
             >
-              <p
-                className="font-display"
-                style={{ fontWeight: 500, fontSize: 20, lineHeight: '26px', color: 'var(--color-sienna)' }}
-              >
-                Pipeline error
-              </p>
-              <p style={{ color: 'var(--color-ink-muted)' }}>
-                No dishes were extracted from the uploaded evidence. Check the backend logs and try again.
-              </p>
+              <div className="flex flex-col gap-2">
+                <span
+                  className="caption"
+                  style={{ color: 'var(--color-sienna)', letterSpacing: '0.04em' }}
+                >
+                  PIPELINE FAILED
+                </span>
+                <p
+                  className="font-display"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: 24,
+                    lineHeight: '30px',
+                    color: 'var(--color-ink)',
+                  }}
+                >
+                  Mise couldn't finish this run.
+                </p>
+                <p
+                  style={{
+                    color: 'var(--color-ink-muted)',
+                    fontSize: 15,
+                    lineHeight: '22px',
+                    maxWidth: 560,
+                  }}
+                >
+                  {state.processing.state_detail
+                    ? state.processing.state_detail
+                    : 'The pipeline raised an error before producing any dishes. Check the backend terminal for [mise] lines to see what broke.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDetailOpen(true)}
+                  style={secondaryBtn}
+                >
+                  Show extraction detail
+                </button>
+                <button
+                  type="button"
+                  onClick={onUpload}
+                  style={primaryBtn}
+                >
+                  Upload different files
+                </button>
+              </div>
             </div>
           )}
 
-          {!hasDishes && !processingFailed && (
+          {extractionEmpty && (
+            <div
+              className="flex flex-col gap-4"
+              style={{
+                background: 'var(--color-paper-tint)',
+                border: '1px dashed var(--color-hairline)',
+                borderRadius: 'var(--radius-card)',
+                padding: 28,
+              }}
+            >
+              <div className="flex flex-col gap-2">
+                <span
+                  className="caption"
+                  style={{ color: 'var(--color-ink-subtle)', letterSpacing: '0.04em' }}
+                >
+                  NO DISHES FOUND
+                </span>
+                <p
+                  className="font-display"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: 24,
+                    lineHeight: '30px',
+                    color: 'var(--color-ink)',
+                  }}
+                >
+                  No dishes extracted from these sources.
+                </p>
+                <p
+                  style={{
+                    color: 'var(--color-ink-muted)',
+                    fontSize: 15,
+                    lineHeight: '22px',
+                    maxWidth: 560,
+                  }}
+                >
+                  Opus 4.7 read the file{state.sources.length === 1 ? '' : 's'} but didn't surface any
+                  dish candidates. This usually means the menu is blurry,
+                  handwritten in a hard-to-read font, or the image is low
+                  resolution. Try a sharper photo, or load the built-in sample
+                  to see how a clean run looks.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDetailOpen(true)}
+                  style={secondaryBtn}
+                >
+                  Show extraction detail
+                </button>
+                <button
+                  type="button"
+                  onClick={onLoadSample}
+                  style={secondaryBtn}
+                >
+                  Try the sample menu
+                </button>
+                <button
+                  type="button"
+                  onClick={onUpload}
+                  style={primaryBtn}
+                >
+                  Upload different files
+                </button>
+              </div>
+            </div>
+          )}
+
+          {coldStart && (
             <div
               className="flex flex-col gap-2"
               style={{
@@ -374,6 +529,12 @@ export function Cockpit({ state, onModerate, onPresent, onRestart }: Props) {
         </AnimatePresence>
       </main>
       <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <ExtractionDetailDialog
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        processing={state.processing}
+        sources={state.sources}
+      />
     </div>
   );
 }

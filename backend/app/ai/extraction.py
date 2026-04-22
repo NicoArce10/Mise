@@ -80,6 +80,18 @@ def extract_from_bytes(
         ),
     ]
 
+    # Request-shape log: useful for diagnosing silent failures on real uploads
+    # (empty-extraction bug reproductions). We never log the raw bytes or the
+    # base64 payload — just size + media_type + knobs.
+    logger.info(
+        "[mise] opus call: filename=%s bytes=%d media_type=%s effort=%s max_tokens=%d",
+        source.filename,
+        len(data),
+        media_type,
+        effort,
+        max_tokens,
+    )
+
     try:
         parsed = call_opus(
             system_prompt=_SYSTEM_PROMPT,
@@ -106,6 +118,19 @@ def extract_from_bytes(
         return []
 
     assert isinstance(parsed, ExtractionResponse)
+
+    if not parsed.candidates:
+        # Most common cause of the "upload finished, Cockpit empty" bug:
+        # Opus read the bytes and returned a valid but empty list. Surface
+        # it as a WARNING so `tail -f` on the backend stdout flags it, and
+        # include the context a reviewer needs to diagnose (was the file
+        # sent at all? what media_type did we pin? was it a normal size?).
+        logger.warning(
+            "[mise] opus returned 0 candidates for %s (bytes=%d, media_type=%s)",
+            source.filename,
+            len(data),
+            media_type,
+        )
 
     out: list[DishCandidate] = []
     for candidate in parsed.candidates:
