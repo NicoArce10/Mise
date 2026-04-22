@@ -222,4 +222,11 @@ export interface CockpitState {
   reconciliation_trace: ReconciliationResult[];
   metrics_preview: MetricsPreview | null;
   quality_signal: QualitySignal | null;
+  /**
+   * The natural-language filter the reviewer attached to this upload, if
+   * any. Echoed back by the backend so the Cockpit can show exactly what
+   * Opus was told to do — and the reviewer can judge whether the output
+   * honored it.
+   */
+  user_instructions?: string | null;
 }

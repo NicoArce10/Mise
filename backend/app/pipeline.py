@@ -200,6 +200,7 @@ def _build_cockpit(
     reconciliations: list[ReconciliationResult],
     elapsed_s: float,
     extraction_failures: int = 0,
+    user_instructions: str | None = None,
 ) -> CockpitState:
     parent = _union_find_merges(candidates, reconciliations)
 
@@ -450,6 +451,7 @@ def _build_cockpit(
         reconciliation_trace=enriched_trace,
         metrics_preview=metrics,
         quality_signal=quality_signal,
+        user_instructions=user_instructions,
     )
 
 
@@ -569,6 +571,7 @@ def run_pipeline(
         reconciliations=reconciliations,
         elapsed_s=elapsed,
         extraction_failures=len(failures),
+        user_instructions=user_instructions,
     )
 
     logger.info(

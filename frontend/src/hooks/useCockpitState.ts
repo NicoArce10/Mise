@@ -24,9 +24,26 @@ export type CockpitMode =
   | { kind: 'sample' }
   | { kind: 'live'; processingId: UUID };
 
+// Fields the reviewer is allowed to patch when editing a dish. Kept in sync
+// with the backend whitelist in `store.apply_decision` — expanding the
+// whitelist here means expanding it there too.
+export interface DishEditPatch {
+  canonical_name?: string;
+  menu_category?: string | null;
+  price_value?: number | null;
+  price_currency?: string | null;
+  aliases?: string[];
+  ingredients?: string[];
+}
+
 export interface UseCockpit {
   state: CockpitState;
-  moderate: (kind: ModerateTargetKind, id: UUID, status: ModerationStatus) => void;
+  moderate: (
+    kind: ModerateTargetKind,
+    id: UUID,
+    status: ModerationStatus,
+    patch?: DishEditPatch,
+  ) => void;
   reload: () => Promise<void>;
   source: 'empty' | 'sample' | 'api';
 }
@@ -61,6 +78,7 @@ function emptyState(): CockpitState {
     reconciliation_trace: [],
     metrics_preview: metrics,
     quality_signal: null,
+    user_instructions: null,
   };
 }
 
@@ -146,22 +164,29 @@ export function useCockpitState(mode: CockpitMode = { kind: 'empty' }): UseCockp
   }, []);
 
   const moderate = useCallback(
-    (kind: ModerateTargetKind, id: UUID, status: ModerationStatus) => {
+    (
+      kind: ModerateTargetKind,
+      id: UUID,
+      status: ModerationStatus,
+      patch?: DishEditPatch,
+    ) => {
       const pid = processingIdRef.current;
       const action = actionFromStatus(status);
 
       if (pid !== null && action !== null) {
-        console.info('[mise] moderate →', { kind, id, action, processingId: pid });
+        console.info('[mise] moderate →', { kind, id, action, patch, processingId: pid });
         void (async () => {
           try {
             const updated = await apiPostDecision(pid, {
               target_kind: kind,
               target_id: id,
               action,
+              ...(patch ? { edit: patch as Record<string, unknown> } : {}),
             });
             console.info('[mise] moderate OK — dish now', {
               id,
               newModeration: status,
+              patched: !!patch,
             });
             setState(updated);
             setSource('api');
@@ -170,13 +195,14 @@ export function useCockpitState(mode: CockpitMode = { kind: 'empty' }): UseCockp
             console.error('[mise] decision POST failed, falling back to local-only update', err);
           }
           // fallthrough to local update
-          setState(applyLocalModeration(state, kind, id, status));
+          setState(applyLocalModeration(state, kind, id, status, patch));
         })();
         return;
       }
 
-      // Mock-only path
-      setState(prev => applyLocalModeration(prev, kind, id, status));
+      // Mock-only path — still honors the patch so the sample/empty
+      // modes behave identically from the UI's perspective.
+      setState(prev => applyLocalModeration(prev, kind, id, status, patch));
     },
     [state],
   );
@@ -189,12 +215,34 @@ function applyLocalModeration(
   kind: ModerateTargetKind,
   id: UUID,
   status: ModerationStatus,
+  patch?: DishEditPatch,
 ): CockpitState {
   if (kind === 'canonical') {
     return {
       ...prev,
       canonical_dishes: prev.canonical_dishes.map(d =>
-        d.id === id ? { ...d, moderation: status } : d,
+        d.id === id
+          ? {
+              ...d,
+              moderation: status,
+              ...(patch?.canonical_name !== undefined
+                ? { canonical_name: patch.canonical_name }
+                : {}),
+              ...(patch?.menu_category !== undefined
+                ? { menu_category: patch.menu_category }
+                : {}),
+              ...(patch?.price_value !== undefined
+                ? { price_value: patch.price_value }
+                : {}),
+              ...(patch?.price_currency !== undefined
+                ? { price_currency: patch.price_currency }
+                : {}),
+              ...(patch?.aliases !== undefined ? { aliases: patch.aliases } : {}),
+              ...(patch?.ingredients !== undefined
+                ? { ingredients: patch.ingredients }
+                : {}),
+            }
+          : d,
       ),
     };
   }

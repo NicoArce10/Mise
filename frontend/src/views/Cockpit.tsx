@@ -8,6 +8,7 @@ import { DetailRail } from '../components/DetailRail';
 import { MetricsPane } from '../components/MetricsPane';
 import { QualitySignalPane } from '../components/QualitySignalPane';
 import { ReconciliationNarrative } from '../components/ReconciliationNarrative';
+import { FilterAppliedBanner } from '../components/FilterAppliedBanner';
 import { UnattachedModifiersLane } from '../components/UnattachedModifiersLane';
 import { CockpitToolbar, type ViewDensity } from '../components/CockpitToolbar';
 import { DishCategoryGroup } from '../components/DishCategoryGroup';
@@ -16,12 +17,24 @@ import { HelpDialog } from '../components/HelpDialog';
 import { ExtractionDetailDialog } from '../components/ExtractionDetailDialog';
 import { SourcePreviewModal } from '../components/SourcePreviewModal';
 import { useShortcuts } from '../hooks/useShortcuts';
-import type { ModerateTargetKind } from '../hooks/useCockpitState';
+import type { DishEditPatch, ModerateTargetKind } from '../hooks/useCockpitState';
+import { DishEditDialog } from '../components/DishEditDialog';
 import { downloadCatalog } from '../api/exportCatalog';
 
 interface Props {
   state: CockpitState;
-  onModerate: (kind: ModerateTargetKind, id: string, status: 'approved' | 'edited' | 'rejected') => void;
+  /**
+   * Called when the reviewer approves / rejects / edits a dish. The
+   * optional `patch` is only populated for EDIT actions — it carries
+   * the fields that changed so the backend can persist them alongside
+   * the new moderation status.
+   */
+  onModerate: (
+    kind: ModerateTargetKind,
+    id: string,
+    status: 'approved' | 'edited' | 'rejected',
+    patch?: DishEditPatch,
+  ) => void;
   onRestart: () => void;
   onUpload: () => void;
   onLoadSample: () => void;
@@ -103,6 +116,11 @@ export function Cockpit({
   const [helpOpen, setHelpOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Which dish is currently being edited in the inline dialog. `null`
+  // means no dialog is open. We store the id (not the CanonicalDish)
+  // so that if `state.canonical_dishes` updates (e.g. a save succeeded),
+  // the dialog rerenders against the fresh data.
+  const [editingDishId, setEditingDishId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const selected = state.canonical_dishes.find(d => d.id === selectedId) ?? null;
@@ -126,12 +144,39 @@ export function Cockpit({
     [filtered, selectedId],
   );
 
+  // Route every "edit" action through the inline dialog. Approve / reject
+  // still apply immediately — they're binary and don't need a form.
+  const onDishModerate = useCallback(
+    (id: string, status: 'approved' | 'edited' | 'rejected') => {
+      if (status === 'edited') {
+        setEditingDishId(id);
+        return;
+      }
+      onModerate('canonical', id, status);
+    },
+    [onModerate],
+  );
+
   const moderateSelected = useCallback(
     (status: 'approved' | 'edited' | 'rejected') => {
       if (!selected) return;
-      onModerate('canonical', selected.id, status);
+      onDishModerate(selected.id, status);
     },
-    [onModerate, selected],
+    [onDishModerate, selected],
+  );
+
+  const editingDish =
+    editingDishId == null
+      ? null
+      : state.canonical_dishes.find(d => d.id === editingDishId) ?? null;
+
+  const onEditSave = useCallback(
+    (patch: DishEditPatch) => {
+      if (editingDishId == null) return;
+      onModerate('canonical', editingDishId, 'edited', patch);
+      setEditingDishId(null);
+    },
+    [editingDishId, onModerate],
   );
 
   // Bulk action: only targets dishes that are (a) in the current filtered
@@ -328,6 +373,11 @@ export function Cockpit({
             onBulkReject={() => bulkModerate('rejected')}
           />
 
+          {/* Filter applied — shown above the dish list so the reviewer sees
+              exactly what Opus was instructed to do BEFORE scanning the
+              results. Renders nothing if the reviewer didn't attach a filter. */}
+          <FilterAppliedBanner instructions={state.user_instructions} />
+
           {processingFailed && (
             <div
               className="flex flex-col gap-4"
@@ -490,7 +540,7 @@ export function Cockpit({
               modifiers={state.modifiers}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              onModerate={(id, status) => onModerate('canonical', id, status)}
+              onModerate={onDishModerate}
               batchId={state.processing.batch_id}
             />
           ))}
@@ -568,6 +618,12 @@ export function Cockpit({
         // Sample run ids start with `run-sample-` (see frontend mock and
         // evals/fixtures/bistro_argentino.py). Real uploads carry a UUID.
         isSample={state.processing.id.startsWith('run-sample')}
+      />
+      <DishEditDialog
+        open={editingDish !== null}
+        dish={editingDish}
+        onClose={() => setEditingDishId(null)}
+        onSave={onEditSave}
       />
     </div>
   );

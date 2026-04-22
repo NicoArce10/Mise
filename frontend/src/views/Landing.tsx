@@ -1124,12 +1124,12 @@ export function Landing({ onUpload, onSample }: Props) {
                 unique: true,
               },
               {
-                cap: 'Multilingual',
-                mise: 'Automatic · same model',
+                cap: 'Multilingual · region-aware aliases',
+                mise: 'Inferred from evidence',
                 dd: 'Unspecified',
                 veryfi: 'Unspecified',
                 klippa: 'Latin languages',
-                unique: false,
+                unique: true,
               },
               {
                 cap: 'Quality signal on every response',
@@ -1637,9 +1637,10 @@ export function Landing({ onUpload, onSample }: Props) {
                   marginTop: 4,
                 }}
               >
-                Shown in Spanish vernacular. The same pipeline handles English,
-                Japanese, Chinese, Portuguese, any cuisine — the model reads
-                whatever the menu speaks.
+                Shown in Argentine Spanish vernacular. Region is inferred from
+                the evidence itself — a Mexican menu returns Spanish-MX handles,
+                a US bistro returns English+Spanglish, a Tokyo kiosk returns
+                Japanese. No prompt engineering, no country flag setting.
               </p>
             </div>
           </div>

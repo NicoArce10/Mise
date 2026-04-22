@@ -242,6 +242,13 @@ class CockpitState(BaseModel):
     reconciliation_trace: list[ReconciliationResult]
     metrics_preview: MetricsPreview | None = None
     quality_signal: "QualitySignal | None" = None
+    # The natural-language filter the reviewer attached to THIS run (or
+    # None if they just dropped files). Surfaced back in the Cockpit so the
+    # reviewer can see exactly what Opus was told to do — "Filter applied:
+    # exclude beverages" — and judge for themselves whether the output
+    # honors it. We intentionally don't try to machine-verify the filter:
+    # the reviewer's eyes on the canonical list are the ground truth.
+    user_instructions: str | None = None
 
 
 # ---------- Internal wire models (not exposed in the CockpitState) ----------

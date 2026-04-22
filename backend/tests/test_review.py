@@ -99,3 +99,106 @@ def test_decision_unknown_target_returns_404(client: TestClient) -> None:
         json={"target_kind": "canonical", "target_id": "does-not-exist", "action": "approve"},
     )
     assert resp.status_code == 404
+
+
+def test_decision_edit_applies_patch_fields(client: TestClient) -> None:
+    """Edit must actually *change* the dish, not just set moderation='edited'.
+
+    The reviewer patches name + price + category and we expect:
+      - moderation → 'edited'
+      - canonical_name, price_value, price_currency, menu_category updated
+      - exported catalog JSON reflects the new values (round-trip proof)
+    """
+    processing_id = _run_pipeline_to_ready(client)
+    cockpit = client.get(f"/api/review/{processing_id}").json()
+    dish = next(d for d in cockpit["canonical_dishes"] if d["canonical_name"] == "Margherita")
+    dish_id = dish["id"]
+
+    patch = {
+        "canonical_name": "Margherita DOC",
+        "price_value": 14.5,
+        "price_currency": "EUR",
+        "menu_category": "pizza",
+    }
+    resp = client.post(
+        f"/api/review/{processing_id}/decisions",
+        json={
+            "target_kind": "canonical",
+            "target_id": dish_id,
+            "action": "edit",
+            "edit": patch,
+        },
+    )
+    assert resp.status_code == 200
+    updated = resp.json()
+    edited = next(d for d in updated["canonical_dishes"] if d["id"] == dish_id)
+    assert edited["moderation"] == "edited"
+    assert edited["canonical_name"] == "Margherita DOC"
+    assert edited["price_value"] == 14.5
+    assert edited["price_currency"] == "EUR"
+    assert edited["menu_category"] == "pizza"
+
+    # The exported catalog must honor the patch — this is the demo-critical
+    # guarantee: moderation edits are not a cosmetic UI-only thing.
+    catalog = client.get(f"/api/catalog/{processing_id}.json").json()
+    exported = next(d for d in catalog["dishes"] if d["id"] == dish_id)
+    assert exported["canonical_name"] == "Margherita DOC"
+    assert exported["price"] == {"value": 14.5, "currency": "EUR"}
+    assert exported["menu_category"] == "pizza"
+    # review_status travels alongside the patched fields
+    assert exported["review_status"] == "edited"
+
+
+def test_decision_edit_ignores_fields_outside_whitelist(client: TestClient) -> None:
+    """Security: the reviewer must NOT be able to overwrite ids, source refs,
+    decision records, or moderation status via the `edit` payload."""
+    processing_id = _run_pipeline_to_ready(client)
+    cockpit = client.get(f"/api/review/{processing_id}").json()
+    dish = next(d for d in cockpit["canonical_dishes"] if d["canonical_name"] == "Margherita")
+    dish_id = dish["id"]
+
+    resp = client.post(
+        f"/api/review/{processing_id}/decisions",
+        json={
+            "target_kind": "canonical",
+            "target_id": dish_id,
+            "action": "edit",
+            "edit": {
+                "id": "hijacked",
+                "source_ids": [],
+                "decision": {"text": "x", "lead_word": "Merged", "confidence": 0.1},
+                "moderation": "approved",
+                "canonical_name": "Legit rename",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    edited = next(
+        d for d in resp.json()["canonical_dishes"] if d["canonical_name"] == "Legit rename"
+    )
+    # Original id is preserved — no hijack.
+    assert edited["id"] == dish_id
+    # Moderation comes from the `action`, not the forged `edit.moderation`.
+    assert edited["moderation"] == "edited"
+    # Source refs untouched.
+    assert edited["source_ids"] == dish["source_ids"]
+
+
+def test_decision_reject_then_catalog_excludes_dish(client: TestClient) -> None:
+    """Reject must remove the dish from the exported catalog JSON — that's
+    the end-to-end proof that moderation has a real impact, not just a UI
+    chip change."""
+    processing_id = _run_pipeline_to_ready(client)
+    cockpit = client.get(f"/api/review/{processing_id}").json()
+    dish_id = next(
+        d["id"] for d in cockpit["canonical_dishes"] if d["canonical_name"] == "Pizza Funghi"
+    )
+
+    client.post(
+        f"/api/review/{processing_id}/decisions",
+        json={"target_kind": "canonical", "target_id": dish_id, "action": "reject"},
+    ).raise_for_status()
+
+    catalog = client.get(f"/api/catalog/{processing_id}.json").json()
+    ids_in_catalog = {d["id"] for d in catalog["dishes"]}
+    assert dish_id not in ids_in_catalog, "rejected dish must be dropped from exported catalog"

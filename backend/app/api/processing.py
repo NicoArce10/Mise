@@ -227,6 +227,14 @@ def _advance_pipeline_real(
                     f"Couldn’t read: {names}{more}. "
                     "Try a cleaner photo, a smaller file, or a different format."
                 )
+        elif "ANTHROPIC_API_KEY" in str(exc):
+            # Most common self-host issue — call it out explicitly so the
+            # operator knows exactly what to fix instead of guessing from a
+            # generic stack-trace name.
+            failure_detail = (
+                "ANTHROPIC_API_KEY is not set — Mise needs a Claude API key "
+                "to extract real menus. Load a .env or export the var, then retry."
+            )
         else:
             failure_detail = f"pipeline error: {type(exc).__name__}"
 
@@ -260,22 +268,23 @@ def _select_pipeline():
     """Pick the pipeline to run for this upload.
 
     Priority:
-    1. If MISE_PIPELINE_MODE is set explicitly, honor it.
-    2. Else if ANTHROPIC_API_KEY is present, use the real pipeline so an
-       uploaded file actually gets processed (not overwritten with the
-       italian fixture). This is the honest default — a user who boots
-       the stack with a valid key expects the product to read their bytes.
-    3. Else fall back to mock (fixture walk-through), which is only
-       appropriate for a UI-only demo without an API key.
+    1. If MISE_PIPELINE_MODE is set explicitly, honor it. `mock` is the
+       only way to request the italian-fixture walk-through — that path
+       is for UI-only demos where we can't call the real model. It must
+       NEVER silently fire when a user uploads a real menu, because the
+       Cockpit would then show pizza/margherita/funghi unrelated to their
+       bytes (which is exactly what the user called "pizza/funghi vieja").
+    2. Else if ANTHROPIC_API_KEY is present, use the real pipeline.
+    3. Else still use the real pipeline — it will surface the missing-key
+       error in `state_detail` ("Claude's API had a hiccup..."). An honest
+       error beats a misleading fixture.
     """
     explicit = os.environ.get("MISE_PIPELINE_MODE", "").lower()
     if explicit in {"real", "fallback", "mock"}:
         if explicit == "mock":
             return _advance_pipeline_mock
         return _advance_pipeline_real
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return _advance_pipeline_real
-    return _advance_pipeline_mock
+    return _advance_pipeline_real
 
 
 @router.post(

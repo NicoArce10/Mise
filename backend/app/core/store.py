@@ -188,16 +188,29 @@ class InMemoryStore:
             }[decision.action]
 
             if decision.target_kind == "canonical":
+                # Whitelist the fields a reviewer can patch. Everything else
+                # on the dish (ids, decision record, source refs, moderation
+                # itself) is computed or authoritative and must not be
+                # overwritten via the decisions endpoint.
+                allowed_fields = {
+                    "canonical_name",
+                    "aliases",
+                    "ingredients",
+                    "price_value",
+                    "price_currency",
+                    "menu_category",
+                }
                 updated_dishes = []
                 found = False
                 for dish in cockpit.canonical_dishes:
                     if dish.id == decision.target_id:
                         edit = decision.edit or {}
+                        patch = {k: edit[k] for k in edit if k in allowed_fields}
                         updated_dishes.append(
                             dish.model_copy(
                                 update={
                                     "moderation": new_moderation,
-                                    **{k: edit[k] for k in edit if k in {"canonical_name", "aliases", "ingredients"}},
+                                    **patch,
                                 }
                             )
                         )
