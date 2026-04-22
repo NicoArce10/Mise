@@ -1,4 +1,5 @@
-import { Search, Download, LayoutList, LayoutGrid } from 'lucide-react';
+import { forwardRef } from 'react';
+import { Search, Download, LayoutList, LayoutGrid, Keyboard } from 'lucide-react';
 
 export type ViewDensity = 'card' | 'compact';
 
@@ -10,9 +11,10 @@ interface Props {
   dishCount: number;
   filteredCount: number;
   onExport: () => void;
+  onShowHelp?: () => void;
 }
 
-export function CockpitToolbar({
+export const CockpitToolbar = forwardRef<HTMLInputElement, Props>(function CockpitToolbar({
   query,
   onQueryChange,
   density,
@@ -20,7 +22,8 @@ export function CockpitToolbar({
   dishCount,
   filteredCount,
   onExport,
-}: Props) {
+  onShowHelp,
+}, searchRef) {
   return (
     <div
       className="flex flex-wrap items-center justify-between gap-4 py-3"
@@ -40,6 +43,7 @@ export function CockpitToolbar({
       >
         <Search size={14} strokeWidth={1.5} color="var(--color-ink-muted)" />
         <input
+          ref={searchRef}
           type="text"
           value={query}
           onChange={e => onQueryChange(e.target.value)}
@@ -102,10 +106,30 @@ export function CockpitToolbar({
           <Download size={14} strokeWidth={1.5} />
           Export JSON
         </button>
+        {onShowHelp && (
+          <button
+            type="button"
+            onClick={onShowHelp}
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+            className="cursor-pointer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'transparent',
+              color: 'var(--color-ink-muted)',
+              border: '1px solid var(--color-hairline)',
+              borderRadius: 'var(--radius-chip)',
+              padding: 7,
+            }}
+          >
+            <Keyboard size={14} strokeWidth={1.5} />
+          </button>
+        )}
       </div>
     </div>
   );
-}
+});
 
 function DensityButton({
   active,
