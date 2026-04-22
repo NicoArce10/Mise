@@ -62,6 +62,19 @@ def route_candidate(c: DishCandidate) -> RoutingDecision:
             confidence=0.93,
         )
     if c.is_ephemeral_candidate:
+        # Guard: a fixed price contradicts the "ephemeral" signal. The
+        # extraction stage occasionally over-flags chalkboard items; if the
+        # price is there, the line belongs in the stable catalog.
+        if c.price_value is not None:
+            return RoutingDecision(
+                candidate_id=c.id,
+                route=RouteLabel.CANONICAL,
+                parent_dish_id=None,
+                decision_summary=(
+                    "Routed as canonical — extractor flagged ephemeral but the line carries a fixed price."
+                )[:240],
+                confidence=0.90,
+            )
         return RoutingDecision(
             candidate_id=c.id,
             route=RouteLabel.EPHEMERAL,

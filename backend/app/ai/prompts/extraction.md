@@ -59,16 +59,26 @@ Rules:
      - No standalone dish body ("add burrata +3", "extra queso +1",
        "without cheese -1", "extra salsa +0")
 
-7. **is_ephemeral_candidate=true** when the item appears under a heading or
-   label like "Today", "Tonight", "Daily", "Chef's special", "Del giorno",
-   "Plato del día", "Daily special". These don't belong in the stable
-   catalog.
-   **IMPORTANT:** ephemeral listings ARE valid candidates — do NOT filter
-   them out as "not a dish". If the board says just "Chef's Special" with
-   no further body, emit one candidate with `raw_name="Chef's Special"`,
-   `normalized_name="Chef's Special"`, `is_ephemeral_candidate=true`,
-   empty `ingredients`, null `price_value`. The reviewer decides whether
-   the listing becomes stable; your job is to surface it, not to drop it.
+7. **is_ephemeral_candidate=true** requires BOTH:
+   a. The item appears under or next to an explicit ephemeral label —
+      literally "Today", "Tonight", "Daily", "Chef's special", "Chef's
+      Selection", "Del giorno", "Plato del día", "Daily special", or
+      "Special of the day". The label must be visible on the evidence,
+      not inferred from the medium.
+   b. The item has NO fixed price (`price_value=null`). A dish with a
+      printed fixed price is part of the stable menu, even if it's
+      chalked on a board.
+
+   A chalkboard or handwritten board by itself is NOT a reason to mark
+   items as ephemeral. Many chalkboards carry the standard menu. Use the
+   explicit label + absent-price test.
+
+   **Edge case — chef's special without body:** if the evidence is a
+   board whose entire content is a short ephemeral label like "Today's
+   Chef's Special" (no dishes listed, no prices), emit exactly one
+   candidate with `raw_name` = the literal label, `normalized_name` = the
+   same label, `is_ephemeral_candidate=true`, empty `ingredients`,
+   `price_value=null`. Surface it for review; do not return empty.
 
 8. **inferred_dish_type** must be one of: `pizza`, `calzone`, `pasta`,
    `taco`, `quesadilla`, `salad`, `soup`, `sandwich`, `burger`, `toast`,
