@@ -3,34 +3,47 @@
 ## Constraints
 - Hard limit: 3 minutes
 - Asynchronous judging — must be understandable without live narration
-- No references to any prior product
-- All visible assets created or licensed for the hackathon
+- No reuse of code, schema, or assets from any prior product
+- The builder's personal motivation (the domain problem they live) may appear in voice-over and on-screen captions as narrative framing
+- All visible restaurant assets created for the hackathon or used with explicit written permission
 
 ## The single most important frame
 
 **Opening shot. Fixed. Do not redesign during editing.**
 
-Split-screen hero composition, held for 6 to 8 seconds, with voice-over.
+Personal cold-open (0:00–0:05) followed by split-screen hero composition (0:05–0:10).
+
+### Cold open — 0:00 to 0:05, voice-over over a single static shot
+
+Static shot of the builder's desk at night: one menu PDF open on screen, one phone with a chalkboard photo, one notebook with hand-edited ingredient notes. No movement, no music for the first beat.
+
+Voice-over, calm, first person, one take:
+
+> I'm building a dish-first review app in beta. Every restaurant I add, I load by hand. It works. It doesn't scale. So I built Mise — the ingestion engine I needed.
+
+This opening exists to establish domain expertise in five seconds. It is the narrative motor that won the Feb 2026 Opus 4.6 hackathon for CrossBeam ("as a personal injury lawyer"), PostVisit.ai ("as a practicing cardiologist"), and Elisa ("my 12-year-old daughter"). Keep it first person, keep it honest, do not sell.
+
+### Hero split-screen — 0:05 to 0:10
 
 | Side | Content |
 |---|---|
-| Left | Three messy evidence artifacts tiled together: a PDF menu with the typo "Marghertia", a chalkboard photo with handwritten specials, and an Instagram post of a daily dish |
-| Right | One canonical dish card for "Margherita" showing: aliases (including "Marghertia"), three provenance links pointing back to each left-side artifact, a confidence score, and a one-line decision summary |
+| Left | Three messy evidence artifacts tiled together: a PDF menu with the typo "Marghertia" (or the Spanish typo "Napolitanna"), a chalkboard photo with handwritten specials, and an Instagram post of a daily dish |
+| Right | One canonical dish card showing: aliases (including the typo), three provenance links pointing back to each left-side artifact, a confidence score, and a one-line decision summary |
 
-**Signature phrase on screen and in voice-over:**
+**Signature phrase on screen, held for 3 seconds:**
 
 > Three messy sources in. One trustworthy dish record out.
 
 **Secondary phrase for the written summary and thumbnail:**
 
-> What used to require manual catalog operations becomes a reviewable canonical dish pack in minutes.
+> What used to be manual catalog ops becomes a reviewable canonical dish pack in minutes.
 
 This frame exists to give the judges one thing they remember after closing the video. Everything else in the script supports it.
 
 ## Shot list (3:00)
 
-### 0:00 — 0:10  Hero frame
-Described above. Tagline appears in the last 2 seconds.
+### 0:00 — 0:10  Cold open + hero frame
+Described above. First 5 seconds: personal cold-open with voice-over. Last 5 seconds: split-screen hero with tagline.
 
 ### 0:10 — 0:25  Problem framing
 Plain-text cards on neutral background. No stock imagery.
@@ -97,8 +110,8 @@ The core product runs live during the recording, but the video is edited from re
 
 ## What is explicitly excluded from the demo
 - Managed Agents — optional, outside the MVP critical path per the rules
-- Any mention of prior products
-- Real restaurant names, logos, or menus
+- Reuse of code, schema, or assets from any prior product (builder's personal narrative is explicitly allowed per Constraints above)
+- Real restaurant names, logos, or menus used without explicit written permission
 - Any number not produced by `evals/run_eval.py`
 - Raw model thinking traces in the UI
 

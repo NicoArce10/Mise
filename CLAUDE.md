@@ -2,8 +2,9 @@
 
 ## Identity
 Mise is a brand-new standalone open-source hackathon project.
-It must not reference any prior product in code, schema, UI, docs, naming, prompts, or assets.
-Do not reuse pre-existing code.
+It must not reuse code, schema, data, or assets from any prior product.
+It must not reference any prior product inside Mise's own code, UI, API, or prompts.
+The builder's personal motivation — the domain problem they live — may appear in the written summary and in the demo video's narration or captions. This is narrative framing, not code reuse, and it is the motor pattern that won the Feb 2026 Opus 4.6 hackathon for CrossBeam, PostVisit.ai, and Elisa.
 
 ## Agent orientation
 Before touching anything, read `AGENTS.md` in the repo root. It defines read order, skill invocation sequence, commit convention, and hard rules.

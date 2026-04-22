@@ -4,15 +4,17 @@
 
 ## Problem
 
-Dish identity fragments across evidence. The same plate appears as `Marghertia` on a scanned PDF, `Margherita` in a POS export, and `Margheritta Napoletana` on a hand-edited image — three strings, one dish, zero trust. Every product downstream (delivery apps, POS catalogs, nutrition databases, price tiers) either inherits the mess or builds a bespoke reconciliation layer no one else can audit. The catalog operations team ends up doing it by hand, one tab at a time, with no evidence trail.
+I'm building a dish-first review app in beta in Argentina. Every restaurant I add, I do it by hand: I feed screenshots and PDFs into Claude Code, then clean the output myself, one record at a time. It works. It does not scale. And it taught me something I did not expect when I started: **the hard problem of a dish-first app is not the UI. It is turning messy restaurant reality into clean, structured, searchable dish records.**
+
+Menus arrive as PDFs, screenshots, Instagram posts, chalkboards, and inconsistent naming across branches. The same plate appears as `Marghertia` on a scanned PDF, `Margherita` on a POS export, and `Margheritta Napoletana` on a hand-edited image — three strings, one dish, zero trust. When that identity layer breaks, search fragments, reviews split across duplicates, analytics lie, and the product stops feeling trustworthy. This is not a feature I invented for the hackathon. It is the bottleneck I have been working around since I started loading restaurants myself.
 
 ## User
 
-Catalog operations at restaurant platforms — the people responsible for turning multi-source menu evidence into a single canonical record the rest of the business can query. Today they work across PDFs, CSV exports, and photographs with spreadsheets and judgement. They cannot explain the merges they made a week later, and nobody audits them until something goes wrong in production.
+Me first — a solo builder onboarding restaurants by hand on weekends. The same wall is hit at scale by **catalog operations teams at food platforms, delivery aggregators, multi-location restaurant groups, and restaurant software companies** — the people whose job is turning multi-source menu evidence into a single canonical record the rest of the business can query. Today they work across PDFs, CSV exports, and photographs with spreadsheets and judgement. They cannot explain the merges they made a week later, and nobody audits them until something goes wrong in production. Mise is the ingestion engine I needed; it is the same bottleneck they hire teams to manage.
 
 ## Solution
 
-Mise is the trust layer for dish-level menu data. Evidence in: PDFs, images, CSVs. Canonical pack out: dishes, aliases, ingredients, modifiers, ephemerals, each one with provenance, a confidence number, and a one-line decision summary. The hero frame of the demo says it in eight words: **three messy sources in, one trustworthy dish record out**. A human still approves, but the work moves from "compare tabs" to "read a decision and click."
+Evidence in: PDFs, images, CSVs, chalkboards, Instagram posts. Canonical pack out: dishes, aliases, ingredients, modifiers, ephemerals — each one with provenance back to every source, a confidence number, and a one-line decision summary. The hero frame of the demo says it in eight words: **three messy sources in, one trustworthy dish record out**. Claude Opus 4.7 is used where the mess is human — extracting candidates, spotting duplicates, proposing canonical names. Everything else is deterministic: a pure-Python gate decides merges on normalized strings, a router classifies candidates as canonical / modifier / ephemeral, and a JSON schema validates every LLM output before anything reaches the Cockpit. A human still approves, but the work moves from *"compare tabs in a spreadsheet"* to *"read a decision and click Approve, Edit, or Reject."*
 
 ## Why Opus 4.7
 
@@ -72,7 +74,7 @@ Four pure layers, one contract. **Evidence ingest** stores bytes and metadata in
 
 ## Acknowledgement
 
-All assets in the demo and in `evals/datasets/` were created for this hackathon. No external restaurant names, logos, or menus were used.
+The ingestion engine is brand-new and built from scratch for this hackathon. It reuses no code, no schema, and no assets from any prior product. All restaurant menu material shown in the demo and in `evals/datasets/` was either created for this hackathon or used with explicit written permission from its owner. The builder's personal experience onboarding restaurants by hand is narrative framing, not code reuse.
 
 ---
 
@@ -80,8 +82,10 @@ All assets in the demo and in `evals/datasets/` were created for this hackathon.
 Authoring checklist (delete before submitting):
 - [ ] Every numeric value in "Measured outcomes" is copy-pasted from submissions/metrics.json
 - [ ] Every claim in "Why Opus 4.7" maps to a visible element in the demo video
-- [ ] No prior-product reference anywhere in this document
+- [ ] No reuse of prior-product code, schema, or assets anywhere in this document or repo
+- [ ] Builder's personal narrative is first-person, specific, and honest (no selling)
+- [ ] If a real restaurant menu is shown, written permission is on file (e.g., WhatsApp screenshot)
 - [ ] Video URL verified by opening it in an incognito tab
 - [ ] Repo URL verified by opening it in an incognito tab
-- [ ] Word count under 600 (judges skim) — currently ~580 excluding the comment block
+- [ ] Word count under 600 (judges skim)
 -->

@@ -29,11 +29,11 @@ This means the project must be understandable without live explanation.
 
 ## Project guardrails for Mise
 - Mise must be clearly standalone and new
-- Do not reference any prior product anywhere in code, UI, docs, prompts, or assets
-- Do not reuse pre-existing code
+- Do not reuse code, schema, data, or assets from any prior product
+- Do not reference any prior product inside Mise's own code, UI, API surface, or prompts
+- **The builder's personal motivation and domain expertise MAY appear in the written summary and in the demo video's narration or captions** — this is the narrative motor. See CrossBeam (*"as a personal injury lawyer"*), PostVisit.ai (*"as a practicing cardiologist"*), and Elisa (*"my 12-year-old daughter"*), the three podium winners of the Feb 2026 Opus 4.6 hackathon. It is narrative framing, not code reuse, and it is explicitly allowed.
 - Do not connect to pre-existing databases
-- Do not use risky restaurant assets unless clearly licensed or created by us
-- Prefer synthetic but highly realistic demo assets
+- Do not use restaurant assets without explicit written permission from their owner
 - The core product must work without Managed Agents
 - Managed Agents can only be a bonus, not a dependency for the MVP
 
