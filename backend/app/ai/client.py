@@ -103,6 +103,23 @@ def _build_system(system_prompt: str) -> list[dict[str, Any]]:
     ]
 
 
+def _sniff_media_type(data: bytes, declared: str) -> str:
+    """Detect media type from the first bytes (magic) when the caller's
+    declared type is a raster image. File extensions lie — a `.png` that
+    is actually JPEG will be 400-rejected by the API. PDF is trusted on
+    the declared type because PDF magic is longer-tailed.
+    """
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return declared
+
+
 def image_block(data: bytes, media_type: str) -> dict[str, Any]:
     """Base64 content block — picks `image` or `document` by media_type.
 
@@ -110,6 +127,10 @@ def image_block(data: bytes, media_type: str) -> dict[str, Any]:
     images (`image/jpeg|png|gif|webp`) go as `type: "image"`. Both are
     vision-native on Opus 4.7, so the extraction prompt does not need to
     branch on which kind of evidence it receives.
+
+    The media_type is sniffed from the bytes for raster images — file
+    extensions cannot be trusted (users upload `.png` files that carry
+    JPEG payloads; the API rejects mismatches with HTTP 400).
     """
     encoded = base64.standard_b64encode(data).decode("ascii")
     if media_type == "application/pdf":
@@ -121,11 +142,12 @@ def image_block(data: bytes, media_type: str) -> dict[str, Any]:
                 "data": encoded,
             },
         }
+    effective = _sniff_media_type(data, media_type)
     return {
         "type": "image",
         "source": {
             "type": "base64",
-            "media_type": media_type,
+            "media_type": effective,
             "data": encoded,
         },
     }
