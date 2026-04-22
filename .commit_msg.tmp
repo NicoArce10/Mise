@@ -1,0 +1,39 @@
+fix: honest reconciliation narrative + real user_instructions filter
+
+Three bugs found by the user on the same deployed catalog view:
+
+1. "FROM —" on every reconciliation card.
+   The production reconciliation code (reconciliation.py) never
+   populated left_name/right_name/left_source_id/right_source_id on
+   the ReconciliationResult. Only the fixture cockpit carried them,
+   so every real run rendered as "Candidate A from — → Candidate B
+   from —". Fixed via a single _pair_display_fields helper spread
+   into every return site (6 code paths).
+
+2. Reconciliation layer shown on single-source runs.
+   The cross-source narrative only makes sense when there are at
+   least 2 sources AND at least one actually cross-source pair. On
+   a single-source run it was pure noise and broke the product's
+   value story (the hero is the dish graph + aliases + search, not
+   the reconciliation meta-layer). Both the Cockpit narrative and
+   the Processing live panel now return null unless there is a real
+   cross-source pair to talk about.
+
+3. "no veggie" in user_instructions was ignored by Opus.
+   The directive used to ship as a polite trailer block AFTER the
+   generic "extract dishes" directive, phrased as "apply them on top
+   of the rules". Opus 4.7 treated it as a nice-to-have. Now the
+   block ships FIRST (right after the image, before the generic
+   directive) and in imperative hard-filter wording: "DROPPED from
+   the output entirely", "Drop silently", "apply the most
+   restrictive reasonable reading". The system prompt was also
+   amended with a new protocol rule (#4) that names the HARD FILTER
+   block explicitly so the model knows what to look for.
+
+Tests added:
+- test_reconciliation_display: every code path of
+  reconcile_deterministic carries display fields.
+- test_extraction_user_instructions updated to lock in the new
+  ordering and hard-filter tone.
+
+84/84 backend tests pass, frontend build clean, 0 lint errors.

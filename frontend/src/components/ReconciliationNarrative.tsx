@@ -76,6 +76,18 @@ export function ReconciliationNarrative({ trace, sources }: Props) {
   }, [trace]);
 
   if (entries.length === 0) return null;
+  // Cross-source narrative only makes sense when multiple sources were
+  // uploaded. A single-source run has no "cross-source reconciliation"
+  // story — any borderline pair is just two rows on the same menu, and
+  // rendering a "Candidate A from —  →  Candidate B from —" card on a
+  // single-source review is strictly noise. The cockpit hero in that
+  // case is the dish graph itself, not the reconciliation layer.
+  if (sources.length < 2) return null;
+  // Additionally, require at least one actually cross-source entry. If
+  // the user uploaded 2 sources but every interesting pair is within
+  // the same source, the "cross-source" framing still doesn't apply.
+  const hasCrossSource = entries.some(crossSource);
+  if (!hasCrossSource) return null;
 
   const crossCount = entries.filter(crossSource).length;
   const mergeCount = entries.filter(r => r.merged).length;

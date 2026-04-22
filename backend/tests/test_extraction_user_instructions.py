@@ -108,7 +108,18 @@ def test_user_instructions_whitespace_only_is_ignored(monkeypatch) -> None:
     assert "Extra user instructions" not in texts[0]
 
 
-def test_user_instructions_real_text_adds_second_text_block(monkeypatch) -> None:
+def test_user_instructions_real_text_adds_hard_filter_block_first(
+    monkeypatch,
+) -> None:
+    """When the user provides instructions we now ship them as the FIRST
+    text block (before the generic "extract dishes per the rules"
+    directive) and in hard-filter wording — not as a polite trailer.
+
+    This regression came from a real failure mode: Opus 4.7 happily
+    extracted veggie dishes on a run where the user typed "no veggie".
+    The fix repositions the block and changes the tone to imperative,
+    and we lock that in here so it can't drift back.
+    """
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-ignored")
     directive = "Exclude beverages and desserts."
     sent = _capture_sent(
@@ -124,14 +135,16 @@ def test_user_instructions_real_text_adds_second_text_block(monkeypatch) -> None
     )
 
     texts = _text_blocks(sent["messages"])
-    assert len(texts) == 2, "expected both the generic directive AND the user instructions block"
-    # First block is still the generic directive.
-    assert "Extract dishes per the rules" in texts[0]
-    # Second block carries the user's directive verbatim and a guard
-    # that tells Opus not to break the schema.
-    assert directive in texts[1]
-    assert "apply them ON TOP" in texts[1]
-    assert "Never output prose outside the JSON object" in texts[1]
+    assert len(texts) == 2, "expected both the HARD FILTER and the extract directive"
+    # FIRST block is the user's hard-filter block — positioned before
+    # the generic directive so the model reads "drop THESE, then
+    # extract" rather than "extract, and by the way also do this".
+    assert "HARD FILTER" in texts[0]
+    assert directive in texts[0]
+    assert "DROPPED from the output entirely" in texts[0]
+    assert "Drop silently" in texts[0]
+    # SECOND block is the generic per-chunk directive, unchanged.
+    assert "Extract dishes per the rules" in texts[1]
 
 
 def test_user_instructions_do_not_leak_into_system_prompt(monkeypatch) -> None:

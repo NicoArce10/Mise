@@ -32,8 +32,22 @@ interface Props {
  */
 export function LiveReconciliationPanel({ events }: Props) {
   if (events.length === 0) return null;
+  // Only "cross-source" pairs tell the story this panel exists to tell.
+  // Same-source pairs (e.g. two rows on the same PDF) produce noisy
+  // "Kept separate" cards that don't demonstrate the reconciliation
+  // advantage over OCR. The server-side filter already keeps
+  // interesting pairs, but it also lets merged-same-source and
+  // adaptive-thinking-same-source pairs through for the state bar; we
+  // gate here too so the live panel is strictly about cross-source.
+  const crossSource = events.filter(
+    (e) =>
+      e.left_source_id != null &&
+      e.right_source_id != null &&
+      e.left_source_id !== e.right_source_id,
+  );
+  if (crossSource.length === 0) return null;
   // Render newest → oldest, cap at 8 visible cards.
-  const ordered = events.slice(-8).reverse();
+  const ordered = crossSource.slice(-8).reverse();
 
   return (
     <section

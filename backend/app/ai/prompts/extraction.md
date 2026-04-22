@@ -156,6 +156,15 @@ are fine — don't pad.
    `{ "candidates": [] }`.
 3. Output must match the JSON schema exactly. No prose outside JSON, no
    preface, no explanation, no thinking traces.
+4. **Per-run hard filter.** If the user's turn includes a block labeled
+   `HARD FILTER` (natural-language directive such as "skip beverages",
+   "no vegetarian", "only pizzas, ignore the rest"), apply it as a
+   strict *pre-filter*: any dish that violates it is DROPPED from the
+   output entirely — not flagged, not moved to ephemeral, not annotated,
+   and never mentioned in `decision_summary`. The filter controls WHICH
+   dishes qualify; the rules above still govern how each qualifying
+   dish is shaped. If a dish is borderline with respect to the filter,
+   apply the most restrictive reasonable reading and drop it.
 
 ## Worked examples
 

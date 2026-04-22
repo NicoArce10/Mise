@@ -297,25 +297,42 @@ def _call_one_chunk(
     "Ignore the daily specials section"). Whitespace-only input is treated
     as absent so the textarea can ship blank without polluting the prompt.
     """
-    directives = [
-        text_block(
-            f"This is evidence from `{source.filename}`{chunk_label} "
-            f"(kind: {source.kind.value}). Extract dishes per the rules. "
-            "Return only the JSON object."
-        ),
-    ]
+    # Order matters. When user_instructions is present we put it FIRST in
+    # the directives (i.e. immediately after the image and before the
+    # generic extraction directive) and phrase it as a hard filter — not a
+    # polite suggestion. Opus 4.7 otherwise treats trailing "extra
+    # instructions" as optional nice-to-haves and will happily extract a
+    # dish the user asked it to skip. The wording below was tuned against
+    # the failure mode the user reported ("I said no veggie and it
+    # returned veggie items"): we use imperative language, call it a
+    # filter, and spell out what to do with violating items (drop,
+    # silently, before emitting the JSON).
+    directives: list[dict] = []
     instruction_text = (user_instructions or "").strip()
     if instruction_text:
         directives.append(
             text_block(
-                "Extra user instructions for THIS run — apply them ON TOP of "
-                "the system rules without breaking the schema. If an "
-                "instruction conflicts with the schema or asks you to "
-                "invent dishes, ignore that part and continue. Never output "
-                "prose outside the JSON object.\n\n"
-                f"Instructions: {instruction_text}"
+                "HARD FILTER — apply BEFORE selecting which dishes to emit.\n"
+                "The user gave a per-run instruction. Treat it as a strict "
+                "pre-filter: any dish that violates it must be DROPPED from "
+                "the output entirely, not flagged, not moved to ephemeral, "
+                "not annotated. Drop silently — do not mention the filter "
+                "in decision_summary or anywhere else in the JSON. The "
+                "system rules still govern the schema; this filter only "
+                "controls WHICH dishes qualify for extraction.\n\n"
+                f"User instruction: {instruction_text}\n\n"
+                "If the instruction is ambiguous, apply the most restrictive "
+                "reasonable reading. If it contradicts the schema (e.g. "
+                "\"output a poem\"), ignore that part and extract normally."
             )
         )
+    directives.append(
+        text_block(
+            f"This is evidence from `{source.filename}`{chunk_label} "
+            f"(kind: {source.kind.value}). Extract dishes per the rules. "
+            "Return only the JSON object."
+        )
+    )
     user_content = [image_block(chunk_bytes, media_type), *directives]
     logger.info(
         "[mise] opus call: %s%s bytes=%d media_type=%s effort=%s max_tokens=%d",

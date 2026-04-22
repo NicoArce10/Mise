@@ -35,6 +35,27 @@ class _LLMReconciliationResponse(BaseModel):
 _RESPONSE_SCHEMA: dict[str, Any] = _LLMReconciliationResponse.model_json_schema()
 
 
+def _pair_display_fields(
+    a: DishCandidate, b: DishCandidate
+) -> dict[str, object]:
+    """Derive the presentation-only fields (`left_name`, `right_name`,
+    `left_source_id`, `right_source_id`) from a pair of candidates.
+
+    These fields used to be omitted from live pipeline runs — the frontend
+    `ReconciliationNarrative` fell back to "Candidate A from —", which
+    made the panel look broken on real menus. Populating them here means
+    every ReconciliationResult built from live data carries enough
+    context for the UI to show which two listings were compared and
+    which source each came from.
+    """
+    return {
+        "left_name": a.normalized_name or a.raw_name,
+        "right_name": b.normalized_name or b.raw_name,
+        "left_source_id": a.source_id,
+        "right_source_id": b.source_id,
+    }
+
+
 def _deterministic_obvious_merge(
     a: DishCandidate, b: DishCandidate
 ) -> ReconciliationResult:
@@ -52,6 +73,7 @@ def _deterministic_obvious_merge(
         confidence=0.98,
         decision_summary=summary,
         used_adaptive_thinking=False,
+        **_pair_display_fields(a, b),  # type: ignore[arg-type]
     )
 
 
@@ -78,6 +100,7 @@ def _deterministic_non_merge(
         confidence=0.97,
         decision_summary=summary,
         used_adaptive_thinking=False,
+        **_pair_display_fields(a, b),  # type: ignore[arg-type]
     )
 
 
@@ -146,6 +169,7 @@ def reconcile_pair(
                 confidence=0.70,
                 decision_summary="Not merged because dish types differ (llm unavailable).",
                 used_adaptive_thinking=False,
+                **_pair_display_fields(a, b),  # type: ignore[arg-type]
             )
         return ReconciliationResult(
             left_id=a.id,
@@ -156,6 +180,7 @@ def reconcile_pair(
             confidence=0.65,
             decision_summary="Merged on name/ingredient overlap (llm unavailable).",
             used_adaptive_thinking=False,
+            **_pair_display_fields(a, b),  # type: ignore[arg-type]
         )
 
     assert isinstance(llm, _LLMReconciliationResponse)
@@ -169,6 +194,7 @@ def reconcile_pair(
         confidence=llm.confidence,
         decision_summary=summary,
         used_adaptive_thinking=True,
+        **_pair_display_fields(a, b),  # type: ignore[arg-type]
     )
 
 
@@ -202,6 +228,7 @@ def reconcile_deterministic(
             confidence=0.91,
             decision_summary=summary,
             used_adaptive_thinking=False,
+            **_pair_display_fields(a, b),  # type: ignore[arg-type]
         )
 
     # name_close AND (type_same OR type unknown) → merge after typo normalization.
@@ -227,4 +254,5 @@ def reconcile_deterministic(
         confidence=0.94,
         decision_summary=summary,
         used_adaptive_thinking=False,
+        **_pair_display_fields(a, b),  # type: ignore[arg-type]
     )
