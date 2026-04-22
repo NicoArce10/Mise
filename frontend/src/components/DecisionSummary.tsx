@@ -1,4 +1,5 @@
 import type { DecisionSummary as DS } from '../domain/types';
+import { DecisionText } from './DecisionText';
 
 interface Props {
   decision: DS;
@@ -20,14 +21,14 @@ export function DecisionSummaryBlock({ decision, aliasItalic }: Props) {
   const withAliasItalic = (body: string) => {
     if (!aliasItalic) return body;
     const idx = body.indexOf(aliasItalic);
-    if (idx === -1) return body;
+    if (idx === -1) return <DecisionText text={body} />;
     return (
       <>
-        {body.slice(0, idx)}
+        <DecisionText text={body.slice(0, idx)} />
         <em className="font-accent not-italic" style={{ fontStyle: 'italic' }}>
           {aliasItalic}
         </em>
-        {body.slice(idx + aliasItalic.length)}
+        <DecisionText text={body.slice(idx + aliasItalic.length)} />
       </>
     );
   };

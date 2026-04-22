@@ -1,6 +1,6 @@
 import type { CanonicalDish, Modifier, SourceDocument } from '../domain/types';
 import { Chip } from './Chip';
-import { Confidence } from './Confidence';
+import { ConfidenceBar } from './ConfidenceBar';
 import { DecisionSummaryBlock } from './DecisionSummary';
 import { ModifierChip } from './ModifierChip';
 import { SourceArrow } from './SourceArrow';
@@ -103,16 +103,21 @@ export function CanonicalDishCard({ dish, sources, modifiers, onModerate, hero }
       )}
 
       <div
-        className="flex items-center justify-between pt-4"
+        className="flex flex-col gap-3 pt-4"
         style={{ borderTop: '1px solid var(--color-hairline)' }}
       >
         <div className="flex items-center gap-3">
-          <span className="caption" style={{ color: 'var(--color-ink-subtle)' }}>
+          <span
+            className="caption"
+            style={{ color: 'var(--color-ink-subtle)', minWidth: 88 }}
+          >
             Confidence
           </span>
-          <Confidence value={dish.decision.confidence} />
+          <ConfidenceBar value={dish.decision.confidence} />
         </div>
-        <ActionBar moderation={dish.moderation} onModerate={onModerate} />
+        <div className="flex items-center justify-end">
+          <ActionBar moderation={dish.moderation} onModerate={onModerate} />
+        </div>
       </div>
     </article>
   );

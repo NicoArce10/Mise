@@ -1,6 +1,6 @@
 import type { EphemeralItem, SourceDocument } from '../domain/types';
 import { Chip } from './Chip';
-import { Confidence } from './Confidence';
+import { ConfidenceBar } from './ConfidenceBar';
 import { DecisionSummaryBlock } from './DecisionSummary';
 import { SourceArrow } from './SourceArrow';
 import { ActionBar } from './ActionBar';
@@ -46,16 +46,21 @@ export function EphemeralCard({ item, sources, onModerate }: Props) {
       <DecisionSummaryBlock decision={item.decision} />
 
       <div
-        className="flex items-center justify-between pt-3"
+        className="flex flex-col gap-3 pt-3"
         style={{ borderTop: '1px solid var(--color-hairline)' }}
       >
         <div className="flex items-center gap-3">
-          <span className="caption" style={{ color: 'var(--color-ink-subtle)' }}>
+          <span
+            className="caption"
+            style={{ color: 'var(--color-ink-subtle)', minWidth: 88 }}
+          >
             Confidence
           </span>
-          <Confidence value={item.decision.confidence} />
+          <ConfidenceBar value={item.decision.confidence} />
         </div>
-        <ActionBar moderation={item.moderation} onModerate={onModerate} />
+        <div className="flex items-center justify-end">
+          <ActionBar moderation={item.moderation} onModerate={onModerate} />
+        </div>
       </div>
     </article>
   );
