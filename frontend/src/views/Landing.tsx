@@ -1,6 +1,9 @@
 import { ArrowRight, FileText, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 
+import { Eyebrow } from '../components/Eyebrow';
+import { JsonPreviewBlock } from './landing/JsonPreviewBlock';
+
 interface Props {
   onUpload: () => void;
   onSample: () => void;
@@ -23,22 +26,9 @@ const reveal = (delay = 0) => ({
 //  Eyebrow
 // ─────────────────────────────────────────────────────────────
 
-function Eyebrow({ children, tone = 'subtle' }: { children: React.ReactNode; tone?: 'subtle' | 'strong' }) {
-  return (
-    <span
-      className="font-mono"
-      style={{
-        fontSize: 12,
-        lineHeight: '16px',
-        letterSpacing: '0.18em',
-        textTransform: 'uppercase',
-        color: tone === 'strong' ? 'var(--color-ink-muted)' : 'var(--color-ink-subtle)',
-      }}
-    >
-      {children}
-    </span>
-  );
-}
+// `Eyebrow` lives in its own module so `views/landing/JsonPreviewBlock.tsx`
+// can reuse it without importing this (very large) file.
+// — see `components/Eyebrow.tsx`.
 
 // ─────────────────────────────────────────────────────────────
 //  CTAs
@@ -787,192 +777,6 @@ export function Landing({ onUpload, onSample }: Props) {
             <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
             <span>Open source · MIT</span>
           </motion.div>
-
-          {/* JSON preview — the actual first-call response */}
-          <motion.div {...reveal(0.18)} className="mt-20" style={{ maxWidth: 880 }}>
-            <div className="mb-5 flex items-center gap-3">
-              <span
-                aria-hidden
-                style={{
-                  display: 'inline-block',
-                  width: 24,
-                  height: 1,
-                  background: 'var(--color-ink-subtle)',
-                }}
-              />
-              <Eyebrow tone="strong">What Mise returns on the first call</Eyebrow>
-            </div>
-            <p
-              style={{
-                fontSize: 'clamp(15px, 1.25vw, 17px)',
-                lineHeight: 1.55,
-                color: 'var(--color-ink-muted)',
-                maxWidth: 720,
-                marginBottom: 28,
-              }}
-            >
-              Every menu you upload comes back in this shape. The aliases that diners
-              actually type, the vernacular search terms, and the daily specials split
-              into their own lane — all populated by the model, not by post-processing
-              on your side.
-            </p>
-          </motion.div>
-
-          <motion.div
-            {...reveal(0.22)}
-            style={{
-              background: 'var(--color-ink)',
-              borderRadius: 'var(--radius-card)',
-              padding: '24px 28px 28px',
-              maxWidth: 880,
-              boxShadow: 'var(--shadow-atmosphere)',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              className="mb-4 flex items-center justify-between gap-3"
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: 'var(--color-paper-deep)',
-              }}
-            >
-              <span>First-call response · full menu</span>
-              <span
-                style={{
-                  background: 'var(--color-olive)',
-                  color: 'var(--color-paper)',
-                  padding: '2px 10px',
-                  borderRadius: 'var(--radius-chip)',
-                  fontSize: 10,
-                  letterSpacing: '0.12em',
-                  fontWeight: 600,
-                }}
-              >
-                200 OK
-              </span>
-            </div>
-
-            <pre
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 13,
-                lineHeight: '20px',
-                color: 'var(--color-paper)',
-                whiteSpace: 'pre',
-                margin: 0,
-                overflowX: 'auto',
-              }}
-            >
-              <span style={{ color: 'var(--color-paper-deep)' }}>{`{`}</span>
-              {'\n  '}
-              <span style={{ color: '#FFD27A' }}>"dishes"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
-              {'\n    {'}
-              {'\n      '}
-              <span style={{ color: '#FFD27A' }}>"canonical_name"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
-              <span style={{ color: '#9FD99F' }}>"Milanesa Napolitana"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>,</span>
-              {'\n      '}
-              <span style={{ color: '#FFD27A' }}>"aliases"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
-              <span style={{ color: '#9FD99F' }}>"mila napo"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
-              <span style={{ color: '#9FD99F' }}>"mila a la napo"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
-              <span style={{ color: '#9FD99F' }}>"napo XL"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>],</span>
-              <span
-                style={{
-                  color: 'var(--color-gold-leaf)',
-                  marginLeft: 12,
-                  fontSize: 11,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                ← typed by diners
-              </span>
-              {'\n      '}
-              <span style={{ color: '#FFD27A' }}>"search_terms"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
-              <span style={{ color: '#9FD99F' }}>"breaded cutlet"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
-              <span style={{ color: '#9FD99F' }}>"ham cheese tomato"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>],</span>
-              {'\n      '}
-              <span style={{ color: '#FFD27A' }}>"ingredients"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
-              <span style={{ color: '#9FD99F' }}>"beef"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
-              <span style={{ color: '#9FD99F' }}>"breadcrumb"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
-              <span style={{ color: '#9FD99F' }}>"ham"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
-              <span style={{ color: '#9FD99F' }}>"mozzarella"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>],</span>
-              {'\n      '}
-              <span style={{ color: '#FFD27A' }}>"price"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
-              <span style={{ color: '#E8B4FF' }}>18500</span>
-              {'\n    },'}
-              {'\n    '}
-              <span style={{ color: 'var(--color-paper-deep)' }}>… 23 more canonical dishes</span>
-              {'\n  ],'}
-              {'\n  '}
-              <span style={{ color: '#FFD27A' }}>"ephemerals"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
-              <span
-                style={{
-                  color: 'var(--color-gold-leaf)',
-                  marginLeft: 12,
-                  fontSize: 11,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                ← separated from canonical, never returned by Veryfi / Klippa
-              </span>
-              {'\n    {'}
-              {'\n      '}
-              <span style={{ color: '#FFD27A' }}>"name"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
-              <span style={{ color: '#9FD99F' }}>"Berenjenas a la napoletana"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>,</span>
-              {'\n      '}
-              <span style={{ color: '#FFD27A' }}>"lane"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
-              <span style={{ color: '#9FD99F' }}>"chef_suggestions"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>,</span>
-              {'\n      '}
-              <span style={{ color: '#FFD27A' }}>"evidence"</span>
-              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
-              <span style={{ color: '#9FD99F' }}>"Sugerencias del chef section · page 2"</span>
-              {'\n    }'}
-              {'\n  ]'}
-              {'\n'}
-              <span style={{ color: 'var(--color-paper-deep)' }}>{`}`}</span>
-            </pre>
-
-            <div
-              className="mt-5 pt-4 flex flex-wrap items-center gap-x-4 gap-y-1"
-              style={{
-                borderTop: '1px solid rgba(251, 248, 242, 0.15)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--color-paper-deep)',
-              }}
-            >
-              <span>Indexable by Postgres · Elastic · Algolia · vector DBs</span>
-              <span aria-hidden>·</span>
-              <span style={{ color: 'var(--color-gold-leaf)' }}>No LLM in the hot path</span>
-            </div>
-          </motion.div>
         </section>
 
         {/* ═══════════════ PROBLEM ═══════════════ */}
@@ -1137,12 +941,12 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 16,
             }}
           >
-            The industry built menu pipelines{' '}
+            DoorDash built this for themselves.{' '}
             <span
               className="font-accent"
               style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
             >
-              before vision models were good enough.
+              Opus 4.7 lets us ship it as an API.
             </span>
           </h2>
 
@@ -1155,19 +959,20 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 16,
             }}
           >
-            The state of the art today — documented publicly by{' '}
+            DoorDash's engineering team publicly{' '}
             <a
-              href="https://blog.bytebytego.com/p/how-doordash-uses-ai-models-to-understand"
+              href="https://careersatdoordash.com/blog/doordash-llm-transcribe-menu/"
               target="_blank"
               rel="noreferrer"
               style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
             >
-              DoorDash engineering
-            </a>{' '}
-            — chains four moving parts: OCR, then an LLM over the OCR text, then a
-            classifier that predicts when the LLM fails, then humans who clean up the
-            rest. That architecture exists because LLMs couldn't read a photo directly.
-            Opus 4.7 can.
+              documented their approach
+            </a>
+            : OCR extracts text, an LLM turns the text into structured data, a
+            LightGBM classifier predicts whether the result is good enough, and
+            anything uncertain is routed to a human reviewer. It runs in production,
+            at scale — and it stays inside DoorDash. Every other delivery platform,
+            aggregator, or sync tool has to build something comparable on their own.
           </p>
 
           <p
@@ -1197,10 +1002,10 @@ export function Landing({ onUpload, onSample }: Props) {
             >
               Klippa
             </a>{' '}
-            expose that older architecture as a service, and stop at item name, price,
-            and section. The aliases a diner actually types, the vernacular search
-            terms, the fact that Tuesday's special isn't part of the canonical menu —
-            that work falls on whoever integrates their API.
+            cover the ingestion piece, but their output stops at item name, price, and
+            section. The aliases a diner actually types, the vernacular search terms,
+            the fact that Tuesday's chalkboard special is not part of the printed
+            menu — that work still falls on whoever integrates them.
           </p>
 
           <p
@@ -1212,10 +1017,11 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 40,
             }}
           >
-            Mise collapses the pipeline into one vision-native call. The first response
-            ships with aliases, search terms, canonical-vs-specials separation, and a
-            quality signal that flags the menus a reviewer should look at — ready for
-            Postgres, Elastic, or a vector DB, on day one.
+            Mise is a vision-native take on the same problem. Opus 4.7 reads the
+            photo directly — no separate OCR stage — and returns the canonical menu,
+            aliases, search terms, specials lane, and a quality signal in a single
+            call. Shape is stable, ready for Postgres, Elastic, or a vector DB on
+            day one.
           </p>
 
           <div
@@ -1273,7 +1079,7 @@ export function Landing({ onUpload, onSample }: Props) {
                 mise: 'Vision-native · 1 call',
                 veryfi: 'OCR → NLP',
                 klippa: 'OCR → NLP',
-                dd: 'OCR + LLM + multimodal',
+                dd: 'OCR → LLM + guardrail',
                 unique: true,
               },
               {
@@ -1438,7 +1244,16 @@ export function Landing({ onUpload, onSample }: Props) {
             }}
           >
             Sources — Veryfi & Klippa: public product pages linked above. DoorDash:
-            engineering writeups on{' '}
+            their own{' '}
+            <a
+              href="https://careersatdoordash.com/blog/doordash-llm-transcribe-menu/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+            >
+              engineering blog
+            </a>
+            , with additional analysis on{' '}
             <a
               href="https://blog.bytebytego.com/p/how-doordash-uses-ai-models-to-understand"
               target="_blank"
@@ -1446,18 +1261,9 @@ export function Landing({ onUpload, onSample }: Props) {
               style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
             >
               ByteByteGo
-            </a>{' '}
-            and the{' '}
-            <a
-              href="https://www.zenml.io/llmops-database/building-a-guardrail-system-for-llm-based-menu-transcription"
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
-            >
-              ZenML LLMOps database
             </a>
-            . "Mise" column is what the current API returns on every call — the same
-            payload you can download from the demo.{' '}
+            . The "Mise" column is the actual payload the current API returns on
+            every call — the same JSON you can download from the demo.{' '}
             <a
               href="https://github.com/NicoArce10/Mise/blob/main/docs/competitive_benchmark.md"
               target="_blank"
@@ -1471,6 +1277,18 @@ export function Landing({ onUpload, onSample }: Props) {
               Reproducible harness →
             </a>
           </p>
+        </section>
+
+        {/* ═══════════════ JSON EVIDENCE ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-20 md:py-24`}
+          style={{
+            maxWidth: CONTAINER_MAX,
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
+          <JsonPreviewBlock />
         </section>
 
         {/* ═══════════════ WHERE MISE FITS ═══════════════ */}

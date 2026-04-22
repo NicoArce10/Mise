@@ -22,7 +22,7 @@ other two — in most cases we plug into them.
 | **Mise** | Open source, self-hosted | Vision-native, single Opus 4.7 call | Dishes + aliases + search terms + canonical vs LTO lane | This repo. |
 | [Veryfi Menu OCR API](https://www.veryfi.com/restaurant-menu-ocr-api/) | Commercial, $500/mo min | OCR → NLP | `dish_name`, `dish_price`, `menu_section`, `dish_description` | SOC 2 Type II. Mature infra. No aliases, no search terms, no LTO lane. |
 | [Klippa DocHorizon Menu OCR](https://klippa.com/en/ocr/data-fields/menu-cards) | Commercial, custom quote | OCR → TXT → NLP | Dishes + categories + prices | ISO + GDPR certified. 100+ languages. Same shape as Veryfi: flat dish list. |
-| [DoorDash internal pipeline](https://blog.bytebytego.com/p/how-doordash-uses-ai-models-to-understand) | **Internal only — not an API** | OCR + LLM, plus multimodal GenAI in parallel, **arbitrated by a LightGBM guardrail classifier** | DoorDash's internal menu schema | The most sophisticated pipeline documented publicly. We cover this at length below because it's the conceptual benchmark. |
+| [DoorDash internal pipeline](https://careersatdoordash.com/blog/doordash-llm-transcribe-menu/) | **Internal only — not an API** | OCR → LLM, **guardrail (LightGBM classifier)**, human reviewer fallback | DoorDash's internal menu schema | The most sophisticated pipeline documented publicly. Source: DoorDash engineering blog (official). We cover this at length below because it is the conceptual benchmark. |
 | Side projects: [Menu_Reader](https://github.com/AlexBandurin/Menu_Reader), [Restabot](https://geneea.com/news/restabot-taming-restaurant-menus-with-ai), [taaruff MenuReader](https://taaruff.com/ai-agent/), Medium tutorials | Open source / concept | Varies (EasyOCR + XGBoost, Gemini vision, etc.) | Flat dish list | Useful as validation that the problem is real. Not commercial competitors. |
 
 ### Layer 02 · Sync (already-digital menu → POS + delivery channels)
@@ -67,9 +67,22 @@ analytics. They don't help a restaurant get **onto** those platforms.
 DoorDash is the conceptual competitor worth understanding deeply
 because they are the only player that has solved the end-to-end
 problem. Their pipeline is documented in detail on the
+[DoorDash engineering blog](https://careersatdoordash.com/blog/doordash-llm-transcribe-menu/)
+(the primary source), with additional analysis on the
 [ByteByteGo blog](https://blog.bytebytego.com/p/how-doordash-uses-ai-models-to-understand)
 and the
 [ZenML LLMOps database](https://www.zenml.io/llmops-database/building-a-guardrail-system-for-llm-based-menu-transcription).
+
+> **Why this matters for a "has it already been solved?" sanity check.**
+> DoorDash built a production system that works at scale. Nothing below
+> is meant to imply their approach is outdated or inferior — it was the
+> right architecture for the models available when it was designed, and
+> it still runs millions of menus. Mise's claim is narrower: **what
+> DoorDash had to compose as a pipeline with traditional ML, Opus 4.7
+> lets an integrator request with a single API call**. That shape
+> change is what opens up the non-DoorDash part of the market (every
+> other delivery platform, menu sync tool, aggregator, or restaurant
+> stack).
 
 ### What they built
 
