@@ -250,6 +250,7 @@ function MenuPreviewTile() {
         </div>
 
         <div
+          className="flex items-center justify-between gap-3"
           style={{
             fontFamily: 'var(--font-mono)',
             fontStyle: 'normal',
@@ -261,7 +262,20 @@ function MenuPreviewTile() {
             marginTop: 6,
           }}
         >
-          — Sugerencias del chef —
+          <span>— Sugerencias del chef —</span>
+          <span
+            style={{
+              background: 'var(--color-gold-leaf)',
+              color: 'var(--color-paper)',
+              borderRadius: 'var(--radius-chip)',
+              padding: '2px 8px',
+              fontSize: 9,
+              letterSpacing: '0.14em',
+              fontWeight: 600,
+            }}
+          >
+            LTO · auto
+          </span>
         </div>
 
         <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 6 }}>
@@ -286,10 +300,14 @@ function MenuPreviewTile() {
             marginTop: 14,
             paddingTop: 14,
             borderTop: '1px dashed var(--color-hairline)',
-            textAlign: 'right',
+            lineHeight: '16px',
           }}
         >
-          … 23 more dishes on the menu
+          <span style={{ color: 'var(--color-ink-muted)' }}>
+            Mise splits this lane into <code style={{ color: 'var(--color-ink)' }}>ephemerals[]</code>
+          </span>
+          <br />
+          <span>… 23 more canonical dishes on the menu</span>
         </div>
       </div>
     </div>
@@ -503,15 +521,15 @@ const PILLARS = [
   },
   {
     n: '02',
-    title: 'A dish graph, not a table',
+    title: 'Canonical menu vs daily specials, auto-separated',
     body:
-      'Every dish carries canonical name, aliases, local-language search terms, category, ingredients, price, and provenance. The model writes how a diner would actually ask for the dish, grounded in the evidence.',
+      'LTOs, seasonal inserts and chef\'s suggestions are detected from layout + language cues and split into their own lane — so your catalog stays stable and your promotions stay promotional. Competitors return a single flat list.',
   },
   {
     n: '03',
-    title: 'Natural-language search that honors intent',
+    title: 'Aliases + search terms populated on first call',
     body:
-      'Queries like "something veggie that isn\'t a salad", "a burger like a quarter-pounder" or "mila napo abundante" all resolve through the graph. Opus reads the query, honors exclusions, and returns only dishes the restaurant actually serves — with a one-line reason.',
+      'Every dish ships with canonical name, aliases (typos, shorthand, regional names) and the vernacular a diner would actually type — so Postgres full-text, Elastic, Algolia or a vector DB can serve queries in milliseconds. No LLM in the hot path.',
   },
   {
     n: '04',
@@ -583,24 +601,22 @@ const INTEGRATIONS = [
 
 const AUDIENCES = [
   {
-    title: 'Food delivery & discovery apps',
+    title: 'Delivery marketplaces',
+    example: 'Rappi · PedidosYa · iFood · DoorDash · Uber Eats',
     body:
-      'Turn raw menu PDFs into dish-level search the moment a restaurant is onboarded. Users ask for food, not SKUs.',
+      'Onboarding a new restaurant without a POS takes 2–3 hours of manual menu entry per location. Mise turns that into a 30-second API call — aliases, categories and daily-specials lanes included — so your ops team scales with headcount, not head-count-squared.',
   },
   {
-    title: 'Restaurant groups & franchises',
+    title: 'Menu aggregators & commerce platforms',
+    example: 'Deliverect · Checkmate · Tillster-style vendors',
     body:
-      'Each location ships its own menu in whatever format the kitchen prefers. Customers get the same natural-language search everywhere — no designer, no menu operator, no spreadsheet.',
+      'You already normalize menus across channels. Mise gives you a cleaner starting point: a dish graph with aliases and LTOs already tagged, so your sync engine doesn\'t have to guess which items are promotional.',
   },
   {
-    title: 'Restaurant software companies',
+    title: 'POS-less restaurants in emerging markets',
+    example: 'LatAm · SEA · MENA independent restaurants',
     body:
-      'Ship natural-language menu search as a feature in hours, not quarters. The model handles the vernacular you never anticipated.',
-  },
-  {
-    title: 'Voice & chat ordering',
-    body:
-      'Customers never say "item-id-42". Mise gives your agent the aliases, categories, and search terms real humans use.',
+      'Tens of thousands of small restaurants keep their menu as a laminated PDF or a phone photo. Mise converts that into a digital catalog good enough to plug into any delivery or discovery product — no POS, no engineering, no rewrite.',
   },
 ];
 
@@ -699,7 +715,7 @@ export function Landing({ onUpload, onSample }: Props) {
                 background: 'var(--color-ink-subtle)',
               }}
             />
-            <Eyebrow tone="strong">Dish understanding · upstream of ordering</Eyebrow>
+            <Eyebrow tone="strong">Menu digitization · for delivery platforms & aggregators</Eyebrow>
           </motion.div>
 
           <motion.h1
@@ -715,7 +731,7 @@ export function Landing({ onUpload, onSample }: Props) {
               maxWidth: 1040,
             }}
           >
-            Any menu. Any language.{' '}
+            Onboard a restaurant{' '}
             <span
               className="font-accent"
               style={{
@@ -724,8 +740,9 @@ export function Landing({ onUpload, onSample }: Props) {
                 color: 'var(--color-ink)',
               }}
             >
-              Ask like a customer.
-            </span>
+              in seconds,
+            </span>{' '}
+            not hours.
           </motion.h1>
 
           <motion.p
@@ -734,20 +751,21 @@ export function Landing({ onUpload, onSample }: Props) {
               fontSize: 'clamp(16px, 1.4vw, 19px)',
               lineHeight: 1.5,
               color: 'var(--color-ink-muted)',
-              maxWidth: 680,
+              maxWidth: 720,
               marginBottom: 28,
             }}
           >
-            Upload a PDF, a photo, a screenshot. Mise turns it into a{' '}
+            Drop a menu PDF or a photo. Get a{' '}
             <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
-              searchable dish graph
+              production-ready JSON catalog
             </span>
-            {' '}and answers the way diners really ask — in Spanish, English, Japanese,
-            whatever your market speaks. Grounded in your menu, never invented.
+            {' '}with aliases, ingredients and daily specials already separated —
+            indexable by any search engine. One call to Opus 4.7 vision, no OCR pipeline,
+            no manual cleanup.
           </motion.p>
 
           <motion.div {...reveal(0.12)} className="flex flex-wrap items-center gap-4 md:gap-6">
-            <PrimaryCta onClick={onSample}>Try the sample menu</PrimaryCta>
+            <PrimaryCta onClick={onSample}>Try with a real menu</PrimaryCta>
             <SecondaryCta onClick={onUpload}>Upload your own</SecondaryCta>
           </motion.div>
 
@@ -765,11 +783,167 @@ export function Landing({ onUpload, onSample }: Props) {
           >
             <span>Real Claude Opus 4.7</span>
             <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
-            <span>Evidence-grounded search</span>
-            <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
-            <span>No external OCR</span>
+            <span>Vision-native · no OCR</span>
             <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
             <span>Open source · MIT</span>
+          </motion.div>
+
+          {/* JSON preview — shows the actual API response shape in 10 seconds */}
+          <motion.div
+            {...reveal(0.22)}
+            className="mt-16"
+            style={{
+              background: 'var(--color-ink)',
+              borderRadius: 'var(--radius-card)',
+              padding: '24px 28px 28px',
+              maxWidth: 880,
+              boxShadow: 'var(--shadow-atmosphere)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              className="mb-4 flex items-center justify-between gap-3"
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: 'var(--color-paper-deep)',
+              }}
+            >
+              <span>GET /api/catalog/&lt;run_id&gt;.json</span>
+              <span
+                style={{
+                  background: 'var(--color-olive)',
+                  color: 'var(--color-paper)',
+                  padding: '2px 10px',
+                  borderRadius: 'var(--radius-chip)',
+                  fontSize: 10,
+                  letterSpacing: '0.12em',
+                  fontWeight: 600,
+                }}
+              >
+                200 OK
+              </span>
+            </div>
+
+            <pre
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 13,
+                lineHeight: '20px',
+                color: 'var(--color-paper)',
+                whiteSpace: 'pre',
+                margin: 0,
+                overflowX: 'auto',
+              }}
+            >
+              <span style={{ color: 'var(--color-paper-deep)' }}>{`{`}</span>
+              {'\n  '}
+              <span style={{ color: '#FFD27A' }}>"dishes"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
+              {'\n    {'}
+              {'\n      '}
+              <span style={{ color: '#FFD27A' }}>"canonical_name"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
+              <span style={{ color: '#9FD99F' }}>"Milanesa Napolitana"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>,</span>
+              {'\n      '}
+              <span style={{ color: '#FFD27A' }}>"aliases"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
+              <span style={{ color: '#9FD99F' }}>"mila napo"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
+              <span style={{ color: '#9FD99F' }}>"mila a la napo"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
+              <span style={{ color: '#9FD99F' }}>"napo XL"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>],</span>
+              <span
+                style={{
+                  color: 'var(--color-gold-leaf)',
+                  marginLeft: 12,
+                  fontSize: 11,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                ← typed by diners
+              </span>
+              {'\n      '}
+              <span style={{ color: '#FFD27A' }}>"search_terms"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
+              <span style={{ color: '#9FD99F' }}>"breaded cutlet"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
+              <span style={{ color: '#9FD99F' }}>"ham cheese tomato"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>],</span>
+              {'\n      '}
+              <span style={{ color: '#FFD27A' }}>"ingredients"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
+              <span style={{ color: '#9FD99F' }}>"beef"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
+              <span style={{ color: '#9FD99F' }}>"breadcrumb"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
+              <span style={{ color: '#9FD99F' }}>"ham"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>, </span>
+              <span style={{ color: '#9FD99F' }}>"mozzarella"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>],</span>
+              {'\n      '}
+              <span style={{ color: '#FFD27A' }}>"price"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
+              <span style={{ color: '#E8B4FF' }}>18500</span>
+              {'\n    },'}
+              {'\n    '}
+              <span style={{ color: 'var(--color-paper-deep)' }}>… 23 more canonical dishes</span>
+              {'\n  ],'}
+              {'\n  '}
+              <span style={{ color: '#FFD27A' }}>"ephemerals"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: [</span>
+              <span
+                style={{
+                  color: 'var(--color-gold-leaf)',
+                  marginLeft: 12,
+                  fontSize: 11,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                ← separated from canonical, never returned by Veryfi / Klippa
+              </span>
+              {'\n    {'}
+              {'\n      '}
+              <span style={{ color: '#FFD27A' }}>"name"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
+              <span style={{ color: '#9FD99F' }}>"Berenjenas a la napoletana"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>,</span>
+              {'\n      '}
+              <span style={{ color: '#FFD27A' }}>"lane"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
+              <span style={{ color: '#9FD99F' }}>"chef_suggestions"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>,</span>
+              {'\n      '}
+              <span style={{ color: '#FFD27A' }}>"evidence"</span>
+              <span style={{ color: 'var(--color-paper-deep)' }}>: </span>
+              <span style={{ color: '#9FD99F' }}>"Sugerencias del chef section · page 2"</span>
+              {'\n    }'}
+              {'\n  ]'}
+              {'\n'}
+              <span style={{ color: 'var(--color-paper-deep)' }}>{`}`}</span>
+            </pre>
+
+            <div
+              className="mt-5 pt-4 flex flex-wrap items-center gap-x-4 gap-y-1"
+              style={{
+                borderTop: '1px solid rgba(251, 248, 242, 0.15)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'var(--color-paper-deep)',
+              }}
+            >
+              <span>Indexable by Postgres · Elastic · Algolia · vector DBs</span>
+              <span aria-hidden>·</span>
+              <span style={{ color: 'var(--color-gold-leaf)' }}>No LLM in the hot path</span>
+            </div>
           </motion.div>
         </section>
 
@@ -799,7 +973,7 @@ export function Landing({ onUpload, onSample }: Props) {
                   background: 'var(--color-ink-subtle)',
                 }}
               />
-              <Eyebrow tone="strong">The problem nobody shipped</Eyebrow>
+              <Eyebrow tone="strong">The problem, in the industry's own words</Eyebrow>
             </div>
 
             <h2
@@ -814,15 +988,16 @@ export function Landing({ onUpload, onSample }: Props) {
                 marginBottom: 40,
               }}
             >
-              Menus live as PDFs and photos.
-              <br />
+              Every new restaurant takes{' '}
               <span
                 className="font-accent"
                 style={{ fontStyle: 'italic', color: 'var(--color-sienna)' }}
               >
-                Humans don’t ask
+                2–3 hours
               </span>{' '}
-              in PDFs.
+              to onboard.
+              <br />
+              Multiply by ten thousand.
             </h2>
 
             <div
@@ -830,11 +1005,49 @@ export function Landing({ onUpload, onSample }: Props) {
               style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
             >
               {[
-                ['Diners talk in vernacular', '"something veggie that isn\'t a salad", "a burger like a quarter-pounder", "mila napo abundante", "ramen light de shio". No catalog indexes any of that.'],
-                ['Menus don\'t fit a schema', 'Chalkboards, Instagram posts, WhatsApp photos, multi-page PDFs, seasonal inserts. Each format hides structure the next one exposes.'],
-                ['Keyword search misses intent', '"what do you have for a kid who doesn\'t like spicy" isn\'t a keyword — it\'s a constraint. Traditional search has no answer.'],
+                [
+                  '2–3 hours per menu',
+                  <span>
+                    Manual digitization of a single restaurant menu takes 2–3 hours
+                    — a figure{' '}
+                    <a
+                      href="https://www.veryfi.com/restaurant-menu-ocr-api/"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+                    >
+                      published by Veryfi
+                    </a>
+                    {' '}themselves. For a delivery marketplace onboarding thousands of
+                    restaurants, that's a full engineering team's worth of operator hours.
+                  </span>,
+                ],
+                [
+                  '240 hours per year, per restaurant',
+                  <span>
+                    Keeping the same menu in sync across DoorDash, Uber Eats, Grubhub,
+                    and the restaurant's own app costs up to{' '}
+                    <a
+                      href="https://www.eats365pos.com/us/blog/post/menu-management-mistakes-avoid-them"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+                    >
+                      240 labor hours a year
+                    </a>
+                    . Most of it is manual re-entry.
+                  </span>,
+                ],
+                [
+                  'No POS, no API',
+                  <span>
+                    In emerging markets (LatAm, SEA, MENA) most restaurants don't run
+                    Toast or Square. Their menu lives as a PDF, a WhatsApp photo, or a
+                    laminated sheet — never as an API response. That's the gap Mise fills.
+                  </span>,
+                ],
               ].map(([title, body]) => (
-                <div key={title} className="flex flex-col gap-3">
+                <div key={String(title)} className="flex flex-col gap-3">
                   <h3
                     className="font-display"
                     style={{
@@ -860,6 +1073,195 @@ export function Landing({ onUpload, onSample }: Props) {
               ))}
             </div>
           </div>
+        </section>
+
+        {/* ═══════════════ COMPETITIVE COMPARE ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-24 md:py-32`}
+          style={{
+            maxWidth: CONTAINER_MAX,
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
+          <div className="mb-10 flex items-center gap-3">
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 28,
+                height: 1,
+                background: 'var(--color-ink-subtle)',
+              }}
+            />
+            <Eyebrow tone="strong">How Mise compares</Eyebrow>
+          </div>
+
+          <h2
+            className="font-display"
+            style={{
+              fontWeight: 500,
+              fontSize: 'clamp(32px, 4.5vw, 52px)',
+              lineHeight: 1.05,
+              letterSpacing: '-0.02em',
+              color: 'var(--color-ink)',
+              maxWidth: 920,
+              marginBottom: 16,
+            }}
+          >
+            Menu-to-JSON already exists.{' '}
+            <span
+              className="font-accent"
+              style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
+            >
+              It stops at JSON.
+            </span>
+          </h2>
+
+          <p
+            style={{
+              fontSize: 'clamp(15px, 1.3vw, 17px)',
+              lineHeight: 1.55,
+              color: 'var(--color-ink-muted)',
+              maxWidth: 820,
+              marginBottom: 40,
+            }}
+          >
+            Veryfi and Klippa give you item names, prices, and categories — via a
+            classical OCR → NLP pipeline. You still spend engineering time writing
+            alias tables ("margarita" ≈ "margherita"), tagging which items are
+            today's specials, and pre-computing search terms. Mise ships all of that
+            in the first response, powered by a single Opus 4.7 vision call.
+          </p>
+
+          <div
+            style={{
+              border: '1px solid var(--color-hairline)',
+              borderRadius: 'var(--radius-card)',
+              overflow: 'hidden',
+              background: 'var(--color-paper)',
+            }}
+          >
+            {/* Header row */}
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: '1.6fr 1fr 1fr 1fr',
+                background: 'var(--color-paper-tint)',
+                borderBottom: '1px solid var(--color-hairline)',
+              }}
+            >
+              {['Capability', 'Mise', 'Veryfi', 'Klippa'].map((h, i) => (
+                <div
+                  key={h}
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: i === 1 ? 'var(--color-ink)' : 'var(--color-ink-subtle)',
+                    padding: '16px 20px',
+                    fontWeight: i === 1 ? 600 : 400,
+                  }}
+                >
+                  {h}
+                </div>
+              ))}
+            </div>
+
+            {[
+              ['Ingestion', 'Vision-native (one model)', 'OCR → NLP pipeline', 'OCR → NLP pipeline'],
+              ['Item + price + category', 'Yes', 'Yes', 'Yes'],
+              ['Aliases (e.g. "margarita" ≈ "margherita")', 'Populated on first call', 'Build your own', 'Build your own'],
+              ['Search terms (diner vernacular)', 'Populated on first call', 'Not provided', 'Not provided'],
+              ['Canonical vs daily specials / LTOs', 'Auto-separated', 'Not distinguished', 'Not distinguished'],
+              ['Multilingual support', 'Automatic (same model)', 'Latin languages, on request', 'Latin languages'],
+              ['Indexable by Postgres / Elastic / vector DB day one', 'Yes (aliases & terms pre-computed)', 'Requires post-processing', 'Requires post-processing'],
+            ].map(([cap, mise, veryfi, klippa], idx, arr) => (
+              <div
+                key={String(cap)}
+                className="grid"
+                style={{
+                  gridTemplateColumns: '1.6fr 1fr 1fr 1fr',
+                  borderBottom: idx < arr.length - 1 ? '1px solid var(--color-hairline)' : 'none',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '14px 20px',
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: 'var(--color-ink)',
+                    fontWeight: 500,
+                  }}
+                >
+                  {cap}
+                </div>
+                <div
+                  style={{
+                    padding: '14px 20px',
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: 'var(--color-ink)',
+                    background: 'var(--color-paper-tint)',
+                    borderLeft: '1px solid var(--color-hairline)',
+                    borderRight: '1px solid var(--color-hairline)',
+                  }}
+                >
+                  {mise}
+                </div>
+                <div
+                  style={{
+                    padding: '14px 20px',
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  {veryfi}
+                </div>
+                <div
+                  style={{
+                    padding: '14px 20px',
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: 'var(--color-ink-muted)',
+                    borderLeft: '1px solid var(--color-hairline)',
+                  }}
+                >
+                  {klippa}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p
+            className="font-mono"
+            style={{
+              fontSize: 11,
+              lineHeight: '18px',
+              letterSpacing: '0.08em',
+              color: 'var(--color-ink-subtle)',
+              marginTop: 16,
+              maxWidth: 820,
+            }}
+          >
+            Sources: Veryfi and Klippa public product documentation (linked in the
+            problem section above). "Mise" column reflects what the current API
+            returns on every call — the same payload you can download from the demo.{' '}
+            <a
+              href="https://github.com/NicoArce10/Mise/blob/main/docs/competitive_benchmark.md"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                color: 'var(--color-ink)',
+                textDecoration: 'underline dotted',
+                textUnderlineOffset: 4,
+              }}
+            >
+              Reproducible harness →
+            </a>
+          </p>
         </section>
 
         {/* ═══════════════ EVIDENCE → SEARCH ═══════════════ */}
@@ -1282,7 +1684,7 @@ export function Landing({ onUpload, onSample }: Props) {
                   background: 'var(--color-ink-subtle)',
                 }}
               />
-              <Eyebrow tone="strong">Built for anyone shipping food software</Eyebrow>
+              <Eyebrow tone="strong">Who this is built for</Eyebrow>
             </div>
 
             <h2
@@ -1297,57 +1699,53 @@ export function Landing({ onUpload, onSample }: Props) {
                 marginBottom: 48,
               }}
             >
-              Menu search shouldn’t need a data team.{' '}
+              Three customers.{' '}
               <span
                 className="font-accent"
                 style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
               >
-                Now it doesn’t.
+                One shared pain.
               </span>
             </h2>
 
             <div
-              className="grid gap-x-10 gap-y-10"
+              className="grid gap-x-10 gap-y-12"
               style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
             >
               {AUDIENCES.map(a => (
-                <div key={a.title} className="flex items-start gap-4">
-                  <div
-                    className="flex shrink-0 items-center justify-center"
+                <div key={a.title} className="flex flex-col gap-3">
+                  <h3
+                    className="font-display"
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 'var(--radius-chip)',
-                      background: 'var(--color-paper)',
-                      border: '1px solid var(--color-hairline)',
+                      fontWeight: 500,
+                      fontSize: 22,
+                      lineHeight: '28px',
+                      letterSpacing: '-0.005em',
+                      color: 'var(--color-ink)',
+                    }}
+                  >
+                    {a.title}
+                  </h3>
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: '0.14em',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-ink-subtle)',
+                    }}
+                  >
+                    {a.example}
+                  </span>
+                  <p
+                    style={{
+                      fontSize: 15,
+                      lineHeight: '24px',
                       color: 'var(--color-ink-muted)',
                     }}
                   >
-                    <Search size={16} strokeWidth={1.5} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <h3
-                      className="font-display"
-                      style={{
-                        fontWeight: 500,
-                        fontSize: 20,
-                        lineHeight: '26px',
-                        letterSpacing: '-0.005em',
-                        color: 'var(--color-ink)',
-                      }}
-                    >
-                      {a.title}
-                    </h3>
-                    <p
-                      style={{
-                        fontSize: 15,
-                        lineHeight: '24px',
-                        color: 'var(--color-ink-muted)',
-                      }}
-                    >
-                      {a.body}
-                    </p>
-                  </div>
+                    {a.body}
+                  </p>
                 </div>
               ))}
             </div>

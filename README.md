@@ -195,6 +195,7 @@ Mise/
 - [`docs/demo_script.md`](docs/demo_script.md) — three-minute shot list
 - [`docs/cockpit_visual_direction.md`](docs/cockpit_visual_direction.md) — editorial / cartographic design tokens
 - [`docs/evals.md`](docs/evals.md) — evaluation harness specification
+- [`docs/competitive_benchmark.md`](docs/competitive_benchmark.md) — how to reproduce the Mise vs Veryfi / Klippa comparison on your own hardware, with your own credentials
 - [`docs/references.md`](docs/references.md) — notes and sources
 
 ## For hackathon judges
@@ -204,9 +205,10 @@ If you are reviewing this submission:
 1. **Demo video** — link in [`submissions/README.md`](submissions/README.md)
 2. **Written summary** — [`submissions/written_summary.md`](submissions/written_summary.md)
 3. **Measured metrics** — [`submissions/metrics.json`](submissions/metrics.json), reproducible via `python evals/run_eval.py --bundle all`
-4. **Try it live** — the Quickstart above is copy-pasteable; smoke-test completes in under a minute.
+4. **Competitive benchmark** — reproducible side-by-side with Veryfi (requires your own Veryfi API key): `python evals/run_competitor_bench.py --bundle bundle_01_italian --mise-mode real --with-veryfi`. Methodology: [`docs/competitive_benchmark.md`](docs/competitive_benchmark.md).
+5. **Try it live** — the Quickstart above is copy-pasteable; smoke-test completes in under a minute.
 
-Every quantitative claim in the demo video is produced by `evals/run_eval.py`. If a number isn't in that report, it isn't in the video. The contract is in [`docs/evals.md`](docs/evals.md).
+Every quantitative claim in the demo video is produced by `evals/run_eval.py` or `evals/run_competitor_bench.py`. If a number isn't in one of those reports, it isn't in the video. The contract is in [`docs/evals.md`](docs/evals.md).
 
 ## License
 
