@@ -31,6 +31,40 @@ def test_start_processing_unknown_batch_returns_404(client: TestClient) -> None:
     assert resp.status_code == 404
 
 
+def test_start_processing_accepts_user_instructions(client: TestClient) -> None:
+    """The new optional body is accepted and returns a valid processing id.
+
+    We can't verify the text reached Opus from a mock-mode test — the
+    real pipeline is guarded behind ANTHROPIC_API_KEY — but we can lock
+    in the contract: valid payloads return 202, oversize payloads are
+    rejected, and an empty body stays backward compatible.
+    """
+    batch_id = _upload_one(client)
+    resp = client.post(
+        f"/api/process/{batch_id}",
+        json={"user_instructions": "Exclude beverages and desserts."},
+    )
+    assert resp.status_code == 202, resp.text
+    assert "processing_id" in resp.json()
+
+
+def test_start_processing_rejects_oversize_instructions(client: TestClient) -> None:
+    """Pydantic caps user_instructions at 2000 chars so prompts stay bounded."""
+    batch_id = _upload_one(client)
+    resp = client.post(
+        f"/api/process/{batch_id}",
+        json={"user_instructions": "x" * 3000},
+    )
+    assert resp.status_code == 422, resp.text
+
+
+def test_start_processing_empty_body_is_backward_compatible(client: TestClient) -> None:
+    """Legacy clients that POST without a body must keep working."""
+    batch_id = _upload_one(client)
+    resp = client.post(f"/api/process/{batch_id}")
+    assert resp.status_code == 202, resp.text
+
+
 def test_processing_advances_to_ready(client: TestClient) -> None:
     batch_id = _upload_one(client)
     processing_id = client.post(f"/api/process/{batch_id}").json()["processing_id"]

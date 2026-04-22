@@ -72,8 +72,25 @@ export async function apiUpload(files: File[]): Promise<UploadBatch> {
   return request('/api/upload', { method: 'POST', body: form });
 }
 
-export async function apiStartProcessing(batchId: UUID): Promise<{ processing_id: UUID }> {
-  return request(`/api/process/${encodeURIComponent(batchId)}`, { method: 'POST' });
+/**
+ * Kick off extraction for an uploaded batch. `userInstructions`, when
+ * provided, is a short free-text directive passed to Opus alongside the
+ * evidence on each page — "Exclude beverages", "Only pizzas", "Ignore
+ * daily specials". Whitespace-only input is ignored by the backend.
+ */
+export async function apiStartProcessing(
+  batchId: UUID,
+  userInstructions?: string,
+): Promise<{ processing_id: UUID }> {
+  const trimmed = (userInstructions ?? '').trim();
+  const init: RequestInit = trimmed
+    ? {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ user_instructions: trimmed }),
+      }
+    : { method: 'POST' };
+  return request(`/api/process/${encodeURIComponent(batchId)}`, init);
 }
 
 export async function apiGetProcessing(processingId: UUID): Promise<ProcessingRun> {

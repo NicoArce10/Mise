@@ -1116,6 +1116,14 @@ export function Landing({ onUpload, onSample }: Props) {
                 unique: true,
               },
               {
+                cap: 'Natural-language filter per run',
+                mise: 'Yes · "exclude beverages"',
+                dd: 'Not applicable',
+                veryfi: 'OCR — not instructable',
+                klippa: 'OCR — not instructable',
+                unique: true,
+              },
+              {
                 cap: 'Multilingual',
                 mise: 'Automatic · same model',
                 dd: 'Unspecified',

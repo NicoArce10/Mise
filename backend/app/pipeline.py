@@ -80,6 +80,7 @@ def _run_extraction(
     inputs: list[PipelineInput],
     mode: Mode,
     on_source_progress: Callable[[str, dict[str, Any]], None] | None = None,
+    user_instructions: str | None = None,
 ) -> tuple[list[DishCandidate], list[ExtractionFailure]]:
     """Run extraction per source. Collect both successes and per-source
     failures so the caller can decide how to present partial results.
@@ -130,6 +131,7 @@ def _run_extraction(
                             data,
                             on_page_done=_on_page,
                             on_candidates_found=_on_names,
+                            user_instructions=user_instructions,
                         )
                     )
             else:
@@ -439,6 +441,7 @@ def run_pipeline(
     inputs: list[PipelineInput],
     mode: Mode = "fallback",
     on_stage: Callable[[str, str | None, dict[str, Any] | None], None] | None = None,
+    user_instructions: str | None = None,
 ) -> CockpitState:
     """Run extraction → reconciliation → routing and materialize a CockpitState.
 
@@ -501,7 +504,10 @@ def run_pipeline(
             on_stage("extracting", None, {"new_dish_names": names})
 
     candidates, failures = _run_extraction(
-        inputs, mode, on_source_progress=_on_source_progress
+        inputs,
+        mode,
+        on_source_progress=_on_source_progress,
+        user_instructions=user_instructions,
     )
 
     # If every source died during extraction, don't continue to reconciliation

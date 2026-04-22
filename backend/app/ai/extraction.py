@@ -283,20 +283,40 @@ def _call_one_chunk(
     span_prefix: str,
     effort: str,
     max_tokens: int,
+    user_instructions: str | None = None,
 ) -> list[DishCandidate]:
     """Run a single Opus 4.7 vision call on one chunk (full file or one PDF page).
 
     Raises `OpusTransientError`, `OpusCallError`, or any other exception —
     the caller decides whether partial failures are tolerable.
+
+    `user_instructions`, when provided, is rendered as an extra text block
+    AFTER the image and BEFORE the generic extraction directive. The system
+    prompt still wins on schema and the extraction rules — this block only
+    adds a narrow, per-run filter ("Skip beverages", "Only extract pizzas",
+    "Ignore the daily specials section"). Whitespace-only input is treated
+    as absent so the textarea can ship blank without polluting the prompt.
     """
-    user_content = [
-        image_block(chunk_bytes, media_type),
+    directives = [
         text_block(
             f"This is evidence from `{source.filename}`{chunk_label} "
             f"(kind: {source.kind.value}). Extract dishes per the rules. "
             "Return only the JSON object."
         ),
     ]
+    instruction_text = (user_instructions or "").strip()
+    if instruction_text:
+        directives.append(
+            text_block(
+                "Extra user instructions for THIS run — apply them ON TOP of "
+                "the system rules without breaking the schema. If an "
+                "instruction conflicts with the schema or asks you to "
+                "invent dishes, ignore that part and continue. Never output "
+                "prose outside the JSON object.\n\n"
+                f"Instructions: {instruction_text}"
+            )
+        )
+    user_content = [image_block(chunk_bytes, media_type), *directives]
     logger.info(
         "[mise] opus call: %s%s bytes=%d media_type=%s effort=%s max_tokens=%d",
         source.filename,
@@ -332,6 +352,7 @@ def extract_from_bytes(
     max_tokens: int = 16384,
     on_page_done: OnPageDone | None = None,
     on_candidates_found: OnCandidatesFound | None = None,
+    user_instructions: str | None = None,
 ) -> list[DishCandidate]:
     """Call Opus 4.7 on this source's raw bytes.
 
@@ -372,6 +393,7 @@ def extract_from_bytes(
                 span_prefix="",
                 effort=resolved_effort,
                 max_tokens=max_tokens,
+                user_instructions=user_instructions,
             )
         except OpusTransientError as exc:
             logger.error("[mise] opus unreachable for %s: %s", source.filename, exc)
@@ -458,6 +480,7 @@ def extract_from_bytes(
                     span_prefix=f"p{idx}",
                     effort=page_effort,
                     max_tokens=max_tokens,
+                    user_instructions=user_instructions,
                 )
             ] = idx
             # Stagger submission so the first few pages don't all hit the

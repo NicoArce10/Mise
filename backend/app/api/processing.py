@@ -21,7 +21,8 @@ import threading
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Body, HTTPException, status
+from pydantic import BaseModel, Field
 
 from ..core.store import store
 from ..domain.models import EntityId, ProcessingRun, ProcessingState
@@ -31,6 +32,29 @@ logger = logging.getLogger(__name__)
 
 
 _MOCK_STAGE_SECONDS = 0.4  # 1.6s total for queued -> ready
+# Cap on the optional user_instructions payload. This text is copied into
+# every Opus call for the run, so a runaway textarea would bloat prompts
+# and waste tokens. 2k chars is ~500 tokens — room for a concrete filter
+# without letting people paste an entire menu in as "instructions".
+_MAX_USER_INSTRUCTIONS = 2000
+
+
+class StartProcessingBody(BaseModel):
+    """Optional body for POST /api/process/{batch_id}.
+
+    When absent (or when `user_instructions` is blank/whitespace) the
+    pipeline behaves exactly like before: the system prompt and the
+    evidence are the only inputs Opus sees. When provided, a short
+    user-authored directive rides alongside each per-page call so the
+    model can apply a per-run filter ("Exclude beverages", "Only extract
+    pizzas", "Ignore the daily specials section") without us needing to
+    edit the system prompt.
+    """
+
+    user_instructions: str | None = Field(
+        default=None,
+        max_length=_MAX_USER_INSTRUCTIONS,
+    )
 
 
 def _advance_pipeline_mock(run_id: EntityId, batch_id: EntityId) -> None:
@@ -65,7 +89,11 @@ def _advance_pipeline_mock(run_id: EntityId, batch_id: EntityId) -> None:
         raise
 
 
-def _advance_pipeline_real(run_id: EntityId, batch_id: EntityId) -> None:
+def _advance_pipeline_real(
+    run_id: EntityId,
+    batch_id: EntityId,
+    user_instructions: str | None = None,
+) -> None:
     """Run the real pipeline (extraction → gate → reconciliation → routing).
 
     Uses lazy imports so the SDK is not required to start the app in mock
@@ -149,6 +177,7 @@ def _advance_pipeline_real(run_id: EntityId, batch_id: EntityId) -> None:
             inputs=inputs,
             mode=pipeline_mode,  # type: ignore[arg-type]
             on_stage=_on_stage,
+            user_instructions=user_instructions,
         )
         store.set_cockpit(run_id, cockpit)
 
@@ -253,15 +282,39 @@ def _select_pipeline():
     "/{batch_id}",
     status_code=status.HTTP_202_ACCEPTED,
 )
-async def start_processing(batch_id: EntityId) -> dict[str, EntityId]:
+async def start_processing(
+    batch_id: EntityId,
+    body: StartProcessingBody | None = Body(default=None),
+) -> dict[str, EntityId]:
+    """Kick off the extraction pipeline for a previously-uploaded batch.
+
+    The request body is optional to stay backward-compatible: existing
+    clients that POST an empty body keep working. Clients that want to
+    filter the extraction ("exclude beverages", "only pizzas", etc.)
+    send `{"user_instructions": "..."}`.
+    """
     batch = store.get_batch(batch_id)
     if batch is None:
         raise HTTPException(status_code=404, detail=f"batch {batch_id} not found")
 
     run_id = store.create_run(batch_id)
+    # Trim + normalize once at the boundary so nothing downstream has to
+    # worry about whitespace-only input.
+    raw_instructions = body.user_instructions if body is not None else None
+    trimmed = (raw_instructions or "").strip()
+    user_instructions: str | None = trimmed if trimmed else None
+
+    pipeline_fn = _select_pipeline()
+    # The real pipeline accepts the optional third arg; the mock pipeline
+    # ignores it. A tiny closure lets us use a single Thread call site.
+    if pipeline_fn is _advance_pipeline_real:
+        thread_args: tuple[Any, ...] = (run_id, batch_id, user_instructions)
+    else:
+        thread_args = (run_id, batch_id)
+
     thread = threading.Thread(
-        target=_select_pipeline(),
-        args=(run_id, batch_id),
+        target=pipeline_fn,
+        args=thread_args,
         daemon=True,
         name=f"mise-pipeline-{run_id}",
     )
