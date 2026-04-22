@@ -102,7 +102,16 @@ class DishCandidate(BaseModel):
 
 
 class ReconciliationResult(BaseModel):
-    """Output of comparing one PAIR of DishCandidates."""
+    """Output of comparing one PAIR of DishCandidates.
+
+    The *_id / *_name / *_source_id fields refer to the two DishCandidates
+    that went into the pair. `left_name` and `right_name` are the raw (or
+    normalized) candidate names captured at reconciliation time. They're
+    *optional* on this model so the gate-stage code (which only knows IDs)
+    can emit bare records; the pipeline enriches them in `_build_cockpit`
+    before shipping to the UI so the frontend can render a narrative
+    trace without needing access to the full `DishCandidate` list.
+    """
 
     left_id: EntityId
     right_id: EntityId
@@ -112,6 +121,13 @@ class ReconciliationResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     decision_summary: str = Field(max_length=240)
     used_adaptive_thinking: bool
+    # Enrichment fields — populated by `_build_cockpit` so the UI can show
+    # "`Milanesa Napolitana` (from lunch.pdf) ↔ `Mila Napo` (from photo.jpg)
+    # → merged" without having to cross-reference internal candidate IDs.
+    left_name: str | None = None
+    right_name: str | None = None
+    left_source_id: EntityId | None = None
+    right_source_id: EntityId | None = None
 
 
 # ---------- Routing ----------

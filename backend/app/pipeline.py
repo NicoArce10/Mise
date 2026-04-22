@@ -422,13 +422,32 @@ def _build_cockpit(
         extraction_total=len(sources),
     )
 
+    # Enrich the reconciliation trace so the UI can narrate cross-source
+    # merges without cross-referencing candidate IDs. The model-returned
+    # records only have IDs; here we attach the human names + source ids.
+    candidate_lookup: dict[EntityId, DishCandidate] = {c.id: c for c in candidates}
+    enriched_trace: list[ReconciliationResult] = []
+    for r in reconciliations:
+        left = candidate_lookup.get(r.left_id)
+        right = candidate_lookup.get(r.right_id)
+        enriched_trace.append(
+            r.model_copy(
+                update={
+                    "left_name": (left.normalized_name or left.raw_name) if left else None,
+                    "right_name": (right.normalized_name or right.raw_name) if right else None,
+                    "left_source_id": left.source_id if left else None,
+                    "right_source_id": right.source_id if right else None,
+                }
+            )
+        )
+
     return CockpitState(
         processing=processing,
         sources=sources,
         canonical_dishes=canonical_dishes,
         modifiers=attached_modifiers,
         ephemerals=ephemerals,
-        reconciliation_trace=reconciliations,
+        reconciliation_trace=enriched_trace,
         metrics_preview=metrics,
         quality_signal=quality_signal,
     )

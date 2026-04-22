@@ -198,6 +198,10 @@ def fixture_cockpit(
                     "despite ingredient overlap."
                 ),
                 used_adaptive_thinking=True,
+                left_name="Pizza ai Funghi",
+                right_name="Calzone ai Funghi",
+                left_source_id=IDS.SRC_PDF_A,
+                right_source_id=IDS.SRC_PHOTO_B,
             ),
             ReconciliationResult(
                 left_id=IDS.DISH_MARGHERITA,
@@ -211,6 +215,10 @@ def fixture_cockpit(
                     "and ingredients matched across two branches."
                 ),
                 used_adaptive_thinking=True,
+                left_name="Margherita",
+                right_name="Margueritta",
+                left_source_id=IDS.SRC_PDF_A,
+                right_source_id=IDS.SRC_CHALK_C,
             ),
         ],
         metrics_preview=MetricsPreview(

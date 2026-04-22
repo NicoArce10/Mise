@@ -99,6 +99,14 @@ export interface ReconciliationResult {
   confidence: number;
   decision_summary: string;
   used_adaptive_thinking: boolean;
+  // Enrichment fields populated by the pipeline so the UI can narrate
+  // cross-source merges. `*_name` is the raw / normalized candidate
+  // name; `*_source_id` is the id of the `SourceDocument` each side
+  // came from. Null when the pipeline couldn't resolve the candidate.
+  left_name: string | null;
+  right_name: string | null;
+  left_source_id: UUID | null;
+  right_source_id: UUID | null;
 }
 
 export interface RoutingDecision {

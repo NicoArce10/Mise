@@ -119,6 +119,34 @@ const DEFAULT_QUERIES = [
   'sandwich de queso derretido',
 ];
 
+// Semantic queries that showcase what the graph can do beyond lexical
+// matching: exclusions, dietary filters, price budgets, shareability. We
+// append 2 of these to the curated pool when the extracted menu has the
+// signal to back them (has vegetarian dishes, has prices, etc.). If the
+// evidence doesn't support the capability, we don't advertise it.
+function semanticQueries(state: CockpitState): string[] {
+  const out: string[] = [];
+  const hay = state.canonical_dishes
+    .map(d =>
+      [
+        d.canonical_name,
+        ...d.search_terms,
+        ...d.aliases,
+        ...d.ingredients,
+        d.menu_category ?? '',
+      ].join(' '),
+    )
+    .join(' ')
+    .toLowerCase();
+  const hasDietary = /veget|vegan|sin gluten|gluten[- ]?free|lacteos|lactose/.test(hay);
+  const hasPrice = state.canonical_dishes.some(d => d.price_value != null);
+  const hasShareable = /compart|tabla|para dos|share/.test(hay);
+  if (hasDietary) out.push('algo sin gluten');
+  if (hasPrice) out.push('menos de 15');
+  if (hasShareable) out.push('para compartir entre dos');
+  return out;
+}
+
 // Pick 4–6 example queries biased to whatever the uploaded menu seems to
 // contain — look at each dish's search_terms and sample from them. Falls
 // back to DEFAULT_QUERIES when extraction didn't populate search_terms.
@@ -363,7 +391,20 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
     return m;
   }, [state.canonical_dishes]);
 
-  const examples = useMemo(() => suggestedQueries(state), [state]);
+  const examples = useMemo(() => {
+    const base = suggestedQueries(state);
+    const sem = semanticQueries(state);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const q of [...base, ...sem]) {
+      const k = q.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(q);
+      if (out.length >= 7) break;
+    }
+    return out;
+  }, [state]);
 
   const runSearch = useCallback(
     async (q: string) => {
@@ -703,40 +744,47 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
           >
             try
           </span>
-          {examples.map(ex => (
-            <button
-              key={ex}
-              type="button"
-              onClick={() => {
-                setQuery(ex);
-                void runSearch(ex);
-              }}
-              className="cursor-pointer"
-              style={{
-                background: 'var(--color-paper)',
-                color: 'var(--color-ink-muted)',
-                border: '1px solid var(--color-hairline)',
-                borderRadius: 'var(--radius-chip)',
-                padding: '6px 12px',
-                fontSize: 13,
-                lineHeight: '18px',
-                fontFamily: 'var(--font-accent)',
-                fontStyle: 'italic',
-                letterSpacing: '-0.005em',
-                transition: 'background-color 160ms ease, color 160ms ease',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'var(--color-ink)';
-                e.currentTarget.style.color = 'var(--color-paper)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'var(--color-paper)';
-                e.currentTarget.style.color = 'var(--color-ink-muted)';
-              }}
-            >
-              {ex}
-            </button>
-          ))}
+          {examples.map(ex => {
+            const isActive = activeQuery.trim().toLowerCase() === ex.toLowerCase();
+            return (
+              <button
+                key={ex}
+                type="button"
+                onClick={() => {
+                  setQuery(ex);
+                  void runSearch(ex);
+                }}
+                className="cursor-pointer"
+                style={{
+                  background: isActive ? 'var(--color-ink)' : 'var(--color-paper)',
+                  color: isActive ? 'var(--color-paper)' : 'var(--color-ink-muted)',
+                  border: isActive
+                    ? '1px solid var(--color-ink)'
+                    : '1px solid var(--color-hairline)',
+                  borderRadius: 'var(--radius-chip)',
+                  padding: '6px 12px',
+                  fontSize: 13,
+                  lineHeight: '18px',
+                  fontFamily: 'var(--font-accent)',
+                  fontStyle: 'italic',
+                  letterSpacing: '-0.005em',
+                  transition: 'background-color 160ms ease, color 160ms ease',
+                }}
+                onMouseEnter={e => {
+                  if (isActive) return;
+                  e.currentTarget.style.background = 'var(--color-ink)';
+                  e.currentTarget.style.color = 'var(--color-paper)';
+                }}
+                onMouseLeave={e => {
+                  if (isActive) return;
+                  e.currentTarget.style.background = 'var(--color-paper)';
+                  e.currentTarget.style.color = 'var(--color-ink-muted)';
+                }}
+              >
+                {ex}
+              </button>
+            );
+          })}
         </motion.div>
       </section>
 

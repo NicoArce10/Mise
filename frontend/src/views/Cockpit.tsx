@@ -1,12 +1,13 @@
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import type { CanonicalDish, CockpitState } from '../domain/types';
+import { ModerationStatus, type CanonicalDish, type CockpitState } from '../domain/types';
 import { EphemeralCard } from '../components/EphemeralCard';
 import { TopBar } from '../components/TopBar';
 import { EvidenceRail } from '../components/EvidenceRail';
 import { DetailRail } from '../components/DetailRail';
 import { MetricsPane } from '../components/MetricsPane';
 import { QualitySignalPane } from '../components/QualitySignalPane';
+import { ReconciliationNarrative } from '../components/ReconciliationNarrative';
 import { UnattachedModifiersLane } from '../components/UnattachedModifiersLane';
 import { CockpitToolbar, type ViewDensity } from '../components/CockpitToolbar';
 import { DishCategoryGroup } from '../components/DishCategoryGroup';
@@ -131,6 +132,32 @@ export function Cockpit({
       onModerate('canonical', selected.id, status);
     },
     [onModerate, selected],
+  );
+
+  // Bulk action: only targets dishes that are (a) in the current filtered
+  // view and (b) still `pending`. We intentionally do NOT touch dishes
+  // that the reviewer has already approved/edited/rejected — those are
+  // deliberate decisions and shouldn't be overwritten by a "select all".
+  const pendingVisible = useMemo(
+    () => filtered.filter(d => d.moderation === ModerationStatus.PENDING),
+    [filtered],
+  );
+  const bulkModerate = useCallback(
+    (status: 'approved' | 'rejected') => {
+      if (pendingVisible.length === 0) return;
+      const verb = status === 'approved' ? 'Approve' : 'Reject';
+      const scope = query.trim().length > 0 ? ' (matching the current filter)' : '';
+      const ok = window.confirm(
+        `${verb} ${pendingVisible.length} pending dish${
+          pendingVisible.length === 1 ? '' : 'es'
+        }${scope}?\n\nAlready-moderated dishes are left untouched.`,
+      );
+      if (!ok) return;
+      for (const d of pendingVisible) {
+        onModerate('canonical', d.id, status);
+      }
+    },
+    [pendingVisible, query, onModerate],
   );
 
   useShortcuts({
@@ -296,6 +323,9 @@ export function Cockpit({
             dishCount={state.canonical_dishes.length}
             filteredCount={filtered.length}
             onShowHelp={() => setHelpOpen(true)}
+            pendingCount={pendingVisible.length}
+            onBulkApprove={() => bulkModerate('approved')}
+            onBulkReject={() => bulkModerate('rejected')}
           />
 
           {processingFailed && (
@@ -502,6 +532,11 @@ export function Cockpit({
           {state.quality_signal && (
             <QualitySignalPane signal={state.quality_signal} />
           )}
+
+          <ReconciliationNarrative
+            trace={state.reconciliation_trace}
+            sources={state.sources}
+          />
 
           {state.metrics_preview && <MetricsPane metrics={state.metrics_preview} />}
         </section>
