@@ -148,8 +148,25 @@ def _reconcile_all(
     candidates: list[DishCandidate],
     mode: Mode,
     on_pair_done: Callable[[int, int, int], None] | None = None,
+    on_pair_event: Callable[
+        [DishCandidate, DishCandidate, ReconciliationResult], None
+    ] | None = None,
 ) -> list[ReconciliationResult]:
-    """Pairwise reconciliation over non-modifier, non-ephemeral candidates."""
+    """Pairwise reconciliation over non-modifier, non-ephemeral candidates.
+
+    Two callbacks:
+    - `on_pair_done(i, total, adaptive)` — progress counter for the state
+      bar (N/M + adaptive-thinking running total).
+    - `on_pair_event(left, right, result)` — rich event per completed
+      pair, used by the live "cross-source reconciliation" feed on the
+      Processing screen.
+
+    Split into two because the state bar updates on EVERY pair but the
+    live feed wants the full pair payload for ~interesting~ pairs only
+    (cross-source or non-trivial decisions). Keeping the APIs separate
+    lets callers opt into whichever they need without allocating
+    unnecessary payloads.
+    """
     non_flagged = [
         c for c in candidates
         if not c.is_modifier_candidate and not c.is_ephemeral_candidate
@@ -166,6 +183,8 @@ def _reconcile_all(
             adaptive += 1
         if on_pair_done is not None:
             on_pair_done(i, total, adaptive)
+        if on_pair_event is not None:
+            on_pair_event(a, b, result)
     return results
 
 
@@ -556,7 +575,58 @@ def run_pipeline(
                 {"pair": i, "total": n, "adaptive": adaptive},
             )
 
-    reconciliations = _reconcile_all(candidates, mode, on_pair_done=_on_pair_done)
+    def _on_pair_event(
+        left: DishCandidate, right: DishCandidate, result: ReconciliationResult
+    ) -> None:
+        """Emit the full pair payload so the Processing screen can render
+        a live "cross-source reconciliation" feed. We filter noise here —
+        only pairs that are genuinely interesting reach the UI.
+
+        Criteria for 'interesting' (at least one must hold):
+        - cross-source (left & right came from different source files)
+        - the model merged them (a duplicate dish the user never had to
+          spot by hand — the product's headline claim)
+        - the pair required adaptive thinking (Opus thought hard about it)
+        - names disagree (typo / alias / abbreviation — the cases where
+          OCR-only pipelines silently split a dish into two)
+        """
+        same_source = left.source_id == right.source_id
+        names_agree = (
+            (left.normalized_name or left.raw_name).strip().casefold()
+            == (right.normalized_name or right.raw_name).strip().casefold()
+        )
+        interesting = (
+            (not same_source)
+            or result.merged
+            or result.used_adaptive_thinking
+            or (not names_agree)
+        )
+        if not interesting or on_stage is None:
+            return
+        on_stage(
+            "reconciling",
+            None,
+            {
+                "pair_event": {
+                    "left_id": left.id,
+                    "right_id": right.id,
+                    "left_name": left.normalized_name or left.raw_name,
+                    "right_name": right.normalized_name or right.raw_name,
+                    "left_source_id": left.source_id,
+                    "right_source_id": right.source_id,
+                    "merged": result.merged,
+                    "decision_summary": result.decision_summary,
+                    "used_adaptive_thinking": result.used_adaptive_thinking,
+                },
+            },
+        )
+
+    reconciliations = _reconcile_all(
+        candidates,
+        mode,
+        on_pair_done=_on_pair_done,
+        on_pair_event=_on_pair_event,
+    )
 
     if on_stage is not None:
         adaptive = sum(1 for r in reconciliations if r.used_adaptive_thinking)

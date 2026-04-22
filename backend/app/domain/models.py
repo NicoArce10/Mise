@@ -193,6 +193,38 @@ class EphemeralItem(BaseModel):
 # ---------- Processing run ----------
 
 
+class LiveReconciliationEvent(BaseModel):
+    """A single reconciliation decision, emitted by the pipeline as it
+    completes each pair and consumed by the Processing screen to animate
+    an "Opus is deciding right now" panel.
+
+    The payload is a strict subset of `ReconciliationResult` — only the
+    fields the live UI actually renders. We keep it small because the
+    Processing endpoint is polled every ~400 ms and every extra byte
+    ships on every poll.
+    """
+
+    left_id: EntityId
+    right_id: EntityId
+    left_name: str
+    right_name: str
+    left_source_id: EntityId | None = None
+    right_source_id: EntityId | None = None
+    # Presentation-only hints so the Processing screen can render the
+    # side-by-side "evidence" header without a second fetch. `kind` is a
+    # coarse bucket used to pick the right thumbnail strategy:
+    #   "image" → render <img src="/api/sources/{id}/content">
+    #   "pdf"   → render a PDF glyph + filename chip (no inline viewer)
+    #   "other" / None → filename chip only
+    left_source_filename: str | None = None
+    right_source_filename: str | None = None
+    left_source_kind: Literal["image", "pdf", "other"] | None = None
+    right_source_kind: Literal["image", "pdf", "other"] | None = None
+    merged: bool
+    decision_summary: str = Field(max_length=240)
+    used_adaptive_thinking: bool = False
+
+
 class ProcessingRun(BaseModel):
     id: EntityId
     batch_id: EntityId
@@ -206,6 +238,12 @@ class ProcessingRun(BaseModel):
     # long Opus call on a 5-page menu never feels like a frozen spinner.
     # Deduped (case-insensitive) and capped server-side — see the store.
     recent_dishes: list[str] = Field(default_factory=list)
+    # Cross-source reconciliation decisions, streamed during the
+    # RECONCILING stage. Each entry is one pair Opus just compared: the
+    # Processing screen renders this as a live side-by-side feed
+    # ("<left> vs <right> → Merged / Kept separate"). Capped server-side
+    # so the poll payload never runs away.
+    live_reconciliations: list[LiveReconciliationEvent] = Field(default_factory=list)
 
 
 class MetricsPreview(BaseModel):

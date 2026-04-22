@@ -1637,10 +1637,13 @@ export function Landing({ onUpload, onSample }: Props) {
                   marginTop: 4,
                 }}
               >
-                Shown in Argentine Spanish vernacular. Region is inferred from
-                the evidence itself — a Mexican menu returns Spanish-MX handles,
-                a US bistro returns English+Spanglish, a Tokyo kiosk returns
-                Japanese. No prompt engineering, no country flag setting.
+                Shown in Argentine Spanish vernacular. Region + language are
+                inferred from the evidence itself — a Mexican menu returns
+                Spanish-MX handles, a UK pub returns British slang
+                (<em>chippy</em>, <em>banger</em>), a Berlin Imbiss returns
+                Deutsch, a Tokyo kiosk returns Japanese (kanji + romaji),
+                a Shanghai dim-sum spot returns simplified Chinese + pinyin.
+                No prompt engineering, no country flag setting.
               </p>
             </div>
           </div>

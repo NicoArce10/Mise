@@ -155,6 +155,26 @@ export interface EphemeralItem {
   moderation: ModerationStatus;
 }
 
+/** One reconciliation decision, streamed while Opus 4.7 is still
+ * comparing pairs. The Processing screen renders these as a live
+ * side-by-side feed. Small on the wire by design — we ship this on
+ * every poll. */
+export interface LiveReconciliationEvent {
+  left_id: UUID;
+  right_id: UUID;
+  left_name: string;
+  right_name: string;
+  left_source_id: UUID | null;
+  right_source_id: UUID | null;
+  left_source_filename: string | null;
+  right_source_filename: string | null;
+  left_source_kind: 'image' | 'pdf' | 'other' | null;
+  right_source_kind: 'image' | 'pdf' | 'other' | null;
+  merged: boolean;
+  decision_summary: string;
+  used_adaptive_thinking: boolean;
+}
+
 export interface ProcessingRun {
   id: UUID;
   batch_id: UUID;
@@ -167,6 +187,11 @@ export interface ProcessingRun {
   // Empty until the first page returns; bounded server-side so the
   // ProcessingRun payload never balloons across many polls.
   recent_dishes: string[];
+  // Live feed of cross-source reconciliation decisions. Empty until the
+  // reconciling stage starts. Filtered server-side to only "interesting"
+  // pairs (cross-source / merged / adaptive-thinking / typo-disagreement),
+  // so the user doesn't see the trivial same-source same-name pairs.
+  live_reconciliations: LiveReconciliationEvent[];
 }
 
 export interface MetricsPreview {

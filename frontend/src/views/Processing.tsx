@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { RotateCcw, UploadCloud } from 'lucide-react';
 import { apiGetProcessing, ApiError } from '../api/client';
-import type { ProcessingState, UUID } from '../domain/types';
+import type {
+  LiveReconciliationEvent,
+  ProcessingState,
+  UUID,
+} from '../domain/types';
+import { LiveReconciliationPanel } from '../components/LiveReconciliationPanel';
 
 interface Props {
   processingId: UUID | null;
@@ -72,6 +77,9 @@ export function Processing({
   const [startedAt] = useState(() => Date.now());
   const [elapsedMs, setElapsedMs] = useState(0);
   const [recentDishes, setRecentDishes] = useState<string[]>([]);
+  const [liveReconciliations, setLiveReconciliations] = useState<
+    LiveReconciliationEvent[]
+  >([]);
   const cancelled = useRef(false);
 
   // Wall-clock ticker so the user sees the run isn't frozen even when a
@@ -98,6 +106,9 @@ export function Processing({
           }
           if (Array.isArray(run.recent_dishes)) {
             setRecentDishes(run.recent_dishes);
+          }
+          if (Array.isArray(run.live_reconciliations)) {
+            setLiveReconciliations(run.live_reconciliations);
           }
           if (run.state === 'ready') {
             setTimeout(() => !cancelled.current && onReady(), 600);
@@ -460,6 +471,27 @@ export function Processing({
                   </AnimatePresence>
                 </ul>
               </motion.section>
+            )}
+        </AnimatePresence>
+
+        {/* Live cross-source reconciliation feed — the "feature impossible
+            with OCR" wow moment. Visible while the reconciling stage runs
+            AND during the brief routing stage so it doesn't pop out
+            abruptly right as the user starts reading it. Hidden on mock
+            timelines (no processingId) and on failure. */}
+        <AnimatePresence>
+          {(state === 'reconciling' || state === 'routing') &&
+            processingId !== null &&
+            liveReconciliations.length > 0 && (
+              <motion.div
+                key="live-reconciliation"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.3 }}
+              >
+                <LiveReconciliationPanel events={liveReconciliations} />
+              </motion.div>
             )}
         </AnimatePresence>
 

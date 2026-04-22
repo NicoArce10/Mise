@@ -118,11 +118,26 @@ where the restaurant is. Examples:
   `burger con papas`.
 - For `Lomito Completo` (Argentina): `lomito completo`, `sandwich de
   lomo`, `lomito con huevo`, `steak sandwich como lomito`.
+- For `Wiener Schnitzel` (Germany / Austria): `schnitzel`, `wiener`,
+  `schnitzel mit pommes`, `schnitzel classic`, `kalbsschnitzel`.
+- For `Fish and Chips` (British English pub): `fish n chips`,
+  `battered cod and chips`, `cod supper`, `chippy tea`.
+- For `Spaghetti alla Carbonara` (Italian trattoria): `carbonara`,
+  `spaghetti carbonara`, `pasta carbonara`, `carbonara classica`.
+- For `豚骨ラーメン / Tonkotsu Ramen` (Japanese menu): `tonkotsu`,
+  `ramen tonkotsu`, `pork bone ramen`, `とんこつラーメン`.
+- For `宫保鸡丁 / Kung Pao Chicken` (Mandarin menu): `kung pao chicken`,
+  `宫保鸡丁`, `gōngbǎo jīdīng`, `spicy peanut chicken`.
 
 Rules:
-- Use the vernacular implied by the evidence. An Argentine menu →
-  Spanish-AR handles. A Mexican menu → Spanish-MX handles. A US bistro
-  → English handles with light Spanglish if plausible.
+- Use the vernacular implied by the evidence — **any language, any
+  region**. Argentine menu → Spanish-AR. Mexican menu → Spanish-MX.
+  US bistro → English + Spanglish. UK pub → British-English slang
+  (`chippy`, `pud`, `banger`). German Imbiss → Deutsch with common
+  search shortcuts. Tokyo kiosk → Japanese (kanji + romaji). Mandarin
+  menu → simplified Chinese + pinyin + English gloss. Italian
+  trattoria → Italian. Do not default to English when the evidence is
+  written in a different language.
 - Mix short handles (2–3 words) and longer handles (5–8 words).
 - You MAY include semantic handles a diner would type without knowing
   the exact name: `algo abundante con queso` for a napolitana, `veggie

@@ -15,6 +15,7 @@ from ..domain.models import (
     CockpitState,
     DecisionRequest,
     EntityId,
+    LiveReconciliationEvent,
     ModerationStatus,
     ProcessingRun,
     ProcessingState,
@@ -119,6 +120,40 @@ class InMemoryStore:
     # Max names surfaced on the Processing screen. We keep the most recent
     # so the chip wall churns as pages complete instead of quietly freezing.
     _RECENT_DISHES_CAP = 24
+    # Cap on how many live-reconciliation events we keep per run. The
+    # Processing screen scrolls through them at ~1 per 200-500ms, so 40
+    # covers a generous multi-source batch (most runs have <10 pairs)
+    # without bloating every poll response.
+    _LIVE_RECONCILIATIONS_CAP = 40
+
+    def append_live_reconciliation(
+        self, run_id: EntityId, event: LiveReconciliationEvent
+    ) -> ProcessingRun | None:
+        """Append one reconciliation decision to the run's live feed.
+
+        Called from the pipeline's on_stage('reconciling') callback as
+        each pair completes. Polling clients pick it up on the next
+        `GET /api/process/{id}` tick.
+
+        Dedup is by (left_id, right_id) — re-emitting the same pair
+        replaces the prior entry (useful if the pipeline ever retries
+        a borderline decision; future-proof, not required today).
+        """
+        with self._lock:
+            existing = self._run_meta.get(run_id)
+            if existing is None:
+                return None
+            pair_key = (event.left_id, event.right_id)
+            merged = [
+                e for e in existing.live_reconciliations
+                if (e.left_id, e.right_id) != pair_key
+            ]
+            merged.append(event)
+            if len(merged) > self._LIVE_RECONCILIATIONS_CAP:
+                merged = merged[-self._LIVE_RECONCILIATIONS_CAP:]
+            updated = existing.model_copy(update={"live_reconciliations": merged})
+            self._run_meta[run_id] = updated
+            return updated
 
     def append_recent_dishes(
         self, run_id: EntityId, names: list[str]

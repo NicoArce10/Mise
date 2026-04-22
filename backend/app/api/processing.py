@@ -152,6 +152,53 @@ def _advance_pipeline_real(
                 if new_names:
                     store.append_recent_dishes(run_id, new_names)
             elif stage == "reconciling":
+                # A single reconciliation tick can carry TWO kinds of info:
+                #   1. Progress counters (pair N/M + adaptive count) → drives
+                #      the state bar.
+                #   2. A full pair payload (`pair_event`) → feeds the live
+                #      "cross-source reconciliation" panel on the Processing
+                #      screen. We route pair_event through its own append,
+                #      which leaves the state bar untouched so the user
+                #      doesn't see it flicker between "3/5" and "live card".
+                pair_event = extra.get("pair_event") if extra else None
+                if pair_event is not None:
+                    from ..domain.models import LiveReconciliationEvent  # noqa: WPS433
+                    # Enrich the raw pipeline payload with filename + kind
+                    # for each side so the Processing screen can render a
+                    # side-by-side evidence header without a second fetch
+                    # per event. Kind is a coarse bucket used purely for
+                    # thumbnail strategy on the client.
+                    def _source_hint(src_id: str | None) -> tuple[str | None, str | None]:
+                        if not src_id:
+                            return None, None
+                        src = store.find_source(src_id)
+                        if src is None:
+                            return None, None
+                        ct = (src.content_type or "").lower()
+                        if ct.startswith("image/"):
+                            kind = "image"
+                        elif ct == "application/pdf" or (src.filename or "").lower().endswith(".pdf"):
+                            kind = "pdf"
+                        else:
+                            kind = "other"
+                        return src.filename, kind
+
+                    l_name, l_kind = _source_hint(pair_event.get("left_source_id"))
+                    r_name, r_kind = _source_hint(pair_event.get("right_source_id"))
+                    store.append_live_reconciliation(
+                        run_id,
+                        LiveReconciliationEvent(
+                            **pair_event,
+                            left_source_filename=l_name,
+                            right_source_filename=r_name,
+                            left_source_kind=l_kind,
+                            right_source_kind=r_kind,
+                        ),
+                    )
+                    # pair_event ticks never mutate the state bar — return
+                    # early so the counter keeps its "3/5" from the last
+                    # pair_done tick.
+                    return
                 total = int(extra.get("total", 0)) if extra else 0
                 pair = int(extra.get("pair", 0)) if extra else 0
                 if detail is None and total > 0:
