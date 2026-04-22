@@ -18,7 +18,7 @@ Mise is the trust layer for dish-level menu data. Evidence in: PDFs, images, CSV
 
 Mise uses Claude Opus 4.7 along four pillars, each visible in the product rather than declared in a slide:
 
-1. **Vision-native ingestion.** PDFs and photos go to Opus as base64 `image` blocks. No external OCR in the critical path.
+1. **Vision-native ingestion.** PDFs go to Opus 4.7 as native `document` blocks; photos and chalkboards go as base64 `image` blocks. No external OCR in the critical path.
 2. **Adaptive thinking with a deterministic gate.** A pure-Python classifier (`reconciliation/gate.py`) splits every candidate pair into `OBVIOUS_MERGE`, `OBVIOUS_NON_MERGE`, or `AMBIGUOUS`. Only AMBIGUOUS pairs enable `thinking: {"type": "adaptive"}`. Deep reasoning is reserved for the cases that need it; the cheap ones never touch the model.
 3. **Structured output with deterministic validation.** Every call uses `output_config.format = {type: "json_schema", ...}` and is parsed into Pydantic models. A `ValidationError` triggers exactly one tightened retry; a second failure is a hard fail. Reasoning and safety are separated by design.
 4. **Decision summaries in the Cockpit, not raw thinking traces.** Every canonical dish, modifier, and ephemeral carries a ≤240-character summary with provenance and confidence. The model's internal thinking is never forwarded to the UI.
@@ -33,17 +33,20 @@ Produced by `python evals/run_eval.py --bundle all --mode real` against live `cl
 |---|---|
 | Bundles evaluated | 3 |
 | Sources ingested (all bundles) | 10 |
-| Canonical dishes produced | 14 |
+| Canonical dishes produced | 15 |
 | Modifiers routed | 5 |
-| Ephemerals routed | 4 |
-| Merge precision | 1.00 |
+| Ephemerals routed | 2 |
+| Merge precision | 0.94 |
 | Merge recall | 1.00 |
 | Non-merge accuracy | 1.00 |
 | Modifier routing accuracy | 1.00 |
-| Time to review pack (aggregate) | 33.68 s |
-| Total Opus 4.7 calls | 47 (23 extraction + 24 reconciliation) |
-| Cache hit ratio on input tokens | 49.1% |
-| Live-run cost | USD 2.03 |
+| Ephemeral routing accuracy¹ | 0.67 |
+| Time to review pack (aggregate) | 37.80 s |
+| Total Opus 4.7 calls | 23 (10 extraction + 13 reconciliation) |
+| Cache hit ratio on input tokens | 46.1% |
+| Live-run cost | USD 0.96 |
+
+¹ *Harness artifact, not product quality. The `expected.json` for bundle_03 lists `Chef's Special` as the ephemeral label; Opus 4.7 surfaced `Today's Chef's Special` with the ephemeral flag set. The accuracy metric uses literal equality, so it under-counts a correct routing. The `demo_critical.chef_special_ephemeral` check uses substring match and passes.*
 
 All six demo-critical decisions passed in this run:
 

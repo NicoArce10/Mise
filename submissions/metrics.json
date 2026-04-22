@@ -5,43 +5,43 @@
   "mode": "real",
   "model": "claude-opus-4-7",
   "api_footprint": {
-    "total_calls": 47,
-    "extraction_calls": 23,
-    "reconciliation_calls": 24,
-    "input_tokens": 50397,
-    "output_tokens": 11832,
-    "cache_read_input_tokens": 63346,
-    "cache_creation_input_tokens": 15388,
-    "estimated_cost_usd": 2.03,
-    "cache_hit_ratio": 0.491
+    "total_calls": 23,
+    "extraction_calls": 10,
+    "reconciliation_calls": 13,
+    "input_tokens": 29602,
+    "output_tokens": 5540,
+    "cache_read_input_tokens": 27981,
+    "cache_creation_input_tokens": 3109,
+    "estimated_cost_usd": 0.96,
+    "cache_hit_ratio": 0.461
   },
   "aggregate": {
     "bundles": 3,
-    "merge_precision": 1.0,
+    "merge_precision": 0.944,
     "merge_recall": 1.0,
     "non_merge_accuracy": 1.0,
     "modifier_routing_accuracy": 1.0,
     "ephemeral_routing_accuracy": 0.667,
-    "time_to_review_pack_seconds": 33.676,
+    "time_to_review_pack_seconds": 37.799,
     "sources_ingested": 10,
-    "canonical_count": 14,
+    "canonical_count": 15,
     "modifier_count": 5,
-    "ephemeral_count": 4,
+    "ephemeral_count": 2,
     "demo_critical_all_pass": true
   },
   "bundles": [
     {
       "bundle_id": "bundle_01_italian",
       "sources_ingested": 4,
-      "canonical_count": 5,
+      "canonical_count": 6,
       "modifier_count": 2,
-      "ephemeral_count": 3,
-      "merge_precision": 1.0,
+      "ephemeral_count": 1,
+      "merge_precision": 0.833,
       "merge_recall": 1.0,
       "non_merge_accuracy": 1.0,
       "modifier_routing_accuracy": 1.0,
       "ephemeral_routing_accuracy": 1.0,
-      "time_to_review_pack_seconds": 28.932,
+      "time_to_review_pack_seconds": 39.49,
       "demo_critical": {
         "marghertia_to_margherita": true,
         "pizza_vs_calzone_funghi_separate": true,
@@ -59,7 +59,7 @@
       "non_merge_accuracy": 1.0,
       "modifier_routing_accuracy": 1.0,
       "ephemeral_routing_accuracy": 1.0,
-      "time_to_review_pack_seconds": 52.856,
+      "time_to_review_pack_seconds": 55.604,
       "demo_critical": {
         "tacos_al_pastor_reorder_merge": true,
         "add_guacamole_modifier": true
@@ -76,7 +76,7 @@
       "non_merge_accuracy": 1.0,
       "modifier_routing_accuracy": 1.0,
       "ephemeral_routing_accuracy": 0.0,
-      "time_to_review_pack_seconds": 19.24,
+      "time_to_review_pack_seconds": 18.304,
       "demo_critical": {
         "chef_special_ephemeral": true
       }
