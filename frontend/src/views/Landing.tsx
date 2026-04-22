@@ -1032,11 +1032,12 @@ export function Landing({ onUpload, onSample }: Props) {
               background: 'var(--color-paper)',
             }}
           >
-            {/* Header row */}
+            {/* Header row — DoorDash sits next to Mise because it's the
+                closest conceptual match; commercial APIs trail after. */}
             <div
               className="grid"
               style={{
-                gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.1fr',
+                gridTemplateColumns: '1.5fr 1fr 1.1fr 1fr 1fr',
                 background: 'var(--color-paper-tint)',
                 borderBottom: '1px solid var(--color-hairline)',
               }}
@@ -1044,9 +1045,9 @@ export function Landing({ onUpload, onSample }: Props) {
               {[
                 'Capability',
                 'Mise',
-                'Veryfi',
-                'Klippa',
                 'DoorDash (internal)',
+                'Veryfi',
+                'Klippa · Doxis',
               ].map((h, i) => (
                 <div
                   key={h}
@@ -1069,73 +1070,73 @@ export function Landing({ onUpload, onSample }: Props) {
               {
                 cap: 'Available as third-party API',
                 mise: 'Yes · open source',
-                veryfi: 'Yes · $500/mo min',
-                klippa: 'Yes · custom quote',
                 dd: 'No · internal only',
+                veryfi: 'Yes · commercial',
+                klippa: 'Yes · commercial',
                 unique: false,
               },
               {
                 cap: 'Ingestion',
                 mise: 'Vision-native · 1 call',
+                dd: 'OCR → LLM + guardrail',
                 veryfi: 'OCR → NLP',
                 klippa: 'OCR → NLP',
-                dd: 'OCR → LLM + guardrail',
                 unique: true,
               },
               {
                 cap: 'Item + price + category',
                 mise: 'Yes',
+                dd: 'Yes',
                 veryfi: 'Yes',
                 klippa: 'Yes',
-                dd: 'Yes',
                 unique: false,
               },
               {
                 cap: 'Aliases populated on first call',
                 mise: 'Yes',
+                dd: 'Not in public writeups',
                 veryfi: 'Build your own',
                 klippa: 'Build your own',
-                dd: 'Not in public writeups',
                 unique: true,
               },
               {
                 cap: 'Search terms (diner vernacular)',
                 mise: 'Yes',
+                dd: 'Not in public writeups',
                 veryfi: 'Not provided',
                 klippa: 'Not provided',
-                dd: 'Not in public writeups',
                 unique: true,
               },
               {
                 cap: 'Canonical vs daily specials / LTOs',
                 mise: 'Auto-separated',
+                dd: 'Not distinguished',
                 veryfi: 'Not distinguished',
                 klippa: 'Not distinguished',
-                dd: 'Not distinguished',
                 unique: true,
               },
               {
                 cap: 'Multilingual',
                 mise: 'Automatic · same model',
-                veryfi: 'Latin langs, on request',
-                klippa: 'Latin langs',
                 dd: 'Unspecified',
+                veryfi: 'Unspecified',
+                klippa: 'Latin languages',
                 unique: false,
               },
               {
                 cap: 'Quality signal on every response',
                 mise: 'Yes · heuristic guardrail',
+                dd: 'Yes · LightGBM classifier',
                 veryfi: 'Not exposed',
                 klippa: 'Not exposed',
-                dd: 'Yes · LightGBM classifier',
                 unique: true,
               },
               {
                 cap: 'Indexable in Postgres / Elastic / vector DB on day one',
                 mise: 'Yes',
+                dd: 'Internal schema only',
                 veryfi: 'Post-processing',
                 klippa: 'Post-processing',
-                dd: 'Internal schema only',
                 unique: true,
               },
             ] as const).map((row, idx, arr) => (
@@ -1143,7 +1144,7 @@ export function Landing({ onUpload, onSample }: Props) {
                 key={row.cap}
                 className="grid"
                 style={{
-                  gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.1fr',
+                  gridTemplateColumns: '1.5fr 1fr 1.1fr 1fr 1fr',
                   borderBottom: idx < arr.length - 1 ? '1px solid var(--color-hairline)' : 'none',
                   background: row.unique ? 'rgba(201, 159, 70, 0.06)' : 'transparent',
                 }}
@@ -1202,6 +1203,17 @@ export function Landing({ onUpload, onSample }: Props) {
                     fontSize: 13.5,
                     lineHeight: '21px',
                     color: 'var(--color-ink-muted)',
+                    borderRight: '1px solid var(--color-hairline)',
+                  }}
+                >
+                  {row.dd}
+                </div>
+                <div
+                  style={{
+                    padding: '14px 18px',
+                    fontSize: 13.5,
+                    lineHeight: '21px',
+                    color: 'var(--color-ink-muted)',
                   }}
                 >
                   {row.veryfi}
@@ -1216,17 +1228,6 @@ export function Landing({ onUpload, onSample }: Props) {
                   }}
                 >
                   {row.klippa}
-                </div>
-                <div
-                  style={{
-                    padding: '14px 18px',
-                    fontSize: 13.5,
-                    lineHeight: '21px',
-                    color: 'var(--color-ink-muted)',
-                    borderLeft: '1px solid var(--color-hairline)',
-                  }}
-                >
-                  {row.dd}
                 </div>
               </div>
             ))}
