@@ -1105,16 +1105,16 @@ export function Landing({ onUpload, onSample }: Props) {
               lineHeight: 1.05,
               letterSpacing: '-0.02em',
               color: 'var(--color-ink)',
-              maxWidth: 920,
+              maxWidth: 980,
               marginBottom: 16,
             }}
           >
-            Menu-to-JSON already exists.{' '}
+            Internal at DoorDash.{' '}
             <span
               className="font-accent"
               style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
             >
-              It stops at JSON.
+              An API for everyone else.
             </span>
           </h2>
 
@@ -1123,15 +1123,55 @@ export function Landing({ onUpload, onSample }: Props) {
               fontSize: 'clamp(15px, 1.3vw, 17px)',
               lineHeight: 1.55,
               color: 'var(--color-ink-muted)',
-              maxWidth: 820,
+              maxWidth: 860,
+              marginBottom: 16,
+            }}
+          >
+            DoorDash built a full{' '}
+            <a
+              href="https://blog.bytebytego.com/p/how-doordash-uses-ai-models-to-understand"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+            >
+              OCR → LLM → guardrail classifier → human-in-the-loop pipeline
+            </a>
+            {' '}to turn menu photos into structured data — and it stays inside DoorDash.
+            Commercial APIs like{' '}
+            <a
+              href="https://www.veryfi.com/restaurant-menu-ocr-api/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+            >
+              Veryfi
+            </a>{' '}
+            and{' '}
+            <a
+              href="https://klippa.com/en/ocr/data-fields/menu-cards"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+            >
+              Klippa
+            </a>{' '}
+            expose OCR + NLP to third parties, but stop at item name / price / category.
+            The aliases, search terms, and LTO lane that delivery platforms actually need —
+            you build them yourself.
+          </p>
+
+          <p
+            style={{
+              fontSize: 'clamp(15px, 1.3vw, 17px)',
+              lineHeight: 1.55,
+              color: 'var(--color-ink-muted)',
+              maxWidth: 860,
               marginBottom: 40,
             }}
           >
-            Veryfi and Klippa give you item names, prices, and categories — via a
-            classical OCR → NLP pipeline. You still spend engineering time writing
-            alias tables ("margarita" ≈ "margherita"), tagging which items are
-            today's specials, and pre-computing search terms. Mise ships all of that
-            in the first response, powered by a single Opus 4.7 vision call.
+            Mise collapses that work into a single Opus 4.7 vision call. First response
+            ships with aliases, search terms, and canonical-vs-specials separation —
+            ready to index in Postgres, Elastic, or a vector DB on day one.
           </p>
 
           <div
@@ -1146,12 +1186,18 @@ export function Landing({ onUpload, onSample }: Props) {
             <div
               className="grid"
               style={{
-                gridTemplateColumns: '1.6fr 1fr 1fr 1fr',
+                gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.1fr',
                 background: 'var(--color-paper-tint)',
                 borderBottom: '1px solid var(--color-hairline)',
               }}
             >
-              {['Capability', 'Mise', 'Veryfi', 'Klippa'].map((h, i) => (
+              {[
+                'Capability',
+                'Mise',
+                'Veryfi',
+                'Klippa',
+                'DoorDash (internal)',
+              ].map((h, i) => (
                 <div
                   key={h}
                   className="font-mono"
@@ -1160,7 +1206,7 @@ export function Landing({ onUpload, onSample }: Props) {
                     letterSpacing: '0.14em',
                     textTransform: 'uppercase',
                     color: i === 1 ? 'var(--color-ink)' : 'var(--color-ink-subtle)',
-                    padding: '16px 20px',
+                    padding: '16px 18px',
                     fontWeight: i === 1 ? 600 : 400,
                   }}
                 >
@@ -1170,27 +1216,83 @@ export function Landing({ onUpload, onSample }: Props) {
             </div>
 
             {[
-              ['Ingestion', 'Vision-native (one model)', 'OCR → NLP pipeline', 'OCR → NLP pipeline'],
-              ['Item + price + category', 'Yes', 'Yes', 'Yes'],
-              ['Aliases (e.g. "margarita" ≈ "margherita")', 'Populated on first call', 'Build your own', 'Build your own'],
-              ['Search terms (diner vernacular)', 'Populated on first call', 'Not provided', 'Not provided'],
-              ['Canonical vs daily specials / LTOs', 'Auto-separated', 'Not distinguished', 'Not distinguished'],
-              ['Multilingual support', 'Automatic (same model)', 'Latin languages, on request', 'Latin languages'],
-              ['Indexable by Postgres / Elastic / vector DB day one', 'Yes (aliases & terms pre-computed)', 'Requires post-processing', 'Requires post-processing'],
-            ].map(([cap, mise, veryfi, klippa], idx, arr) => (
+              [
+                'Available as third-party API',
+                'Yes (open source)',
+                'Yes ($500/mo min)',
+                'Yes (custom quote)',
+                'No — internal only',
+              ],
+              [
+                'Ingestion',
+                'Vision-native · 1 model',
+                'OCR → NLP',
+                'OCR → NLP',
+                'OCR + LLM, multimodal in parallel',
+              ],
+              [
+                'Item + price + category',
+                'Yes',
+                'Yes',
+                'Yes',
+                'Yes',
+              ],
+              [
+                'Aliases populated on first call',
+                'Yes',
+                'Build your own',
+                'Build your own',
+                'Not in public writeups',
+              ],
+              [
+                'Search terms (diner vernacular)',
+                'Yes',
+                'Not provided',
+                'Not provided',
+                'Not in public writeups',
+              ],
+              [
+                'Canonical vs daily specials / LTOs',
+                'Auto-separated',
+                'Not distinguished',
+                'Not distinguished',
+                'Not distinguished',
+              ],
+              [
+                'Multilingual',
+                'Automatic (same model)',
+                'Latin langs, on request',
+                'Latin langs',
+                'Unspecified',
+              ],
+              [
+                'Guardrail layer (predicts own failure)',
+                'Roadmap',
+                'Not public',
+                'Not public',
+                'Yes (LightGBM classifier)',
+              ],
+              [
+                'Indexable in Postgres / Elastic / vector DB day one',
+                'Yes',
+                'Post-processing',
+                'Post-processing',
+                'Internal schema only',
+              ],
+            ].map(([cap, mise, veryfi, klippa, dd], idx, arr) => (
               <div
                 key={String(cap)}
                 className="grid"
                 style={{
-                  gridTemplateColumns: '1.6fr 1fr 1fr 1fr',
+                  gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.1fr',
                   borderBottom: idx < arr.length - 1 ? '1px solid var(--color-hairline)' : 'none',
                 }}
               >
                 <div
                   style={{
-                    padding: '14px 20px',
-                    fontSize: 14,
-                    lineHeight: '22px',
+                    padding: '14px 18px',
+                    fontSize: 13.5,
+                    lineHeight: '21px',
                     color: 'var(--color-ink)',
                     fontWeight: 500,
                   }}
@@ -1199,9 +1301,9 @@ export function Landing({ onUpload, onSample }: Props) {
                 </div>
                 <div
                   style={{
-                    padding: '14px 20px',
-                    fontSize: 14,
-                    lineHeight: '22px',
+                    padding: '14px 18px',
+                    fontSize: 13.5,
+                    lineHeight: '21px',
                     color: 'var(--color-ink)',
                     background: 'var(--color-paper-tint)',
                     borderLeft: '1px solid var(--color-hairline)',
@@ -1212,9 +1314,9 @@ export function Landing({ onUpload, onSample }: Props) {
                 </div>
                 <div
                   style={{
-                    padding: '14px 20px',
-                    fontSize: 14,
-                    lineHeight: '22px',
+                    padding: '14px 18px',
+                    fontSize: 13.5,
+                    lineHeight: '21px',
                     color: 'var(--color-ink-muted)',
                   }}
                 >
@@ -1222,14 +1324,25 @@ export function Landing({ onUpload, onSample }: Props) {
                 </div>
                 <div
                   style={{
-                    padding: '14px 20px',
-                    fontSize: 14,
-                    lineHeight: '22px',
+                    padding: '14px 18px',
+                    fontSize: 13.5,
+                    lineHeight: '21px',
                     color: 'var(--color-ink-muted)',
                     borderLeft: '1px solid var(--color-hairline)',
                   }}
                 >
                   {klippa}
+                </div>
+                <div
+                  style={{
+                    padding: '14px 18px',
+                    fontSize: 13.5,
+                    lineHeight: '21px',
+                    color: 'var(--color-ink-muted)',
+                    borderLeft: '1px solid var(--color-hairline)',
+                  }}
+                >
+                  {dd}
                 </div>
               </div>
             ))}
@@ -1243,12 +1356,30 @@ export function Landing({ onUpload, onSample }: Props) {
               letterSpacing: '0.08em',
               color: 'var(--color-ink-subtle)',
               marginTop: 16,
-              maxWidth: 820,
+              maxWidth: 900,
             }}
           >
-            Sources: Veryfi and Klippa public product documentation (linked in the
-            problem section above). "Mise" column reflects what the current API
-            returns on every call — the same payload you can download from the demo.{' '}
+            Sources — Veryfi & Klippa: public product pages linked above. DoorDash:
+            engineering writeups on{' '}
+            <a
+              href="https://blog.bytebytego.com/p/how-doordash-uses-ai-models-to-understand"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+            >
+              ByteByteGo
+            </a>{' '}
+            and the{' '}
+            <a
+              href="https://www.zenml.io/llmops-database/building-a-guardrail-system-for-llm-based-menu-transcription"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+            >
+              ZenML LLMOps database
+            </a>
+            . "Mise" column is what the current API returns on every call — the same
+            payload you can download from the demo.{' '}
             <a
               href="https://github.com/NicoArce10/Mise/blob/main/docs/competitive_benchmark.md"
               target="_blank"
@@ -1262,6 +1393,169 @@ export function Landing({ onUpload, onSample }: Props) {
               Reproducible harness →
             </a>
           </p>
+        </section>
+
+        {/* ═══════════════ WHERE MISE FITS ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-20 md:py-28`}
+          style={{
+            background: 'var(--color-paper-tint)',
+            borderTop: '1px solid var(--color-hairline)',
+            borderBottom: '1px solid var(--color-hairline)',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: CONTAINER_MAX,
+              width: '100%',
+              margin: '0 auto',
+            }}
+          >
+            <div className="mb-8 flex items-center gap-3">
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block',
+                  width: 28,
+                  height: 1,
+                  background: 'var(--color-ink-subtle)',
+                }}
+              />
+              <Eyebrow tone="strong">Where Mise fits</Eyebrow>
+            </div>
+
+            <h2
+              className="font-display"
+              style={{
+                fontWeight: 500,
+                fontSize: 'clamp(28px, 4vw, 44px)',
+                lineHeight: 1.08,
+                letterSpacing: '-0.02em',
+                color: 'var(--color-ink)',
+                maxWidth: 900,
+                marginBottom: 32,
+              }}
+            >
+              Menu software splits into{' '}
+              <span
+                className="font-accent"
+                style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
+              >
+                three layers.
+              </span>{' '}
+              The ingestion layer is the one nobody owns.
+            </h2>
+
+            <div
+              className="grid gap-6"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}
+            >
+              {[
+                {
+                  label: '01 · Ingestion',
+                  title: 'Photo / PDF → structured menu JSON',
+                  body: 'This is where Mise lives. Veryfi and Klippa are the only commercial APIs here, and they stop at flat OCR output. DoorDash solved it internally with a large ML team.',
+                  who: 'Mise, Veryfi, Klippa, DoorDash (internal)',
+                  highlight: true,
+                },
+                {
+                  label: '02 · Sync',
+                  title: 'Structured menu → POS, delivery apps, kiosks',
+                  body: 'Deliverect and Checkmate own this layer. They assume the menu is already digital and push updates across channels. They need an ingestion layer in front for restaurants without a POS.',
+                  who: 'Deliverect, Checkmate (EveryWare), Otter',
+                  highlight: false,
+                },
+                {
+                  label: '03 · Enrichment',
+                  title: 'Existing listings → better photos, copy, reviews',
+                  body: 'Uber Eats and DoorDash ship AI tools here — description generators, AI cameras, photo moderation. They work on menus that are already online. Not ingestion.',
+                  who: 'Uber Eats AI, DoorDash merchant tools',
+                  highlight: false,
+                },
+              ].map((layer) => (
+                <div
+                  key={layer.label}
+                  style={{
+                    background: layer.highlight
+                      ? 'var(--color-paper)'
+                      : 'transparent',
+                    border: layer.highlight
+                      ? '1px solid var(--color-ink)'
+                      : '1px solid var(--color-hairline)',
+                    borderRadius: 'var(--radius-card)',
+                    padding: '24px 22px',
+                  }}
+                >
+                  <div
+                    className="font-mono"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: '0.14em',
+                      textTransform: 'uppercase',
+                      color: layer.highlight
+                        ? 'var(--color-gold-leaf)'
+                        : 'var(--color-ink-subtle)',
+                      marginBottom: 12,
+                    }}
+                  >
+                    {layer.label}
+                  </div>
+                  <div
+                    className="font-display"
+                    style={{
+                      fontSize: 19,
+                      lineHeight: 1.22,
+                      letterSpacing: '-0.01em',
+                      color: 'var(--color-ink)',
+                      marginBottom: 12,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {layer.title}
+                  </div>
+                  <p
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 1.55,
+                      color: 'var(--color-ink-muted)',
+                      marginBottom: 16,
+                    }}
+                  >
+                    {layer.body}
+                  </p>
+                  <div
+                    className="font-mono"
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      color: 'var(--color-ink-subtle)',
+                      paddingTop: 12,
+                      borderTop: '1px solid var(--color-hairline)',
+                    }}
+                  >
+                    Who plays here: {layer.who}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p
+              style={{
+                fontSize: 'clamp(14px, 1.15vw, 16px)',
+                lineHeight: 1.55,
+                color: 'var(--color-ink-muted)',
+                maxWidth: 820,
+                marginTop: 32,
+              }}
+            >
+              For a delivery marketplace or a sync platform like Deliverect, Mise is a{' '}
+              <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
+                drop-in ingestion front-door
+              </span>
+              . For a POS-less restaurant in LatAm, it replaces the half-day of manual
+              re-entry that currently blocks onboarding.
+            </p>
+          </div>
         </section>
 
         {/* ═══════════════ EVIDENCE → SEARCH ═══════════════ */}
