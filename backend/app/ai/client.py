@@ -17,6 +17,7 @@ import json
 import logging
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from anthropic import Anthropic
@@ -111,6 +112,51 @@ def _request_kwargs(
     return kwargs
 
 
+def _maybe_log_raw(response: Any, model_name: str) -> None:
+    """Append the raw SDK response to `MISE_RAW_LOG_PATH` if the env var is set.
+
+    Enabled by the eval harness when running a canary so the raw response
+    from Opus 4.7 is captured as evidence (usage counts, cache-read tokens,
+    content blocks). Silent no-op otherwise.
+    """
+    raw_path = os.environ.get("MISE_RAW_LOG_PATH")
+    if not raw_path:
+        return
+    try:
+        usage = getattr(response, "usage", None)
+        content_blocks: list[dict[str, Any]] = []
+        for block in getattr(response, "content", None) or []:
+            if isinstance(block, dict):
+                btype = block.get("type")
+                btext = block.get("text")
+            else:
+                btype = getattr(block, "type", None)
+                btext = getattr(block, "text", None)
+            content_blocks.append({"type": btype, "text": btext})
+        entry = {
+            "response_model": model_name,
+            "stop_reason": getattr(response, "stop_reason", None),
+            "model": getattr(response, "model", None),
+            "id": getattr(response, "id", None),
+            "usage": (
+                {
+                    "input_tokens": getattr(usage, "input_tokens", None),
+                    "output_tokens": getattr(usage, "output_tokens", None),
+                    "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", None),
+                    "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", None),
+                }
+                if usage is not None
+                else None
+            ),
+            "content": content_blocks,
+        }
+        Path(raw_path).parent.mkdir(parents=True, exist_ok=True)
+        with Path(raw_path).open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as exc:
+        logger.warning("[mise] raw log append failed: %s", exc)
+
+
 def _parse_json_from_response(response: Any) -> dict[str, Any]:
     """Extract the first text block's JSON payload from a Messages response.
 
@@ -157,6 +203,7 @@ def call_opus(
             max_tokens=max_tokens,
         )
         response = client.messages.create(**kwargs)
+        _maybe_log_raw(response, response_model.__name__)
         payload = _parse_json_from_response(response)
         return response_model.model_validate(payload)
 
