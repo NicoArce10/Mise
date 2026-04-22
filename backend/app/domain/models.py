@@ -210,6 +210,12 @@ class CockpitState(BaseModel):
     `modifiers` is the flat list of ALL modifiers (attached + unattached).
     The UI derives the "unattached lane" client-side as the subset where
     `parent_dish_id is None`.
+
+    `quality_signal` is the heuristic guardrail's verdict on this run
+    (ready / review_recommended / likely_failure). The schema for it
+    lives in `backend.app.core.quality` so the domain layer stays free
+    of heuristic logic — we import the model here via the delayed type
+    hint to avoid a circular dependency.
     """
 
     processing: ProcessingRun
@@ -219,6 +225,7 @@ class CockpitState(BaseModel):
     ephemerals: list[EphemeralItem]
     reconciliation_trace: list[ReconciliationResult]
     metrics_preview: MetricsPreview | None = None
+    quality_signal: "QualitySignal | None" = None
 
 
 # ---------- Internal wire models (not exposed in the CockpitState) ----------
@@ -247,3 +254,11 @@ class ApiError(BaseModel):
     code: str
     message: str
     request_id: str | None = None
+
+
+# Resolve the forward reference on `CockpitState.quality_signal`.
+# The import is deferred to avoid a cycle between `domain.models` and
+# `core.quality` (quality imports CanonicalDish from this module).
+from ..core.quality import QualitySignal  # noqa: E402,F401
+
+CockpitState.model_rebuild()

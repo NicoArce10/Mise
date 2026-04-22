@@ -788,10 +788,38 @@ export function Landing({ onUpload, onSample }: Props) {
             <span>Open source · MIT</span>
           </motion.div>
 
-          {/* JSON preview — shows the actual API response shape in 10 seconds */}
+          {/* JSON preview — the actual first-call response */}
+          <motion.div {...reveal(0.18)} className="mt-20" style={{ maxWidth: 880 }}>
+            <div className="mb-5 flex items-center gap-3">
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block',
+                  width: 24,
+                  height: 1,
+                  background: 'var(--color-ink-subtle)',
+                }}
+              />
+              <Eyebrow tone="strong">What Mise returns on the first call</Eyebrow>
+            </div>
+            <p
+              style={{
+                fontSize: 'clamp(15px, 1.25vw, 17px)',
+                lineHeight: 1.55,
+                color: 'var(--color-ink-muted)',
+                maxWidth: 720,
+                marginBottom: 28,
+              }}
+            >
+              Every menu you upload comes back in this shape. The aliases that diners
+              actually type, the vernacular search terms, and the daily specials split
+              into their own lane — all populated by the model, not by post-processing
+              on your side.
+            </p>
+          </motion.div>
+
           <motion.div
             {...reveal(0.22)}
-            className="mt-16"
             style={{
               background: 'var(--color-ink)',
               borderRadius: 'var(--radius-card)',
@@ -811,7 +839,7 @@ export function Landing({ onUpload, onSample }: Props) {
                 color: 'var(--color-paper-deep)',
               }}
             >
-              <span>GET /api/catalog/&lt;run_id&gt;.json</span>
+              <span>First-call response · full menu</span>
               <span
                 style={{
                   background: 'var(--color-olive)',
@@ -1109,12 +1137,12 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 16,
             }}
           >
-            Internal at DoorDash.{' '}
+            The industry built menu pipelines{' '}
             <span
               className="font-accent"
               style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
             >
-              An API for everyone else.
+              before vision models were good enough.
             </span>
           </h2>
 
@@ -1127,16 +1155,30 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 16,
             }}
           >
-            DoorDash built a full{' '}
+            The state of the art today — documented publicly by{' '}
             <a
               href="https://blog.bytebytego.com/p/how-doordash-uses-ai-models-to-understand"
               target="_blank"
               rel="noreferrer"
               style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
             >
-              OCR → LLM → guardrail classifier → human-in-the-loop pipeline
-            </a>
-            {' '}to turn menu photos into structured data — and it stays inside DoorDash.
+              DoorDash engineering
+            </a>{' '}
+            — chains four moving parts: OCR, then an LLM over the OCR text, then a
+            classifier that predicts when the LLM fails, then humans who clean up the
+            rest. That architecture exists because LLMs couldn't read a photo directly.
+            Opus 4.7 can.
+          </p>
+
+          <p
+            style={{
+              fontSize: 'clamp(15px, 1.3vw, 17px)',
+              lineHeight: 1.55,
+              color: 'var(--color-ink-muted)',
+              maxWidth: 860,
+              marginBottom: 16,
+            }}
+          >
             Commercial APIs like{' '}
             <a
               href="https://www.veryfi.com/restaurant-menu-ocr-api/"
@@ -1155,9 +1197,10 @@ export function Landing({ onUpload, onSample }: Props) {
             >
               Klippa
             </a>{' '}
-            expose OCR + NLP to third parties, but stop at item name / price / category.
-            The aliases, search terms, and LTO lane that delivery platforms actually need —
-            you build them yourself.
+            expose that older architecture as a service, and stop at item name, price,
+            and section. The aliases a diner actually types, the vernacular search
+            terms, the fact that Tuesday's special isn't part of the canonical menu —
+            that work falls on whoever integrates their API.
           </p>
 
           <p
@@ -1169,9 +1212,10 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 40,
             }}
           >
-            Mise collapses that work into a single Opus 4.7 vision call. First response
-            ships with aliases, search terms, and canonical-vs-specials separation —
-            ready to index in Postgres, Elastic, or a vector DB on day one.
+            Mise collapses the pipeline into one vision-native call. The first response
+            ships with aliases, search terms, canonical-vs-specials separation, and a
+            quality signal that flags the menus a reviewer should look at — ready for
+            Postgres, Elastic, or a vector DB, on day one.
           </p>
 
           <div
@@ -1215,77 +1259,87 @@ export function Landing({ onUpload, onSample }: Props) {
               ))}
             </div>
 
-            {[
-              [
-                'Available as third-party API',
-                'Yes (open source)',
-                'Yes ($500/mo min)',
-                'Yes (custom quote)',
-                'No — internal only',
-              ],
-              [
-                'Ingestion',
-                'Vision-native · 1 model',
-                'OCR → NLP',
-                'OCR → NLP',
-                'OCR + LLM, multimodal in parallel',
-              ],
-              [
-                'Item + price + category',
-                'Yes',
-                'Yes',
-                'Yes',
-                'Yes',
-              ],
-              [
-                'Aliases populated on first call',
-                'Yes',
-                'Build your own',
-                'Build your own',
-                'Not in public writeups',
-              ],
-              [
-                'Search terms (diner vernacular)',
-                'Yes',
-                'Not provided',
-                'Not provided',
-                'Not in public writeups',
-              ],
-              [
-                'Canonical vs daily specials / LTOs',
-                'Auto-separated',
-                'Not distinguished',
-                'Not distinguished',
-                'Not distinguished',
-              ],
-              [
-                'Multilingual',
-                'Automatic (same model)',
-                'Latin langs, on request',
-                'Latin langs',
-                'Unspecified',
-              ],
-              [
-                'Guardrail layer (predicts own failure)',
-                'Roadmap',
-                'Not public',
-                'Not public',
-                'Yes (LightGBM classifier)',
-              ],
-              [
-                'Indexable in Postgres / Elastic / vector DB day one',
-                'Yes',
-                'Post-processing',
-                'Post-processing',
-                'Internal schema only',
-              ],
-            ].map(([cap, mise, veryfi, klippa, dd], idx, arr) => (
+            {([
+              {
+                cap: 'Available as third-party API',
+                mise: 'Yes · open source',
+                veryfi: 'Yes · $500/mo min',
+                klippa: 'Yes · custom quote',
+                dd: 'No · internal only',
+                unique: false,
+              },
+              {
+                cap: 'Ingestion',
+                mise: 'Vision-native · 1 call',
+                veryfi: 'OCR → NLP',
+                klippa: 'OCR → NLP',
+                dd: 'OCR + LLM + multimodal',
+                unique: true,
+              },
+              {
+                cap: 'Item + price + category',
+                mise: 'Yes',
+                veryfi: 'Yes',
+                klippa: 'Yes',
+                dd: 'Yes',
+                unique: false,
+              },
+              {
+                cap: 'Aliases populated on first call',
+                mise: 'Yes',
+                veryfi: 'Build your own',
+                klippa: 'Build your own',
+                dd: 'Not in public writeups',
+                unique: true,
+              },
+              {
+                cap: 'Search terms (diner vernacular)',
+                mise: 'Yes',
+                veryfi: 'Not provided',
+                klippa: 'Not provided',
+                dd: 'Not in public writeups',
+                unique: true,
+              },
+              {
+                cap: 'Canonical vs daily specials / LTOs',
+                mise: 'Auto-separated',
+                veryfi: 'Not distinguished',
+                klippa: 'Not distinguished',
+                dd: 'Not distinguished',
+                unique: true,
+              },
+              {
+                cap: 'Multilingual',
+                mise: 'Automatic · same model',
+                veryfi: 'Latin langs, on request',
+                klippa: 'Latin langs',
+                dd: 'Unspecified',
+                unique: false,
+              },
+              {
+                cap: 'Quality signal on every response',
+                mise: 'Yes · heuristic guardrail',
+                veryfi: 'Not exposed',
+                klippa: 'Not exposed',
+                dd: 'Yes · LightGBM classifier',
+                unique: true,
+              },
+              {
+                cap: 'Indexable in Postgres / Elastic / vector DB on day one',
+                mise: 'Yes',
+                veryfi: 'Post-processing',
+                klippa: 'Post-processing',
+                dd: 'Internal schema only',
+                unique: true,
+              },
+            ] as const).map((row, idx, arr) => (
               <div
-                key={String(cap)}
+                key={row.cap}
                 className="grid"
                 style={{
                   gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1.1fr',
                   borderBottom: idx < arr.length - 1 ? '1px solid var(--color-hairline)' : 'none',
+                  background: row.unique ? 'rgba(201, 159, 70, 0.06)' : 'transparent',
                 }}
               >
                 <div
@@ -1295,9 +1349,30 @@ export function Landing({ onUpload, onSample }: Props) {
                     lineHeight: '21px',
                     color: 'var(--color-ink)',
                     fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    flexWrap: 'wrap',
                   }}
                 >
-                  {cap}
+                  <span>{row.cap}</span>
+                  {row.unique && (
+                    <span
+                      className="font-mono"
+                      style={{
+                        fontSize: 9.5,
+                        letterSpacing: '0.14em',
+                        textTransform: 'uppercase',
+                        color: 'var(--color-gold-leaf)',
+                        border: '1px solid var(--color-gold-leaf)',
+                        padding: '1px 6px',
+                        borderRadius: 3,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Only Mise
+                    </span>
+                  )}
                 </div>
                 <div
                   style={{
@@ -1305,12 +1380,15 @@ export function Landing({ onUpload, onSample }: Props) {
                     fontSize: 13.5,
                     lineHeight: '21px',
                     color: 'var(--color-ink)',
-                    background: 'var(--color-paper-tint)',
+                    background: row.unique
+                      ? 'rgba(201, 159, 70, 0.14)'
+                      : 'var(--color-paper-tint)',
                     borderLeft: '1px solid var(--color-hairline)',
                     borderRight: '1px solid var(--color-hairline)',
+                    fontWeight: row.unique ? 600 : 400,
                   }}
                 >
-                  {mise}
+                  {row.mise}
                 </div>
                 <div
                   style={{
@@ -1320,18 +1398,7 @@ export function Landing({ onUpload, onSample }: Props) {
                     color: 'var(--color-ink-muted)',
                   }}
                 >
-                  {veryfi}
-                </div>
-                <div
-                  style={{
-                    padding: '14px 18px',
-                    fontSize: 13.5,
-                    lineHeight: '21px',
-                    color: 'var(--color-ink-muted)',
-                    borderLeft: '1px solid var(--color-hairline)',
-                  }}
-                >
-                  {klippa}
+                  {row.veryfi}
                 </div>
                 <div
                   style={{
@@ -1342,7 +1409,18 @@ export function Landing({ onUpload, onSample }: Props) {
                     borderLeft: '1px solid var(--color-hairline)',
                   }}
                 >
-                  {dd}
+                  {row.klippa}
+                </div>
+                <div
+                  style={{
+                    padding: '14px 18px',
+                    fontSize: 13.5,
+                    lineHeight: '21px',
+                    color: 'var(--color-ink-muted)',
+                    borderLeft: '1px solid var(--color-hairline)',
+                  }}
+                >
+                  {row.dd}
                 </div>
               </div>
             ))}
@@ -1795,11 +1873,8 @@ export function Landing({ onUpload, onSample }: Props) {
                   maxWidth: 260,
                 }}
               >
-                Benchmarks live in{' '}
-                <code style={{ color: 'var(--color-paper)' }}>
-                  submissions/metrics.json
-                </code>{' '}
-                — reproducible via <code style={{ color: 'var(--color-paper)' }}>evals/run_eval.py</code>.
+                Numbers are pulled from a reproducible eval suite — every claim below
+                traces back to a recorded run you can re-execute from the repo.
               </p>
             </div>
 

@@ -7,6 +7,7 @@ wording and the same ids so the Cockpit bundle does not need a rebuild.
 """
 from __future__ import annotations
 
+from ..core.quality import QualityStatus, QualitySignal
 from .models import (
     CanonicalDish,
     CockpitState,
@@ -220,5 +221,20 @@ def fixture_cockpit(
             merge_precision=1.0,
             non_merge_accuracy=1.0,
             time_to_review_pack_seconds=36.4,
+        ),
+        # A clean run on the Bella Italia fixture: no flags raised.
+        # The fixture exists to drive the demo deterministically, so we
+        # hard-code the guardrail verdict here rather than re-evaluating
+        # from the shape above — if a future diff lowers the fixture
+        # quality, the test_quality suite will still fail and flag it.
+        quality_signal=QualitySignal(
+            status=QualityStatus.READY,
+            confidence=1.0,
+            flags=[],
+            reasons=[],
+            dish_count=3,
+            missing_price_ratio=0.0,
+            missing_category_ratio=0.0,
+            sparse_ingredient_ratio=0.0,
         ),
     )

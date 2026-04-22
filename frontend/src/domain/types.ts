@@ -171,6 +171,36 @@ export interface MetricsPreview {
   time_to_review_pack_seconds: number | null;
 }
 
+// Mirrors backend/app/core/quality.py. The guardrail verdict the backend
+// attaches to every run. UI reads `status` to pick a badge tone and
+// `reasons[]` to fill the tooltip / panel body.
+export const QualityStatus = {
+  READY: 'ready',
+  REVIEW_RECOMMENDED: 'review_recommended',
+  LIKELY_FAILURE: 'likely_failure',
+} as const;
+export type QualityStatus = typeof QualityStatus[keyof typeof QualityStatus];
+
+export type QualityFlag =
+  | 'low_dish_count'
+  | 'missing_prices'
+  | 'missing_categories'
+  | 'sparse_ingredients'
+  | 'price_outlier'
+  | 'duplicate_canonicals'
+  | 'partial_extraction';
+
+export interface QualitySignal {
+  status: QualityStatus;
+  confidence: number;
+  flags: QualityFlag[];
+  reasons: string[];
+  dish_count: number;
+  missing_price_ratio: number;
+  missing_category_ratio: number;
+  sparse_ingredient_ratio: number;
+}
+
 export interface CockpitState {
   processing: ProcessingRun;
   sources: SourceDocument[];
@@ -183,4 +213,5 @@ export interface CockpitState {
   ephemerals: EphemeralItem[];
   reconciliation_trace: ReconciliationResult[];
   metrics_preview: MetricsPreview | null;
+  quality_signal: QualitySignal | null;
 }

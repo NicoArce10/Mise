@@ -91,3 +91,24 @@ def test_catalog_unattached_modifiers_and_counts(client: TestClient) -> None:
     attached = sum(len(d["modifiers"]) for d in body["dishes"])
     assert counts["modifiers_attached"] == attached
     assert counts["modifiers_unattached"] == len(body["unattached_modifiers"])
+
+
+def test_catalog_includes_quality_signal(client: TestClient) -> None:
+    """Every catalog export must carry the heuristic guardrail verdict.
+
+    Downstream systems need `status` to decide whether to auto-publish the
+    run or queue it for a reviewer.
+    """
+    processing_id = _run_pipeline_to_ready(client)
+
+    body = client.get(f"/api/catalog/{processing_id}.json").json()
+
+    assert "quality_signal" in body
+    qs = body["quality_signal"]
+    assert qs is not None
+    assert qs["status"] in {"ready", "review_recommended", "likely_failure"}
+    assert 0.0 <= qs["confidence"] <= 1.0
+    assert isinstance(qs["flags"], list)
+    assert isinstance(qs["reasons"], list)
+    assert qs["metrics"]["dish_count"] == len(body["dishes"])
+    assert 0.0 <= qs["metrics"]["missing_price_ratio"] <= 1.0

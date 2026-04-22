@@ -143,10 +143,34 @@ def _build_catalog(processing_id: EntityId, cockpit: CockpitState) -> dict[str, 
         e for e in cockpit.ephemerals if e.moderation is not ModerationStatus.REJECTED
     ]
 
+    # Quality signal — heuristic guardrail verdict on this run. Surfaced in
+    # the catalog so a downstream system can read it *before* indexing the
+    # rows: if `status == "likely_failure"` the ingesting system should
+    # route the run through a reviewer (or drop it) instead of publishing
+    # blindly. Shape mirrors `backend.app.core.quality.QualitySignal`.
+    qs = cockpit.quality_signal
+    quality_payload: dict[str, Any] | None
+    if qs is None:
+        quality_payload = None
+    else:
+        quality_payload = {
+            "status": qs.status.value,
+            "confidence": qs.confidence,
+            "flags": [f.value for f in qs.flags],
+            "reasons": list(qs.reasons),
+            "metrics": {
+                "dish_count": qs.dish_count,
+                "missing_price_ratio": qs.missing_price_ratio,
+                "missing_category_ratio": qs.missing_category_ratio,
+                "sparse_ingredient_ratio": qs.sparse_ingredient_ratio,
+            },
+        }
+
     return {
         "run_id": processing_id,
         "generated_at": cockpit.processing.ready_at or cockpit.processing.started_at,
         "model": "claude-opus-4-7",
+        "quality_signal": quality_payload,
         "sources": [
             {
                 "id": src.id,

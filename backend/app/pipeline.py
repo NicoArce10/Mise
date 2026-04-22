@@ -24,6 +24,7 @@ from .ai.extraction import ExtractionFailure, extract_fallback, extract_from_byt
 from .ai.reconciliation import reconcile_deterministic, reconcile_pair
 from .ai.routing import route_candidate
 from .core.metrics import apply_latest_report
+from .core.quality import evaluate_quality
 from .domain.models import (
     CanonicalDish,
     CockpitState,
@@ -196,6 +197,7 @@ def _build_cockpit(
     candidates: list[DishCandidate],
     reconciliations: list[ReconciliationResult],
     elapsed_s: float,
+    extraction_failures: int = 0,
 ) -> CockpitState:
     parent = _union_find_merges(candidates, reconciliations)
 
@@ -412,6 +414,12 @@ def _build_cockpit(
         ready_at="",
     )
 
+    quality_signal = evaluate_quality(
+        canonical_dishes=canonical_dishes,
+        extraction_failures=extraction_failures,
+        extraction_total=len(sources),
+    )
+
     return CockpitState(
         processing=processing,
         sources=sources,
@@ -420,6 +428,7 @@ def _build_cockpit(
         ephemerals=ephemerals,
         reconciliation_trace=reconciliations,
         metrics_preview=metrics,
+        quality_signal=quality_signal,
     )
 
 
@@ -534,6 +543,7 @@ def run_pipeline(
         candidates=candidates,
         reconciliations=reconciliations,
         elapsed_s=elapsed,
+        extraction_failures=len(failures),
     )
 
     logger.info(

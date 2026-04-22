@@ -60,6 +60,7 @@ function emptyState(): CockpitState {
     ephemerals: [],
     reconciliation_trace: [],
     metrics_preview: metrics,
+    quality_signal: null,
   };
 }
 

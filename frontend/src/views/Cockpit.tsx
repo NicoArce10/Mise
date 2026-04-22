@@ -6,6 +6,7 @@ import { TopBar } from '../components/TopBar';
 import { EvidenceRail } from '../components/EvidenceRail';
 import { DetailRail } from '../components/DetailRail';
 import { MetricsPane } from '../components/MetricsPane';
+import { QualitySignalPane } from '../components/QualitySignalPane';
 import { UnattachedModifiersLane } from '../components/UnattachedModifiersLane';
 import { CockpitToolbar, type ViewDensity } from '../components/CockpitToolbar';
 import { DishCategoryGroup } from '../components/DishCategoryGroup';
@@ -496,6 +497,10 @@ export function Cockpit({
                 ))}
               </div>
             </section>
+          )}
+
+          {state.quality_signal && (
+            <QualitySignalPane signal={state.quality_signal} />
           )}
 
           {state.metrics_preview && <MetricsPane metrics={state.metrics_preview} />}

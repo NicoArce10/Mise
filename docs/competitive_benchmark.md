@@ -100,17 +100,21 @@ was the bottleneck, not model capacity.
 | Vision + structured extraction | ✅ Covered in one Opus 4.7 call (no separate OCR stage). |
 | Aliases / search terms / LTO separation | ✅ Mise adds these; DoorDash's public writeups don't mention them. |
 | Adaptive effort on ambiguous cases | ✅ Mise uses Opus 4.7 adaptive thinking for this. |
-| **Guardrail classifier predicting own failure** | ❌ **Not yet. Roadmap item.** |
-| Human-in-the-loop moderation | ⚠️ Partial — the Cockpit view supports Approve/Edit/Reject on the dish graph, but the routing decision is manual, not model-driven. |
+| **Guardrail predicting own failure** | ✅ Mise ships a heuristic guardrail (`app/core/quality.py`). Every catalog export carries a `quality_signal` with `status`, `confidence`, and concrete reasons. DoorDash uses a trained LightGBM classifier; Mise uses hand-tuned heuristics because a hackathon MVP can't train on labeled data — same shape, different backend. |
+| Human-in-the-loop moderation | ✅ The Cockpit view supports Approve/Edit/Reject on every dish; the guardrail verdict drives which runs should be routed to a reviewer before publication. |
 
-**Honest take:** the guardrail pattern is the single most valuable
-piece of engineering in the DoorDash writeup, and Mise does not ship
-it in this hackathon MVP. A v2 of Mise would train a small classifier
-on (image features, token-level confidence, schema violations) → "ship
-this automatically vs send to a reviewer" — exactly like DoorDash does.
+**Honest take:** DoorDash's guardrail is trained on years of labeled
+outcomes; Mise's is seven hand-written rules covering the failure modes
+we actually hit in dev (low dish count, most prices missing, skeleton
+ingredient lists, 3.5×MAD price outliers, near-duplicate canonicals that
+escaped merge, partial source failure). When a run comes back with
+`status: "likely_failure"`, downstream systems should route it to a
+reviewer — exactly the escalation path DoorDash uses.
 
-This is explicitly acknowledged on the landing page's comparison grid
-("Guardrail layer · Roadmap").
+The upgrade path is straightforward: swap `evaluate_quality` for a
+classifier's `predict_proba` once labeled transcription-quality data
+exists. The rest of the pipeline doesn't change, because the guardrail
+is contracted behind a single Pydantic model (`QualitySignal`).
 
 ---
 

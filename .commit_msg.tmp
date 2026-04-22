@@ -1,0 +1,68 @@
+feat: heuristic guardrail + reframed competitive narrative
+
+Two changes driven by hackathon-judging feedback: (1) a concrete
+guardrail on the backend so the landing can honestly claim it (no
+more "Roadmap"), (2) reframed messaging on the landing so DoorDash
+goes from "benchmark we chase" to "prior art with yesterday's
+architecture", emphasizing what Mise uniquely ships.
+
+Backend
+
+- New `backend/app/core/quality.py` — a heuristic guardrail that
+  scores every pipeline run and returns a `QualitySignal` with
+  status (ready / review_recommended / likely_failure), confidence,
+  structured flags, and plain-language reasons. Seven checks cover
+  the failure modes we actually hit during dev: low dish count,
+  missing prices, missing categories, skeleton ingredients, price
+  outliers (Iglewicz-Hoaglin MAD, robust to self-masking), near-
+  duplicate canonicals (Jaccard), partial source failure.
+- `pipeline._build_cockpit` now attaches the `QualitySignal` to
+  every `CockpitState`.
+- `/api/catalog/{run_id}.json` surfaces the `quality_signal` block
+  at the document root so downstream systems can branch on it
+  before indexing.
+- `CockpitState.quality_signal` field added (domain model); circular
+  import broken via `TYPE_CHECKING` in quality.py.
+- Bella Italia fixture ships a `ready`-status signal so demo stays
+  deterministic.
+- Tests: `test_quality.py` exercises every flag branch;
+  `test_catalog.py` pins the exported shape.
+
+Frontend
+
+- `domain/types.ts` mirrors `QualitySignal` and `QualityStatus`.
+- New `QualitySignalPane` component — tone-aware badge (olive /
+  amber / red) with reasons list and per-metric footer. Rendered
+  above the metrics pane in the Cockpit.
+- `MetricsPane` caption no longer leaks a `.py` path; reads
+  "from the reproducible eval suite" instead.
+- Landing `Compare` section: H2 rewritten to "The industry built
+  menu pipelines before vision models were good enough." Intro
+  paragraphs now frame DoorDash's OCR → LLM → guardrail → HITL
+  stack as the prior generation (because LLMs couldn't read a
+  photo directly until Opus 4.7).
+- Comparison grid: every row now has an `unique: boolean` flag.
+  When true, the row gets a subtle gold tint plus an "Only Mise"
+  pill next to the capability name. Turns a flat "Yes/Yes/No"
+  matrix into something that actually reads the story. Quality-
+  signal row now documents Mise's heuristic guardrail (not
+  roadmap).
+- New plain-language intro above the JSON preview ("What Mise
+  returns on the first call") so non-tech readers engage with it
+  too.
+- Only `.py` reference on the landing (`evals/run_eval.py`) replaced
+  with prose.
+
+Docs
+
+- `docs/competitive_benchmark.md`: the DoorDash-benchmark section
+  now shows ✅ for the guardrail row (with the honest caveat that
+  Mise ships heuristics where DoorDash ships a trained LightGBM
+  classifier) and describes the upgrade path.
+
+Tests + build
+
+- Backend: 67 tests green (11 new in test_quality.py plus the
+  updated catalog test).
+- Frontend: `tsc -b && vite build` clean.
+EOF

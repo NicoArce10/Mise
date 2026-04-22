@@ -58,7 +58,7 @@ export function MetricsPane({ metrics }: Props) {
           className="caption"
           style={{ color: 'var(--color-ink-subtle)', letterSpacing: '0.04em' }}
         >
-          from evals/run_eval.py
+          from the reproducible eval suite
         </span>
       </div>
       <div className="grid grid-cols-3 gap-6 md:grid-cols-4">

@@ -407,4 +407,17 @@ export const mockCockpit: CockpitState = {
     // Measured end-to-end wall clock for this sample on claude-opus-4-7.
     time_to_review_pack_seconds: 38.2,
   },
+  // A clean run on the Bella Italia fixture — the heuristic guardrail
+  // doesn't flag anything, so the Cockpit shows a green "Ready to publish"
+  // badge. See backend/app/core/quality.py for the rules.
+  quality_signal: {
+    status: 'ready',
+    confidence: 1.0,
+    flags: [],
+    reasons: [],
+    dish_count: 12,
+    missing_price_ratio: 0.0,
+    missing_category_ratio: 0.0,
+    sparse_ingredient_ratio: 0.0,
+  },
 };
