@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   apiGetReview,
@@ -9,18 +9,57 @@ import {
 } from '../api/client';
 import type {
   CockpitState,
+  MetricsPreview,
   ModerationStatus,
+  ProcessingRun,
+  ProcessingState,
   UUID,
 } from '../domain/types';
 import { mockCockpit } from '../mocks/cockpit';
 
 export type ModerateTargetKind = TargetKind;
 
+export type CockpitMode =
+  | { kind: 'empty' }
+  | { kind: 'sample' }
+  | { kind: 'live'; processingId: UUID };
+
 export interface UseCockpit {
   state: CockpitState;
   moderate: (kind: ModerateTargetKind, id: UUID, status: ModerationStatus) => void;
   reload: () => Promise<void>;
-  source: 'mock' | 'api';
+  source: 'empty' | 'sample' | 'api';
+}
+
+function emptyState(): CockpitState {
+  const now = new Date().toISOString();
+  const run: ProcessingRun = {
+    id: 'empty',
+    batch_id: 'empty',
+    state: 'ready' as ProcessingState,
+    state_detail: null,
+    adaptive_thinking_pairs: 0,
+    started_at: now,
+    ready_at: now,
+  };
+  const metrics: MetricsPreview = {
+    sources_ingested: 0,
+    canonical_count: 0,
+    modifier_count: 0,
+    ephemeral_count: 0,
+    merge_precision: null,
+    non_merge_accuracy: null,
+    time_to_review_pack_seconds: null,
+  };
+  return {
+    processing: run,
+    sources: [],
+    canonical_dishes: [],
+    modifiers: [],
+    ephemerals: [],
+    reconciliation_trace: [],
+    metrics_preview: metrics,
+  };
 }
 
 const actionFromStatus = (status: ModerationStatus): Action | null => {
@@ -41,41 +80,59 @@ const actionFromStatus = (status: ModerationStatus): Action | null => {
  * If the first fetch fails the hook falls back to the mock so the demo
  * survives even if the backend is offline.
  */
-export function useCockpitState(processingId: UUID | null = null): UseCockpit {
-  const [state, setState] = useState<CockpitState>(mockCockpit);
-  const [source, setSource] = useState<'mock' | 'api'>('mock');
-  const currentProcessingId = useRef(processingId);
+export function useCockpitState(mode: CockpitMode = { kind: 'empty' }): UseCockpit {
+  // Pick the initial state from the mode so the first paint matches intent
+  // (empty = no ghost dishes while mounting, sample = italian fixture, live = empty until fetch resolves).
+  const initial = useMemo<CockpitState>(() => {
+    if (mode.kind === 'sample') return mockCockpit;
+    return emptyState();
+  }, [mode.kind]);
+  const [state, setState] = useState<CockpitState>(initial);
+  const [source, setSource] = useState<'empty' | 'sample' | 'api'>(
+    mode.kind === 'sample' ? 'sample' : 'empty',
+  );
+  const processingIdRef = useRef<UUID | null>(
+    mode.kind === 'live' ? mode.processingId : null,
+  );
 
   useEffect(() => {
-    currentProcessingId.current = processingId;
-    if (processingId === null) {
+    if (mode.kind === 'sample') {
       setState(mockCockpit);
-      setSource('mock');
+      setSource('sample');
+      processingIdRef.current = null;
       return;
     }
+    if (mode.kind === 'empty') {
+      setState(emptyState());
+      setSource('empty');
+      processingIdRef.current = null;
+      return;
+    }
+    // live
+    const pid = mode.processingId;
+    processingIdRef.current = pid;
     let cancelled = false;
     void (async () => {
       try {
-        const fetched = await apiGetReview(processingId);
+        const fetched = await apiGetReview(pid);
         if (cancelled) return;
         setState(fetched);
         setSource('api');
       } catch (err) {
-        // Backend unreachable or run not found — fall back to mock so the demo still runs.
         if (!cancelled) {
-          console.warn('[mise] api unreachable, using mock cockpit state', err);
-          setState(mockCockpit);
-          setSource('mock');
+          console.warn('[mise] api unreachable, showing empty cockpit', err);
+          setState(emptyState());
+          setSource('empty');
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [processingId]);
+  }, [mode.kind, mode.kind === 'live' ? mode.processingId : null]);
 
   const reload = useCallback(async () => {
-    const pid = currentProcessingId.current;
+    const pid = processingIdRef.current;
     if (pid === null) return;
     try {
       const fetched = await apiGetReview(pid);
@@ -88,7 +145,7 @@ export function useCockpitState(processingId: UUID | null = null): UseCockpit {
 
   const moderate = useCallback(
     (kind: ModerateTargetKind, id: UUID, status: ModerationStatus) => {
-      const pid = currentProcessingId.current;
+      const pid = processingIdRef.current;
       const action = actionFromStatus(status);
 
       if (pid !== null && action !== null) {
