@@ -57,6 +57,7 @@ export const mockCockpit: CockpitState = {
     ready_at: '2026-04-22T14:02:38Z',
     recent_dishes: [],
     live_reconciliations: [],
+    sources: [],
   },
   sources: [
     {

@@ -485,17 +485,25 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
         }}
       >
         <div className="flex items-baseline gap-3">
-          <span
-            className="font-display"
+          <button
+            type="button"
+            onClick={onRestart}
+            aria-label="Mise — back to home"
+            title="Back to home"
+            className="font-display cursor-pointer"
             style={{
               fontWeight: 500,
               fontSize: 22,
               lineHeight: '26px',
               letterSpacing: '-0.01em',
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              color: 'var(--color-ink)',
             }}
           >
             Mise
-          </span>
+          </button>
           <span
             className="font-mono"
             style={{
@@ -569,8 +577,12 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
           <button
             type="button"
             onClick={() => {
-              // Only ask for confirmation if there is something meaningful to
-              // lose (the reviewer is mid-search or has searched at least once).
+              // Sample mode never has anything to lose — skip the
+              // confirm so the "upload yours" nudge feels frictionless.
+              if (isSample) {
+                onRestart();
+                return;
+              }
               const hasWork = activeQuery.length > 0 || result !== null;
               if (!hasWork) {
                 onRestart();
@@ -583,18 +595,26 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
             }}
             className="cursor-pointer"
             style={{
-              background: 'transparent',
-              color: 'var(--color-ink-muted)',
-              border: 'none',
-              padding: '8px 0',
+              background: isSample ? 'var(--color-paper-tint)' : 'transparent',
+              color: isSample ? 'var(--color-ink)' : 'var(--color-ink-muted)',
+              border: isSample ? '1px solid var(--color-ink)' : 'none',
+              borderRadius: isSample ? 'var(--radius-chip)' : 0,
+              padding: isSample ? '8px 14px' : '8px 0',
               fontSize: 13,
+              letterSpacing: isSample ? '0.02em' : 0,
+              fontWeight: isSample ? 500 : 400,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
             }}
+            title={
+              isSample
+                ? 'You are looking at the sample menu. Upload your own PDF or photo to run it against Opus 4.7 live.'
+                : 'Start over with a fresh menu'
+            }
           >
             <ArrowLeft size={14} strokeWidth={1.5} />
-            new menu
+            {isSample ? 'Upload your menu' : 'new menu'}
           </button>
         </div>
       </header>

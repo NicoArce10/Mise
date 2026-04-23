@@ -5,9 +5,11 @@ import { apiGetProcessing, ApiError } from '../api/client';
 import type {
   LiveReconciliationEvent,
   ProcessingState,
+  SourceDocument,
   UUID,
 } from '../domain/types';
 import { LiveReconciliationPanel } from '../components/LiveReconciliationPanel';
+import { ScannerOverlay } from '../components/ScannerOverlay';
 
 interface Props {
   processingId: UUID | null;
@@ -15,6 +17,11 @@ interface Props {
   onReady: () => void;
   onSkipToSample?: () => void;
   onRetryUpload?: () => void;
+  /** Called when the user clicks the "Mise" logo to abandon the
+   * in-flight run and go back to the landing page. We don't block the
+   * background pipeline — worst case the run completes orphaned in the
+   * store, which is fine for a demo. */
+  onGoHome?: () => void;
 }
 
 /**
@@ -26,8 +33,12 @@ interface Props {
  */
 const STAGES: Record<ProcessingState, { title: string; whisper: string }> = {
   queued: {
-    title: 'Lining up your menu',
-    whisper: 'The upload is accepted. Opus 4.7 is about to start reading.',
+    // Used as a fallback only — in practice the backend almost always
+    // hands us EXTRACTING on the first poll, so the user rarely lands
+    // here. The wording stays calm because if they DO see it, it means
+    // the upload isn't lost, just being queued.
+    title: 'Getting ready',
+    whisper: 'Your upload arrived. Opus 4.7 is about to start reading.',
   },
   extracting: {
     title: 'Reading your menu',
@@ -55,11 +66,19 @@ const STAGES: Record<ProcessingState, { title: string; whisper: string }> = {
   },
 };
 
+// User-visible step counter ("Step 2 of 4"). We DELIBERATELY drop
+// `queued` here because in real runs it lasts ~milliseconds — counting
+// it as a step made every long extraction look stuck on "Step 1 of 5"
+// when it had really already moved to "Reading". Counting from
+// `extracting` matches what the user actually sees on screen.
 const ORDER: ProcessingState[] = [
-  'queued', 'extracting', 'reconciling', 'routing', 'ready',
+  'extracting', 'reconciling', 'routing', 'ready',
 ];
 
 function stageIndex(s: ProcessingState): number {
+  // `queued` collapses into stage 0 visually so the counter still
+  // reads "Step 1 of 4" if we briefly catch the queue state.
+  if (s === 'queued') return 0;
   const i = ORDER.indexOf(s);
   return i < 0 ? 0 : i;
 }
@@ -70,6 +89,7 @@ export function Processing({
   onReady,
   onSkipToSample,
   onRetryUpload,
+  onGoHome,
 }: Props) {
   const [state, setState] = useState<ProcessingState>('queued');
   const [detail, setDetail] = useState<string | null>(null);
@@ -80,6 +100,11 @@ export function Processing({
   const [liveReconciliations, setLiveReconciliations] = useState<
     LiveReconciliationEvent[]
   >([]);
+  // Uploaded PDFs/photos for this run. Populated from the first
+  // successful poll (the backend attaches them to the ProcessingRun
+  // payload). Stable for the duration of the run — the scanner overlay
+  // uses this to render "Opus is looking at THIS" while extracting.
+  const [sources, setSources] = useState<SourceDocument[]>([]);
   const cancelled = useRef(false);
 
   // Wall-clock ticker so the user sees the run isn't frozen even when a
@@ -109,6 +134,9 @@ export function Processing({
           }
           if (Array.isArray(run.live_reconciliations)) {
             setLiveReconciliations(run.live_reconciliations);
+          }
+          if (Array.isArray(run.sources) && run.sources.length > 0) {
+            setSources(run.sources);
           }
           if (run.state === 'ready') {
             setTimeout(() => !cancelled.current && onReady(), 600);
@@ -211,12 +239,34 @@ export function Processing({
         style={{ borderBottom: '1px solid var(--color-hairline)' }}
       >
         <div className="flex items-baseline gap-6">
-          <span
-            className="font-display"
-            style={{ fontWeight: 500, fontSize: 28, lineHeight: '32px' }}
-          >
-            Mise
-          </span>
+          {onGoHome ? (
+            <button
+              type="button"
+              onClick={onGoHome}
+              aria-label="Mise — back to home"
+              title="Back to home"
+              className="font-display cursor-pointer"
+              style={{
+                fontWeight: 500,
+                fontSize: 28,
+                lineHeight: '32px',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                color: 'var(--color-ink)',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Mise
+            </button>
+          ) : (
+            <span
+              className="font-display"
+              style={{ fontWeight: 500, fontSize: 28, lineHeight: '32px' }}
+            >
+              Mise
+            </span>
+          )}
           <span
             className="caption"
             style={{ color: 'var(--color-ink-subtle)', letterSpacing: '0.04em' }}
@@ -402,15 +452,41 @@ export function Processing({
           )}
         </section>
 
-        {/* Live extraction feed. Shown only during `extracting` on a real
-            run. The chip wall churns as Opus 4.7 finishes each page of a
-            multi-page PDF, so a 90s extraction no longer looks like a
-            frozen spinner. Also proves to the user that YES, their file
-            is being read right now — we didn't just hang. */}
+        {/* Scanner overlay: full-size preview of each uploaded
+            PDF/photo with a sweeping scanner line + live dish chips
+            stacked beside. Shown only during `extracting` on a real run
+            when we actually have the sources in hand. While this is
+            visible the horizontal "Found so far" chip wall below stays
+            hidden to avoid showing the same dishes twice. */}
+        <AnimatePresence>
+          {state === 'extracting' &&
+            processingId !== null &&
+            sources.length > 0 && (
+              <motion.div
+                key="scanner-overlay"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ScannerOverlay
+                  sources={sources}
+                  recentDishes={recentDishes}
+                />
+              </motion.div>
+            )}
+        </AnimatePresence>
+
+        {/* Horizontal "Found so far" chip wall. Kept for the
+            `reconciling` stage (so the user can scroll the accumulated
+            extraction while cross-source checks run) and for the
+            extraction stage WHEN the scanner overlay isn't available
+            (fall back path: mock timelines, or pre-sources polls). */}
         <AnimatePresence>
           {(state === 'extracting' || state === 'reconciling') &&
             processingId !== null &&
-            recentDishes.length > 0 && (
+            recentDishes.length > 0 &&
+            !(state === 'extracting' && sources.length > 0) && (
               <motion.section
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -492,6 +568,46 @@ export function Processing({
               >
                 <LiveReconciliationPanel events={liveReconciliations} />
               </motion.div>
+            )}
+        </AnimatePresence>
+
+        {/* Silence-is-confusing placeholder. When the user uploaded 2+
+            sources but no cross-source duplicates have surfaced yet, the
+            Processing view used to just be blank after "Found so far".
+            That left people wondering whether the live panel was broken.
+            Now we tell them what's happening in words:
+              - during `reconciling` with zero events → "comparing…"
+              - during `routing` with zero events → "no duplicates found"
+                (which is a genuinely useful result, not a failure).
+            We key off `recentDishes.length > 1` so we only nag the user
+            when there was actually something to reconcile. Mock timeline
+            and single-dish runs stay silent. */}
+        <AnimatePresence>
+          {(state === 'reconciling' || state === 'routing') &&
+            processingId !== null &&
+            liveReconciliations.length === 0 &&
+            recentDishes.length > 1 && (
+              <motion.p
+                key="live-reconciliation-placeholder"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="font-accent"
+                style={{
+                  fontStyle: 'italic',
+                  fontSize: 14,
+                  lineHeight: '20px',
+                  color: 'var(--color-ink-subtle)',
+                  borderTop: '1px solid var(--color-hairline)',
+                  paddingTop: 20,
+                  maxWidth: 620,
+                }}
+              >
+                {state === 'reconciling'
+                  ? 'Comparing dishes across your sources — if Opus 4.7 finds the same dish written two different ways, the merge shows up here.'
+                  : 'No cross-source duplicates surfaced. Every dish in your exported catalog is unique.'}
+              </motion.p>
             )}
         </AnimatePresence>
 

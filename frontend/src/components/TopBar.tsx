@@ -1,4 +1,4 @@
-import { Download, FileText, Search } from 'lucide-react';
+import { Download, FileText, Search, Upload } from 'lucide-react';
 
 interface Props {
   dishCount: number;
@@ -7,6 +7,11 @@ interface Props {
   onRestart: () => void;
   onOpenTryIt?: () => void;
   onViewMenu?: () => void;
+  /** True when viewing the pre-computed demo menu. When true the
+   * "New menu" button swaps copy + icon to nudge the user toward
+   * uploading their own, because "New menu" in demo context was
+   * confusing ("why would I load another demo?"). */
+  sampleMode?: boolean;
 }
 
 export function TopBar({
@@ -16,8 +21,16 @@ export function TopBar({
   onRestart,
   onOpenTryIt,
   onViewMenu,
+  sampleMode = false,
 }: Props) {
   const handleRestart = () => {
+    // Only confirm when the user has real work to lose. In sampleMode
+    // they didn't upload anything, so blocking them with a dialog when
+    // we're literally telling them "upload yours" is friction theatre.
+    if (sampleMode) {
+      onRestart();
+      return;
+    }
     const ok = window.confirm(
       'Start over? The current catalog will be cleared from this tab.',
     );
@@ -30,12 +43,25 @@ export function TopBar({
       style={{ borderBottom: '1px solid var(--color-hairline)' }}
     >
       <div className="flex items-baseline gap-6">
-        <span
-          className="font-display"
-          style={{ fontWeight: 500, fontSize: 28, lineHeight: '32px' }}
+        <button
+          type="button"
+          onClick={onRestart}
+          aria-label="Mise — back to home"
+          title="Back to home"
+          className="font-display cursor-pointer"
+          style={{
+            fontWeight: 500,
+            fontSize: 28,
+            lineHeight: '32px',
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            color: 'var(--color-ink)',
+            letterSpacing: '-0.01em',
+          }}
         >
           Mise
-        </span>
+        </button>
         <span
           className="caption"
           style={{
@@ -87,17 +113,26 @@ export function TopBar({
         <button
           type="button"
           onClick={handleRestart}
-          className="caption cursor-pointer"
+          className="caption cursor-pointer inline-flex items-center gap-2"
           style={{
-            background: 'transparent',
-            color: 'var(--color-ink-muted)',
-            border: '1px solid var(--color-hairline)',
+            background: sampleMode ? 'var(--color-paper-tint)' : 'transparent',
+            color: sampleMode ? 'var(--color-ink)' : 'var(--color-ink-muted)',
+            border: `1px solid ${
+              sampleMode ? 'var(--color-ink)' : 'var(--color-hairline)'
+            }`,
             borderRadius: 'var(--radius-chip)',
             padding: '8px 14px',
             letterSpacing: '0.04em',
+            fontWeight: sampleMode ? 500 : 400,
           }}
+          title={
+            sampleMode
+              ? 'You are looking at the sample menu. Upload your own PDF or photo to run it against Opus 4.7.'
+              : 'Start over with a fresh menu'
+          }
         >
-          New menu
+          <Upload size={13} strokeWidth={1.6} />
+          {sampleMode ? 'Upload your menu' : 'New menu'}
         </button>
         <button
           type="button"

@@ -60,6 +60,7 @@ function emptyState(): CockpitState {
     ready_at: now,
     recent_dishes: [],
     live_reconciliations: [],
+    sources: [],
   };
   const metrics: MetricsPreview = {
     sources_ingested: 0,

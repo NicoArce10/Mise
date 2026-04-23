@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Info, X } from 'lucide-react';
 import type { QualitySignal } from '../domain/types';
 import { QualityStatus } from '../domain/types';
 
@@ -56,6 +58,10 @@ const TONE_STYLES: Record<
 export function QualitySignalPane({ signal }: Props) {
   const copy = STATUS_COPY[signal.status];
   const tone = TONE_STYLES[copy.tone];
+  // Local state for the "what's this?" tooltip. Click-to-open keeps
+  // things keyboard and touch accessible — hover-only was failing users
+  // on tablets during the demo.
+  const [infoOpen, setInfoOpen] = useState(false);
 
   return (
     <section
@@ -65,6 +71,7 @@ export function QualitySignalPane({ signal }: Props) {
         border: `1px solid ${tone.border}`,
         borderRadius: 'var(--radius-card)',
         padding: 22,
+        position: 'relative',
       }}
     >
       <div className="flex items-baseline justify-between flex-wrap gap-3">
@@ -89,8 +96,26 @@ export function QualitySignalPane({ signal }: Props) {
               fontWeight: 600,
             }}
           >
-            Guardrail · {copy.label}
+            Quality check · {copy.label}
           </span>
+          <button
+            type="button"
+            onClick={() => setInfoOpen(v => !v)}
+            aria-label="What is the quality check?"
+            title="What is the quality check?"
+            className="cursor-pointer inline-flex items-center justify-center"
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: 999,
+              border: `1px solid ${tone.border}`,
+              background: 'var(--color-paper)',
+              color: tone.accent,
+              padding: 0,
+            }}
+          >
+            <Info size={11} strokeWidth={2} />
+          </button>
         </div>
         <span
           className="font-mono"
@@ -181,6 +206,78 @@ export function QualitySignalPane({ signal }: Props) {
           ingredients
         </span>
       </div>
+
+      {infoOpen && (
+        <div
+          role="dialog"
+          aria-label="How the quality check works"
+          style={{
+            marginTop: 4,
+            padding: 18,
+            background: 'var(--color-paper)',
+            border: `1px solid ${tone.border}`,
+            borderRadius: 'var(--radius-card)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <span
+              className="font-mono"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--color-ink-subtle)',
+              }}
+            >
+              What is this?
+            </span>
+            <button
+              type="button"
+              onClick={() => setInfoOpen(false)}
+              aria-label="Close"
+              className="cursor-pointer"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 2,
+                color: 'var(--color-ink-subtle)',
+              }}
+            >
+              <X size={12} strokeWidth={1.8} />
+            </button>
+          </div>
+          <p
+            style={{
+              fontSize: 13.5,
+              lineHeight: '20px',
+              color: 'var(--color-ink)',
+            }}
+          >
+            Before Mise tells you the extraction is ready, it runs a short
+            automated checklist against what Opus 4.7 returned: enough
+            dishes for a real menu, prices present, categories detected,
+            ingredients filled in, no obvious duplicates. If anything looks
+            off, the verdict drops from <em>Ready</em> to{' '}
+            <em>Review recommended</em> or <em>Likely failure</em> and the
+            specific reasons show up below — so you know exactly what to
+            look at before you publish.
+          </p>
+          <p
+            style={{
+              fontSize: 12.5,
+              lineHeight: '19px',
+              color: 'var(--color-ink-muted)',
+            }}
+          >
+            It's a second pair of eyes, not an AI judging itself — the
+            checks are deterministic rules over the extracted data, so the
+            verdict is reproducible and can be audited.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

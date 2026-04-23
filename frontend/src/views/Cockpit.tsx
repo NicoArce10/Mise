@@ -309,6 +309,7 @@ export function Cockpit({
         onViewMenu={
           state.sources.length > 0 ? () => setPreviewOpen(true) : undefined
         }
+        sampleMode={state.processing.id.startsWith('run-sample')}
       />
       <main
         className="grid flex-1"

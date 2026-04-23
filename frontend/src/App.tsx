@@ -103,6 +103,8 @@ export function App() {
           // Recovery ramp when the pipeline outright failed (e.g. Anthropic
           // 500 on every retry). Takes the user back to Upload fresh.
           onRetryUpload={goToUpload}
+          // Click on "Mise" logo mid-processing → bail back to landing.
+          onGoHome={goToLanding}
         />
       )}
 

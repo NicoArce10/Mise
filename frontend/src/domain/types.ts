@@ -192,6 +192,11 @@ export interface ProcessingRun {
   // pairs (cross-source / merged / adaptive-thinking / typo-disagreement),
   // so the user doesn't see the trivial same-source same-name pairs.
   live_reconciliations: LiveReconciliationEvent[];
+  // The uploaded PDFs/photos that belong to this run's batch. The
+  // Processing screen renders these big (with a scanner overlay) so the
+  // user sees "Opus is reading *this* document right now" instead of a
+  // bare progress bar. Empty on mock timelines.
+  sources: SourceDocument[];
 }
 
 export interface MetricsPreview {
