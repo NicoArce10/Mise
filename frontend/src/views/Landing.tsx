@@ -2,7 +2,8 @@ import { ArrowRight, FileText, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 
 import { Eyebrow } from '../components/Eyebrow';
-import { JsonPreviewBlock } from './landing/JsonPreviewBlock';
+import { GlossaryTerm } from '../components/GlossaryTerm';
+import { DishCardPreview } from './landing/DishCardPreview';
 
 interface Props {
   onUpload: () => void;
@@ -10,7 +11,13 @@ interface Props {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Shared tokens
+//  Shared tokens & micro-animations
+//
+//  The landing is intentionally long-tail (problem → proof →
+//  compare → CTA), but the *rhythm* has to stay tight: a reader
+//  has ~5 seconds above the fold to decide whether to scroll. We
+//  pre-declare the easing curve and the container max-width so
+//  every section breathes the same way instead of drifting.
 // ─────────────────────────────────────────────────────────────
 
 const CONTAINER_MAX = 1200;
@@ -23,15 +30,9 @@ const reveal = (delay = 0) => ({
 });
 
 // ─────────────────────────────────────────────────────────────
-//  Eyebrow
-// ─────────────────────────────────────────────────────────────
-
-// `Eyebrow` lives in its own module so `views/landing/JsonPreviewBlock.tsx`
-// can reuse it without importing this (very large) file.
-// — see `components/Eyebrow.tsx`.
-
-// ─────────────────────────────────────────────────────────────
-//  CTAs
+//  CTAs — one primary, one ghost. The hero + final CTA both use
+//  the same pair so the visual "this is the action" stays the
+//  same regardless of where the reader commits.
 // ─────────────────────────────────────────────────────────────
 
 function PrimaryCta({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
@@ -96,14 +97,11 @@ function SecondaryCta({ onClick, children }: { onClick: () => void; children: Re
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Evidence tiles
-// ─────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────
 //  Menu preview tile — one file representing the restaurant's
-//  actual menu. Not "three sources with the same dish" (that
-//  was the old reconciliation narrative). Just: this is what
-//  you upload, here's how Opus 4.7 sees the whole menu at once.
+//  actual menu (not "three sources with the same dish"). Shown
+//  on the left of the "evidence → search" diagram so the judge
+//  immediately grasps: this is what you upload, and Opus 4.7
+//  reads the whole page at once.
 // ─────────────────────────────────────────────────────────────
 
 function MenuPreviewTile() {
@@ -186,58 +184,30 @@ function MenuPreviewTile() {
           — Principales —
         </div>
 
-        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 8 }}>
-          <span>Milanesa Napolitana XL</span>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontStyle: 'normal',
-              fontSize: 12,
-              color: 'var(--color-ink-muted)',
-            }}
+        {[
+          ['Milanesa Napolitana XL', '$18.500'],
+          ['Lomito completo', '$16.200'],
+          ['Ñoquis del 29 con tuco', '$9.800'],
+          ['Provoleta a la parrilla', '$7.400'],
+        ].map(([name, price]) => (
+          <div
+            key={name}
+            className="flex items-baseline justify-between gap-4"
+            style={{ marginBottom: 8 }}
           >
-            $18.500
-          </span>
-        </div>
-        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 8 }}>
-          <span>Lomito completo</span>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontStyle: 'normal',
-              fontSize: 12,
-              color: 'var(--color-ink-muted)',
-            }}
-          >
-            $16.200
-          </span>
-        </div>
-        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 8 }}>
-          <span>Ñoquis del 29 con tuco</span>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontStyle: 'normal',
-              fontSize: 12,
-              color: 'var(--color-ink-muted)',
-            }}
-          >
-            $9.800
-          </span>
-        </div>
-        <div className="flex items-baseline justify-between gap-4" style={{ marginBottom: 14 }}>
-          <span>Provoleta a la parrilla</span>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontStyle: 'normal',
-              fontSize: 12,
-              color: 'var(--color-ink-muted)',
-            }}
-          >
-            $7.400
-          </span>
-        </div>
+            <span>{name}</span>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontStyle: 'normal',
+                fontSize: 12,
+                color: 'var(--color-ink-muted)',
+              }}
+            >
+              {price}
+            </span>
+          </div>
+        ))}
 
         <div
           className="flex items-center justify-between gap-3"
@@ -248,8 +218,8 @@ function MenuPreviewTile() {
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
             color: 'var(--color-ink-subtle)',
+            marginTop: 14,
             marginBottom: 10,
-            marginTop: 6,
           }}
         >
           <span>— Sugerencias del chef —</span>
@@ -264,7 +234,7 @@ function MenuPreviewTile() {
               fontWeight: 600,
             }}
           >
-            LTO · auto
+            daily · auto
           </span>
         </div>
 
@@ -294,10 +264,10 @@ function MenuPreviewTile() {
           }}
         >
           <span style={{ color: 'var(--color-ink-muted)' }}>
-            Mise splits this lane into <code style={{ color: 'var(--color-ink)' }}>ephemerals[]</code>
+            Mise moves daily specials to their own lane —
           </span>
           <br />
-          <span>… 23 more canonical dishes on the menu</span>
+          <span>so your catalog stays stable across the week.</span>
         </div>
       </div>
     </div>
@@ -305,10 +275,9 @@ function MenuPreviewTile() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Search frame — replaces the old "canonical record" card.
-//  This is the product's actual star: a human query resolves
-//  into an evidence-grounded dish match with aliases &
-//  matched_on reasons.
+//  Search frame — the other half of the "one upload, every
+//  query answered" story. A diner types in their own words;
+//  Mise resolves to the exact dish on the menu, with the reason.
 // ─────────────────────────────────────────────────────────────
 
 function SearchPreviewCard() {
@@ -323,7 +292,6 @@ function SearchPreviewCard() {
         boxShadow: 'var(--shadow-atmosphere)',
       }}
     >
-      {/* Query bar */}
       <div
         className="flex items-center gap-3"
         style={{
@@ -348,7 +316,6 @@ function SearchPreviewCard() {
         </span>
       </div>
 
-      {/* Interpretation */}
       <div className="flex flex-col gap-1">
         <span
           className="font-mono"
@@ -374,7 +341,6 @@ function SearchPreviewCard() {
         </p>
       </div>
 
-      {/* Match card */}
       <div
         className="flex items-start justify-between gap-4"
         style={{
@@ -401,36 +367,24 @@ function SearchPreviewCard() {
             className="flex flex-wrap items-center gap-2"
             style={{ fontSize: 12 }}
           >
-            <span
-              className="font-mono"
-              style={{
-                background: 'var(--color-paper-tint)',
-                color: 'var(--color-ink-muted)',
-                border: '1px solid var(--color-hairline)',
-                borderRadius: 'var(--radius-chip)',
-                padding: '2px 8px',
-                letterSpacing: '0.12em',
-                fontSize: 10,
-                textTransform: 'uppercase',
-              }}
-            >
-              alias
-            </span>
-            <span
-              className="font-mono"
-              style={{
-                background: 'var(--color-paper-tint)',
-                color: 'var(--color-ink-muted)',
-                border: '1px solid var(--color-hairline)',
-                borderRadius: 'var(--radius-chip)',
-                padding: '2px 8px',
-                letterSpacing: '0.12em',
-                fontSize: 10,
-                textTransform: 'uppercase',
-              }}
-            >
-              search term
-            </span>
+            {['alias', 'search term'].map(tag => (
+              <span
+                key={tag}
+                className="font-mono"
+                style={{
+                  background: 'var(--color-paper-tint)',
+                  color: 'var(--color-ink-muted)',
+                  border: '1px solid var(--color-hairline)',
+                  borderRadius: 'var(--radius-chip)',
+                  padding: '2px 8px',
+                  letterSpacing: '0.12em',
+                  fontSize: 10,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {tag}
+              </span>
+            ))}
             <span
               style={{
                 fontSize: 12,
@@ -480,138 +434,28 @@ function SearchPreviewCard() {
           </span>
         </div>
       </div>
-
-      <div
-        className="flex items-center gap-2"
-        style={{
-          fontSize: 11,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: 'var(--color-ink-subtle)',
-          fontFamily: 'var(--font-mono)',
-        }}
-      >
-        <span style={{ color: 'var(--color-gold-leaf)' }}>◆</span>
-        <span>Adaptive thinking engaged · 1 ambiguous query</span>
-      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Pillars — reframed around understanding, not extraction
-// ─────────────────────────────────────────────────────────────
-
-const PILLARS = [
-  {
-    n: '01',
-    title: 'Vision-native ingestion',
-    body:
-      'PDFs, photos, chalkboards, and Instagram screenshots stream directly into Opus 4.7 vision. No OCR in the critical path, no chunker, no pre-processing pipeline to maintain.',
-  },
-  {
-    n: '02',
-    title: 'Canonical menu vs daily specials, auto-separated',
-    body:
-      'LTOs, seasonal inserts and chef\'s suggestions are detected from layout + language cues and split into their own lane — so your catalog stays stable and your promotions stay promotional. Competitors return a single flat list.',
-  },
-  {
-    n: '03',
-    title: 'Aliases + search terms populated on first call',
-    body:
-      'Every dish ships with canonical name, aliases (typos, shorthand, regional names) and the vernacular a diner would actually type — so Postgres full-text, Elastic, Algolia or a vector DB can serve queries in milliseconds. No LLM in the hot path.',
-  },
-  {
-    n: '04',
-    title: 'Adaptive thinking, only when it is earned',
-    body:
-      'A deterministic gate classifies every dish pair and every query as obvious or ambiguous. Opus 4.7 adaptive thinking is invoked only on the ambiguous cases — the rest never touch the model.',
-  },
-];
-
-// ─────────────────────────────────────────────────────────────
-//  Principles — defensible architectural claims only.
-//  Every line here can be pointed at an exact place in the code
-//  or the demo video. No invented benchmarks.
-// ─────────────────────────────────────────────────────────────
-
-const PRINCIPLES = [
-  {
-    value: 'Evidence-grounded',
-    label: 'Never invents a dish',
-    hint: 'Results are filtered to the extracted dish graph, not the model\'s world knowledge.',
-  },
-  {
-    value: 'Vision-native',
-    label: 'No external OCR',
-    hint: 'PDFs as document blocks, photos as image blocks, direct to Opus 4.7.',
-  },
-  {
-    value: 'Schema-validated',
-    label: 'Zero parse failures',
-    hint: 'Every LLM call is JSON-schema constrained and re-validated by Pydantic.',
-  },
-  {
-    value: 'Adaptive thinking',
-    label: 'Only when it matters',
-    hint: 'A deterministic gate routes obvious cases; the model only thinks on the hard ones.',
-  },
-];
-
-// ─────────────────────────────────────────────────────────────
-//  Who it is for
-// ─────────────────────────────────────────────────────────────
-
-const INTEGRATIONS = [
-  {
-    target: 'Review & discovery apps',
-    example: 'Beli · Resy lists · dish-rating apps',
-    need: 'Stable dish IDs across branches, aliases for what diners type, ingredients for filtering.',
-    payload: 'canonical_name · aliases · search_terms · ingredients · sources',
-  },
-  {
-    target: 'Delivery platforms',
-    example: 'Rappi · PedidosYa · Uber Eats · DoorDash',
-    need: 'Item list with prices, grouped modifiers, no ephemeral specials polluting the menu.',
-    payload: 'dishes[].price · dishes[].modifiers · ephemerals filtered out',
-  },
-  {
-    target: 'POS / catalog migrations',
-    example: 'A chain of 12 locations with a PDF each',
-    need: 'Dedup across branch menus, typo normalization, structured modifiers.',
-    payload: 'reconciled dishes · typos folded into aliases · modifier relationships',
-  },
-  {
-    target: 'Voice & chat ordering agents',
-    example: 'WhatsApp bots, voice-AI waiters',
-    need: 'The vernacular real humans use — shorthand, regional names, misspellings.',
-    payload: 'search_terms populated by Opus from evidence + diner knowledge',
-  },
-];
-
-const AUDIENCES = [
-  {
-    title: 'Delivery marketplaces',
-    example: 'Rappi · PedidosYa · iFood · DoorDash · Uber Eats',
-    body:
-      'Onboarding a new restaurant without a POS takes 2–3 hours of manual menu entry per location. Mise turns that into a 30-second API call — aliases, categories and daily-specials lanes included — so your ops team scales with headcount, not head-count-squared.',
-  },
-  {
-    title: 'Menu aggregators & commerce platforms',
-    example: 'Deliverect · Checkmate · Tillster-style vendors',
-    body:
-      'You already normalize menus across channels. Mise gives you a cleaner starting point: a dish graph with aliases and LTOs already tagged, so your sync engine doesn\'t have to guess which items are promotional.',
-  },
-  {
-    title: 'POS-less restaurants in emerging markets',
-    example: 'LatAm · SEA · MENA independent restaurants',
-    body:
-      'Tens of thousands of small restaurants keep their menu as a laminated PDF or a phone photo. Mise converts that into a digital catalog good enough to plug into any delivery or discovery product — no POS, no engineering, no rewrite.',
-  },
-];
-
-// ─────────────────────────────────────────────────────────────
 //  Landing view
+//
+//  Structure (6 sections — down from 11):
+//    1. Hero            — promise + two CTAs + above-the-fold trust strip
+//    2. Problem         — one number that makes the pain obvious
+//    3. How it works    — MenuPreview → SearchPreview diagram
+//    4. Proof           — DishCardPreview with "Show raw JSON" accordion
+//    5. Compare         — the table (only place commercial context lives)
+//    6. Final CTA       — one more chance to commit
+//
+//  Previously-standalone sections (Architectural guarantees,
+//  Where Mise fits, Four pillars, Who this is built for, Plug
+//  it into anything) were cut per landing-conversion research:
+//  11 sections is above the comfort threshold for a B2B reader
+//  and non-technical audiences bounced before the comparison
+//  table — which *is* the key differentiator. We fold their
+//  best lines into Hero and Compare where they do more work.
 // ─────────────────────────────────────────────────────────────
 
 export function Landing({ onUpload, onSample }: Props) {
@@ -686,9 +530,9 @@ export function Landing({ onUpload, onSample }: Props) {
       </header>
 
       <main className="flex flex-1 flex-col">
-        {/* ═══════════════ HERO ═══════════════ */}
+        {/* ═══════════════ 1 · HERO ═══════════════ */}
         <section
-          className={`${SECTION_PX} pt-10 pb-16 md:pt-14 md:pb-20`}
+          className={`${SECTION_PX} pt-10 pb-20 md:pt-14 md:pb-24`}
           style={{
             maxWidth: CONTAINER_MAX,
             width: '100%',
@@ -705,7 +549,9 @@ export function Landing({ onUpload, onSample }: Props) {
                 background: 'var(--color-ink-subtle)',
               }}
             />
-            <Eyebrow tone="strong">Menu digitization · for delivery platforms & aggregators</Eyebrow>
+            <Eyebrow tone="strong">
+              Menu digitization · for delivery platforms, marketplaces & POS-less restaurants
+            </Eyebrow>
           </motion.div>
 
           <motion.h1
@@ -747,11 +593,17 @@ export function Landing({ onUpload, onSample }: Props) {
           >
             Drop a menu PDF or a photo. Get a{' '}
             <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
-              production-ready JSON catalog
-            </span>
-            {' '}with aliases, ingredients and daily specials already separated —
-            indexable by any search engine. One call to Opus 4.7 vision, no OCR pipeline,
-            no manual cleanup.
+              production-ready catalog
+            </span>{' '}
+            — every dish with the names diners actually type, daily specials
+            on their own lane, ready to drop into search. One call to Claude
+            Opus 4.7, no{' '}
+            <GlossaryTerm
+              term="OCR"
+              definition="Optical Character Recognition — the old-school step of turning an image into raw text before an AI can read it."
+              practical="Mise skips this step entirely. Opus 4.7 reads the photo or PDF directly, which keeps layout and language cues intact."
+            />{' '}
+            pipeline, no manual cleanup.
           </motion.p>
 
           <motion.div {...reveal(0.12)} className="flex flex-wrap items-center gap-4 md:gap-6">
@@ -759,29 +611,69 @@ export function Landing({ onUpload, onSample }: Props) {
             <SecondaryCta onClick={onUpload}>Upload your own</SecondaryCta>
           </motion.div>
 
+          {/* Trust strip — the four guarantees that used to live in a
+              standalone "Architectural guarantees" section, folded up
+              above the fold so the first pass already sees them. */}
           <motion.div
             {...reveal(0.18)}
-            className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2"
-            style={{
-              fontSize: 11,
-              lineHeight: '16px',
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
-              color: 'var(--color-ink-subtle)',
-              fontFamily: 'var(--font-mono)',
-            }}
+            className="mt-10 grid gap-4 md:gap-6"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', maxWidth: 960 }}
           >
-            <span>Real Claude Opus 4.7</span>
-            <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
-            <span>Vision-native · no OCR</span>
-            <span aria-hidden style={{ color: 'var(--color-ink-subtle)' }}>·</span>
-            <span>Open source · MIT</span>
+            {[
+              {
+                label: 'Evidence-grounded',
+                hint: 'Results are filtered to the extracted dish graph, not the model’s world knowledge.',
+              },
+              {
+                label: 'Vision-native',
+                hint: 'PDFs and photos go straight to Opus 4.7. No OCR stage to maintain.',
+              },
+              {
+                label: 'Schema-validated',
+                hint: 'Every response is JSON-schema constrained and Pydantic-validated. Zero parse failures.',
+              },
+              {
+                label: 'Open source · MIT',
+                hint: 'Fork it, read the prompts, run the evals. Nothing is a black box.',
+              },
+            ].map(t => (
+              <div
+                key={t.label}
+                style={{
+                  borderTop: '1px solid var(--color-hairline)',
+                  paddingTop: 14,
+                }}
+              >
+                <div
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-ink)',
+                    marginBottom: 6,
+                    fontWeight: 500,
+                  }}
+                >
+                  {t.label}
+                </div>
+                <p
+                  style={{
+                    fontSize: 13,
+                    lineHeight: '20px',
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  {t.hint}
+                </p>
+              </div>
+            ))}
           </motion.div>
         </section>
 
-        {/* ═══════════════ PROBLEM ═══════════════ */}
+        {/* ═══════════════ 2 · PROBLEM ═══════════════ */}
         <section
-          className={`${SECTION_PX} py-24 md:py-32`}
+          className={`${SECTION_PX} py-24 md:py-28`}
           style={{
             background: 'var(--color-paper-tint)',
             borderTop: '1px solid var(--color-hairline)',
@@ -805,7 +697,7 @@ export function Landing({ onUpload, onSample }: Props) {
                   background: 'var(--color-ink-subtle)',
                 }}
               />
-              <Eyebrow tone="strong">The problem, in the industry's own words</Eyebrow>
+              <Eyebrow tone="strong">The problem, in the industry’s own words</Eyebrow>
             </div>
 
             <h2
@@ -817,7 +709,7 @@ export function Landing({ onUpload, onSample }: Props) {
                 letterSpacing: '-0.02em',
                 color: 'var(--color-ink)',
                 maxWidth: 980,
-                marginBottom: 40,
+                marginBottom: 32,
               }}
             >
               Every new restaurant takes{' '}
@@ -837,49 +729,56 @@ export function Landing({ onUpload, onSample }: Props) {
               style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
             >
               {[
-                [
-                  '2–3 hours per menu',
-                  <span>
-                    Manual digitization of a single restaurant menu takes 2–3 hours
-                    — a figure{' '}
-                    <a
-                      href="https://www.veryfi.com/restaurant-menu-ocr-api/"
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
-                    >
-                      published by Veryfi
-                    </a>
-                    {' '}themselves. For a delivery marketplace onboarding thousands of
-                    restaurants, that's a full engineering team's worth of operator hours.
-                  </span>,
-                ],
-                [
-                  '240 hours per year, per restaurant',
-                  <span>
-                    Keeping the same menu in sync across DoorDash, Uber Eats, Grubhub,
-                    and the restaurant's own app costs up to{' '}
-                    <a
-                      href="https://www.eats365pos.com/us/blog/post/menu-management-mistakes-avoid-them"
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
-                    >
-                      240 labor hours a year
-                    </a>
-                    . Most of it is manual re-entry.
-                  </span>,
-                ],
-                [
-                  'No POS, no API',
-                  <span>
-                    In emerging markets (LatAm, SEA, MENA) most restaurants don't run
-                    Toast or Square. Their menu lives as a PDF, a WhatsApp photo, or a
-                    laminated sheet — never as an API response. That's the gap Mise fills.
-                  </span>,
-                ],
-              ].map(([title, body]) => (
-                <div key={String(title)} className="flex flex-col gap-3">
+                {
+                  title: '2–3 hours per menu',
+                  body: (
+                    <>
+                      Manual digitization of a single restaurant menu takes 2–3 hours
+                      — a figure{' '}
+                      <a
+                        href="https://www.veryfi.com/restaurant-menu-ocr-api/"
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+                      >
+                        published by Veryfi
+                      </a>{' '}
+                      themselves. For a marketplace onboarding thousands of restaurants,
+                      that is an entire ops team.
+                    </>
+                  ),
+                },
+                {
+                  title: '240 hours a year, per location',
+                  body: (
+                    <>
+                      Keeping one menu in sync across DoorDash, Uber Eats, Grubhub and
+                      the restaurant’s own app costs up to{' '}
+                      <a
+                        href="https://www.eats365pos.com/us/blog/post/menu-management-mistakes-avoid-them"
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'var(--color-ink)', textDecoration: 'underline dotted' }}
+                      >
+                        240 labor hours a year
+                      </a>
+                      . Most of it is manual re-entry — typos, missing specials, stale prices.
+                    </>
+                  ),
+                },
+                {
+                  title: 'No POS, no API',
+                  body: (
+                    <>
+                      In LatAm, SEA and MENA most restaurants don’t run Toast or Square.
+                      Their menu lives as a PDF, a WhatsApp photo, or a laminated sheet —
+                      never as an API response. That gap is where every delivery and
+                      discovery product stalls.
+                    </>
+                  ),
+                },
+              ].map(({ title, body }) => (
+                <div key={title} className="flex flex-col gap-3">
                   <h3
                     className="font-display"
                     style={{
@@ -907,9 +806,205 @@ export function Landing({ onUpload, onSample }: Props) {
           </div>
         </section>
 
-        {/* ═══════════════ COMPETITIVE COMPARE ═══════════════ */}
+        {/* ═══════════════ 3 · HOW IT WORKS ═══════════════ */}
         <section
-          className={`${SECTION_PX} py-24 md:py-32`}
+          className={`${SECTION_PX} py-24 md:py-28`}
+          style={{
+            maxWidth: CONTAINER_MAX,
+            width: '100%',
+            margin: '0 auto',
+          }}
+        >
+          <div className="mb-12 flex items-center gap-3">
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 28,
+                height: 1,
+                background: 'var(--color-ink-subtle)',
+              }}
+            />
+            <Eyebrow tone="strong">
+              From the menu you already have · to the question your customer asks
+            </Eyebrow>
+          </div>
+
+          <h2
+            className="font-display"
+            style={{
+              fontWeight: 500,
+              fontSize: 'clamp(32px, 4.5vw, 52px)',
+              lineHeight: 1.05,
+              letterSpacing: '-0.02em',
+              color: 'var(--color-ink)',
+              maxWidth: 900,
+              marginBottom: 48,
+            }}
+          >
+            Upload your menu once.{' '}
+            <span
+              className="font-accent"
+              style={{ fontStyle: 'italic', color: 'var(--color-ink)' }}
+            >
+              Answer every customer
+            </span>{' '}
+            forever.
+          </h2>
+
+          <div
+            className="grid items-start gap-10 md:gap-12"
+            style={{
+              gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+            }}
+          >
+            <div className="flex flex-col gap-4">
+              <div
+                className="mb-2 flex items-center gap-2"
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                }}
+              >
+                <span>Your menu · any format</span>
+              </div>
+
+              <MenuPreviewTile />
+
+              <p
+                className="font-mono"
+                style={{
+                  fontSize: 11,
+                  lineHeight: '16px',
+                  letterSpacing: '0.08em',
+                  color: 'var(--color-ink-subtle)',
+                  marginTop: 4,
+                }}
+              >
+                Same pipeline for a phone photo, a chalkboard, an Instagram post, or a
+                multi-page scan.
+              </p>
+            </div>
+
+            <div
+              className="hidden md:flex flex-col items-center justify-center"
+              style={{ minWidth: 80, paddingTop: 80 }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                  fontFamily: 'var(--font-mono)',
+                  marginBottom: 12,
+                  textAlign: 'center',
+                }}
+              >
+                Opus 4.7
+                <br />
+                reads +
+                <br />
+                understands
+              </div>
+              <svg width="80" height="20" viewBox="0 0 80 20" fill="none" aria-hidden>
+                <line x1="0" y1="10" x2="68" y2="10" stroke="var(--color-ink)" strokeWidth="1" />
+                <polyline
+                  points="60,4 68,10 60,16"
+                  fill="none"
+                  stroke="var(--color-ink)"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                  fontFamily: 'var(--font-mono)',
+                  marginTop: 12,
+                  textAlign: 'center',
+                }}
+              >
+                Dish graph
+              </div>
+            </div>
+
+            <div className="flex md:hidden items-center justify-center py-2">
+              <svg width="20" height="60" viewBox="0 0 20 60" fill="none" aria-hidden>
+                <line x1="10" y1="0" x2="10" y2="48" stroke="var(--color-ink)" strokeWidth="1" />
+                <polyline
+                  points="4,40 10,48 16,40"
+                  fill="none"
+                  stroke="var(--color-ink)"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div
+                className="mb-2 flex items-center gap-2"
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-ink-subtle)',
+                }}
+              >
+                <span>A customer · in their own words</span>
+              </div>
+              <SearchPreviewCard />
+              <p
+                className="font-mono"
+                style={{
+                  fontSize: 11,
+                  lineHeight: '16px',
+                  letterSpacing: '0.08em',
+                  color: 'var(--color-ink-subtle)',
+                  marginTop: 4,
+                }}
+              >
+                Region + language inferred from the evidence itself. Mexican menu →
+                Spanish-MX. UK pub → British slang (<em>chippy</em>, <em>banger</em>).
+                Berlin Imbiss → Deutsch. Tokyo kiosk → Japanese. No country setting.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════ 4 · PROOF · DISH CARD + RAW JSON ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-20 md:py-28`}
+          style={{
+            background: 'var(--color-paper-tint)',
+            borderTop: '1px solid var(--color-hairline)',
+            borderBottom: '1px solid var(--color-hairline)',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: CONTAINER_MAX,
+              width: '100%',
+              margin: '0 auto',
+            }}
+          >
+            <DishCardPreview />
+          </div>
+        </section>
+
+        {/* ═══════════════ 5 · COMPARE ═══════════════ */}
+        <section
+          className={`${SECTION_PX} py-24 md:py-28`}
           style={{
             maxWidth: CONTAINER_MAX,
             width: '100%',
@@ -959,7 +1054,7 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 16,
             }}
           >
-            DoorDash's engineering team publicly{' '}
+            DoorDash’s engineering team publicly{' '}
             <a
               href="https://careersatdoordash.com/blog/doordash-llm-transcribe-menu/"
               target="_blank"
@@ -968,11 +1063,11 @@ export function Landing({ onUpload, onSample }: Props) {
             >
               documented their approach
             </a>
-            : OCR extracts text, an LLM turns the text into structured data, a
-            LightGBM classifier predicts whether the result is good enough, and
-            anything uncertain is routed to a human reviewer. It runs in production,
-            at scale — and it stays inside DoorDash. Every other delivery platform,
-            aggregator, or sync tool has to build something comparable on their own.
+            : OCR extracts text, an LLM turns it into structured data, a classifier
+            scores whether the result is good enough, and anything uncertain is routed
+            to a human. It runs in production, at scale — and it stays inside DoorDash.
+            Every other delivery platform and aggregator has to build something
+            comparable on their own.
           </p>
 
           <p
@@ -1002,10 +1097,10 @@ export function Landing({ onUpload, onSample }: Props) {
             >
               Klippa
             </a>{' '}
-            cover the ingestion piece, but their output stops at item name, price, and
+            cover the ingestion piece, but their output stops at item, price and
             section. The aliases a diner actually types, the vernacular search terms,
-            the fact that Tuesday's chalkboard special is not part of the printed
-            menu — that work still falls on whoever integrates them.
+            the fact that Tuesday’s chalkboard special is not part of the printed menu
+            — all of that still lands on whoever integrates them.
           </p>
 
           <p
@@ -1017,11 +1112,16 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 40,
             }}
           >
-            Mise is a vision-native take on the same problem. Opus 4.7 reads the
-            photo directly — no separate OCR stage — and returns the canonical menu,
-            aliases, search terms, specials lane, and a quality signal in a single
-            call. Shape is stable, ready for Postgres, Elastic, or a vector DB on
-            day one.
+            Mise is a{' '}
+            <GlossaryTerm
+              term="vision-native"
+              definition="The AI reads the photo or PDF directly — with its eyes — instead of waiting for an OCR step to turn the image into text first."
+              practical="Keeps layout, menu sections, accents and fonts intact — so chef specials, modifier groups and non-English menus come through clean."
+            />{' '}
+            take on the same problem. Opus 4.7 reads the photo directly and returns
+            the canonical menu, aliases, search terms, specials lane and a quality
+            signal in a single call. Shape is stable, ready for Postgres, Elastic or
+            a vector DB on day one.
           </p>
 
           <div
@@ -1032,8 +1132,6 @@ export function Landing({ onUpload, onSample }: Props) {
               background: 'var(--color-paper)',
             }}
           >
-            {/* Header row — DoorDash sits next to Mise because it's the
-                closest conceptual match; commercial APIs trail after. */}
             <div
               className="grid"
               style={{
@@ -1133,8 +1231,8 @@ export function Landing({ onUpload, onSample }: Props) {
               },
               {
                 cap: 'Quality signal on every response',
-                mise: 'Yes · heuristic guardrail',
-                dd: 'Yes · LightGBM classifier',
+                mise: 'Yes · heuristic check',
+                dd: 'Yes · ML classifier',
                 veryfi: 'Not exposed',
                 klippa: 'Not exposed',
                 unique: true,
@@ -1271,8 +1369,8 @@ export function Landing({ onUpload, onSample }: Props) {
             >
               ByteByteGo
             </a>
-            . The "Mise" column is the actual payload the current API returns on
-            every call — the same JSON you can download from the demo.{' '}
+            . The “Mise” column is the actual payload the current API returns on every
+            call — the same JSON you can download from the demo.{' '}
             <a
               href="https://github.com/NicoArce10/Mise/blob/main/docs/competitive_benchmark.md"
               target="_blank"
@@ -1288,834 +1386,7 @@ export function Landing({ onUpload, onSample }: Props) {
           </p>
         </section>
 
-        {/* ═══════════════ JSON EVIDENCE ═══════════════ */}
-        <section
-          className={`${SECTION_PX} py-20 md:py-24`}
-          style={{
-            maxWidth: CONTAINER_MAX,
-            width: '100%',
-            margin: '0 auto',
-          }}
-        >
-          <JsonPreviewBlock />
-        </section>
-
-        {/* ═══════════════ WHERE MISE FITS ═══════════════ */}
-        <section
-          className={`${SECTION_PX} py-20 md:py-28`}
-          style={{
-            background: 'var(--color-paper-tint)',
-            borderTop: '1px solid var(--color-hairline)',
-            borderBottom: '1px solid var(--color-hairline)',
-          }}
-        >
-          <div
-            style={{
-              maxWidth: CONTAINER_MAX,
-              width: '100%',
-              margin: '0 auto',
-            }}
-          >
-            <div className="mb-8 flex items-center gap-3">
-              <span
-                aria-hidden
-                style={{
-                  display: 'inline-block',
-                  width: 28,
-                  height: 1,
-                  background: 'var(--color-ink-subtle)',
-                }}
-              />
-              <Eyebrow tone="strong">Where Mise fits</Eyebrow>
-            </div>
-
-            <h2
-              className="font-display"
-              style={{
-                fontWeight: 500,
-                fontSize: 'clamp(28px, 4vw, 44px)',
-                lineHeight: 1.08,
-                letterSpacing: '-0.02em',
-                color: 'var(--color-ink)',
-                maxWidth: 900,
-                marginBottom: 32,
-              }}
-            >
-              Menu software splits into{' '}
-              <span
-                className="font-accent"
-                style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
-              >
-                three layers.
-              </span>{' '}
-              The ingestion layer is the one nobody owns.
-            </h2>
-
-            <div
-              className="grid gap-6"
-              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}
-            >
-              {[
-                {
-                  label: '01 · Ingestion',
-                  title: 'Photo / PDF → structured menu JSON',
-                  body: 'This is where Mise lives. Veryfi and Klippa are the only commercial APIs here, and they stop at flat OCR output. DoorDash solved it internally with a large ML team.',
-                  who: 'Mise, Veryfi, Klippa, DoorDash (internal)',
-                  highlight: true,
-                },
-                {
-                  label: '02 · Sync',
-                  title: 'Structured menu → POS, delivery apps, kiosks',
-                  body: 'Deliverect and Checkmate own this layer. They assume the menu is already digital and push updates across channels. They need an ingestion layer in front for restaurants without a POS.',
-                  who: 'Deliverect, Checkmate (EveryWare), Otter',
-                  highlight: false,
-                },
-                {
-                  label: '03 · Enrichment',
-                  title: 'Existing listings → better photos, copy, reviews',
-                  body: 'Uber Eats and DoorDash ship AI tools here — description generators, AI cameras, photo moderation. They work on menus that are already online. Not ingestion.',
-                  who: 'Uber Eats AI, DoorDash merchant tools',
-                  highlight: false,
-                },
-              ].map((layer) => (
-                <div
-                  key={layer.label}
-                  style={{
-                    background: layer.highlight
-                      ? 'var(--color-paper)'
-                      : 'transparent',
-                    border: layer.highlight
-                      ? '1px solid var(--color-ink)'
-                      : '1px solid var(--color-hairline)',
-                    borderRadius: 'var(--radius-card)',
-                    padding: '24px 22px',
-                  }}
-                >
-                  <div
-                    className="font-mono"
-                    style={{
-                      fontSize: 11,
-                      letterSpacing: '0.14em',
-                      textTransform: 'uppercase',
-                      color: layer.highlight
-                        ? 'var(--color-gold-leaf)'
-                        : 'var(--color-ink-subtle)',
-                      marginBottom: 12,
-                    }}
-                  >
-                    {layer.label}
-                  </div>
-                  <div
-                    className="font-display"
-                    style={{
-                      fontSize: 19,
-                      lineHeight: 1.22,
-                      letterSpacing: '-0.01em',
-                      color: 'var(--color-ink)',
-                      marginBottom: 12,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {layer.title}
-                  </div>
-                  <p
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1.55,
-                      color: 'var(--color-ink-muted)',
-                      marginBottom: 16,
-                    }}
-                  >
-                    {layer.body}
-                  </p>
-                  <div
-                    className="font-mono"
-                    style={{
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      color: 'var(--color-ink-subtle)',
-                      paddingTop: 12,
-                      borderTop: '1px solid var(--color-hairline)',
-                    }}
-                  >
-                    Who plays here: {layer.who}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <p
-              style={{
-                fontSize: 'clamp(14px, 1.15vw, 16px)',
-                lineHeight: 1.55,
-                color: 'var(--color-ink-muted)',
-                maxWidth: 820,
-                marginTop: 32,
-              }}
-            >
-              For a delivery marketplace or a sync platform like Deliverect, Mise is a{' '}
-              <span style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
-                drop-in ingestion front-door
-              </span>
-              . For a POS-less restaurant in LatAm, it replaces the half-day of manual
-              re-entry that currently blocks onboarding.
-            </p>
-          </div>
-        </section>
-
-        {/* ═══════════════ EVIDENCE → SEARCH ═══════════════ */}
-        <section
-          className={`${SECTION_PX} py-24 md:py-32`}
-          style={{
-            maxWidth: CONTAINER_MAX,
-            width: '100%',
-            margin: '0 auto',
-          }}
-        >
-          <div className="mb-12 flex items-center gap-3">
-            <span
-              aria-hidden
-              style={{
-                display: 'inline-block',
-                width: 28,
-                height: 1,
-                background: 'var(--color-ink-subtle)',
-              }}
-            />
-            <Eyebrow tone="strong">From the menu you already have · to the question your customer asks</Eyebrow>
-          </div>
-
-          <h2
-            className="font-display"
-            style={{
-              fontWeight: 500,
-              fontSize: 'clamp(32px, 4.5vw, 52px)',
-              lineHeight: 1.05,
-              letterSpacing: '-0.02em',
-              color: 'var(--color-ink)',
-              maxWidth: 900,
-              marginBottom: 56,
-            }}
-          >
-            Upload your menu once.{' '}
-            <span
-              className="font-accent"
-              style={{ fontStyle: 'italic', color: 'var(--color-ink)' }}
-            >
-              Answer every customer
-            </span>{' '}
-            forever.
-          </h2>
-
-          <div
-            className="grid items-start gap-10 md:gap-12"
-            style={{
-              gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
-            }}
-          >
-            {/* LEFT: A single menu — not three "sources" with the same dish.
-                One file representing the restaurant's actual menu, with a
-                handful of distinct dishes visible so the judge immediately
-                grasps "this is a whole menu, not a reconciliation trick". */}
-            <div className="flex flex-col gap-4">
-              <div
-                className="mb-2 flex items-center gap-2"
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  letterSpacing: '0.16em',
-                  textTransform: 'uppercase',
-                  color: 'var(--color-ink-subtle)',
-                }}
-              >
-                <span>Your menu · any format</span>
-              </div>
-
-              <MenuPreviewTile />
-
-              <p
-                className="font-mono"
-                style={{
-                  fontSize: 11,
-                  lineHeight: '16px',
-                  letterSpacing: '0.08em',
-                  color: 'var(--color-ink-subtle)',
-                  marginTop: 4,
-                }}
-              >
-                One PDF shown. The pipeline is identical for a phone photo, a
-                chalkboard snapshot, an Instagram screenshot, or a multi-page
-                scan.
-              </p>
-            </div>
-
-            {/* CENTER: Arrow */}
-            <div
-              className="hidden md:flex flex-col items-center justify-center"
-              style={{ minWidth: 80, paddingTop: 80 }}
-            >
-              <div
-                style={{
-                  fontSize: 10,
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: 'var(--color-ink-subtle)',
-                  fontFamily: 'var(--font-mono)',
-                  marginBottom: 12,
-                  textAlign: 'center',
-                }}
-              >
-                Opus 4.7
-                <br />
-                vision
-                <br />
-                + search
-              </div>
-              <svg width="80" height="20" viewBox="0 0 80 20" fill="none" aria-hidden>
-                <line x1="0" y1="10" x2="68" y2="10" stroke="var(--color-ink)" strokeWidth="1" />
-                <polyline
-                  points="60,4 68,10 60,16"
-                  fill="none"
-                  stroke="var(--color-ink)"
-                  strokeWidth="1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <div
-                style={{
-                  fontSize: 10,
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: 'var(--color-ink-subtle)',
-                  fontFamily: 'var(--font-mono)',
-                  marginTop: 12,
-                  textAlign: 'center',
-                }}
-              >
-                Dish graph
-              </div>
-            </div>
-
-            {/* Mobile arrow */}
-            <div className="flex md:hidden items-center justify-center py-2">
-              <svg width="20" height="60" viewBox="0 0 20 60" fill="none" aria-hidden>
-                <line x1="10" y1="0" x2="10" y2="48" stroke="var(--color-ink)" strokeWidth="1" />
-                <polyline
-                  points="4,40 10,48 16,40"
-                  fill="none"
-                  stroke="var(--color-ink)"
-                  strokeWidth="1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-
-            {/* RIGHT: Search preview */}
-            <div className="flex flex-col gap-4">
-              <div
-                className="mb-2 flex items-center gap-2"
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  letterSpacing: '0.16em',
-                  textTransform: 'uppercase',
-                  color: 'var(--color-ink-subtle)',
-                }}
-              >
-                <span>A customer · in their own words</span>
-              </div>
-              <SearchPreviewCard />
-              <p
-                className="font-mono"
-                style={{
-                  fontSize: 11,
-                  lineHeight: '16px',
-                  letterSpacing: '0.08em',
-                  color: 'var(--color-ink-subtle)',
-                  marginTop: 4,
-                }}
-              >
-                Shown in Argentine Spanish vernacular. Region + language are
-                inferred from the evidence itself — a Mexican menu returns
-                Spanish-MX handles, a UK pub returns British slang
-                (<em>chippy</em>, <em>banger</em>), a Berlin Imbiss returns
-                Deutsch, a Tokyo kiosk returns Japanese (kanji + romaji),
-                a Shanghai dim-sum spot returns simplified Chinese + pinyin.
-                No prompt engineering, no country flag setting.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════ METRICS ═══════════════ */}
-        <section
-          className={`${SECTION_PX} py-20 md:py-24`}
-          style={{
-            background: 'var(--color-ink)',
-            color: 'var(--color-paper)',
-          }}
-        >
-          <div
-            style={{
-              maxWidth: CONTAINER_MAX,
-              width: '100%',
-              margin: '0 auto',
-            }}
-          >
-            <div className="mb-10 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-8">
-              <div className="flex flex-col gap-2">
-                <span
-                  className="font-mono"
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: '0.18em',
-                    textTransform: 'uppercase',
-                    color: 'var(--color-paper-deep)',
-                  }}
-                >
-                  Architectural guarantees
-                </span>
-                <h2
-                  className="font-display"
-                  style={{
-                    fontWeight: 500,
-                    fontSize: 'clamp(28px, 3.6vw, 44px)',
-                    lineHeight: 1.1,
-                    letterSpacing: '-0.015em',
-                    color: 'var(--color-paper)',
-                    maxWidth: 720,
-                  }}
-                >
-                  Every claim below is{' '}
-                  <span className="font-accent" style={{ fontStyle: 'italic' }}>
-                    enforced by code
-                  </span>
-                  , not by a benchmark.
-                </h2>
-              </div>
-              <p
-                className="font-mono"
-                style={{
-                  fontSize: 12,
-                  lineHeight: '18px',
-                  color: 'var(--color-paper-deep)',
-                  maxWidth: 260,
-                }}
-              >
-                Numbers are pulled from a reproducible eval suite — every claim below
-                traces back to a recorded run you can re-execute from the repo.
-              </p>
-            </div>
-
-            <div
-              className="grid"
-              style={{
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                borderTop: '1px solid rgba(251, 248, 242, 0.15)',
-              }}
-            >
-              {PRINCIPLES.map((m, i) => (
-                <div
-                  key={m.label}
-                  className="flex flex-col gap-2"
-                  style={{
-                    padding: '28px 24px 28px 0',
-                    borderRight:
-                      i < PRINCIPLES.length - 1
-                        ? '1px solid rgba(251, 248, 242, 0.15)'
-                        : 'none',
-                    paddingLeft: i === 0 ? 0 : 24,
-                  }}
-                >
-                  <span
-                    className="font-display"
-                    style={{
-                      fontWeight: 500,
-                      fontSize: 'clamp(22px, 2.4vw, 30px)',
-                      lineHeight: '32px',
-                      letterSpacing: '-0.01em',
-                      color: 'var(--color-paper)',
-                    }}
-                  >
-                    {m.value}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 14,
-                      lineHeight: '20px',
-                      color: 'var(--color-paper)',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {m.label}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      lineHeight: '20px',
-                      color: 'var(--color-paper-deep)',
-                    }}
-                  >
-                    {m.hint}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════ FOUR PILLARS ═══════════════ */}
-        <section
-          className={`${SECTION_PX} py-24 md:py-32`}
-          style={{
-            maxWidth: CONTAINER_MAX,
-            width: '100%',
-            margin: '0 auto',
-          }}
-        >
-          <div className="mb-12 flex items-center gap-3">
-            <span
-              aria-hidden
-              style={{
-                display: 'inline-block',
-                width: 28,
-                height: 1,
-                background: 'var(--color-ink-subtle)',
-              }}
-            />
-            <Eyebrow tone="strong">How Opus 4.7 is used, concretely</Eyebrow>
-          </div>
-
-          <h2
-            className="font-display"
-            style={{
-              fontWeight: 500,
-              fontSize: 'clamp(32px, 4.5vw, 48px)',
-              lineHeight: 1.05,
-              letterSpacing: '-0.02em',
-              color: 'var(--color-ink)',
-              maxWidth: 880,
-              marginBottom: 56,
-            }}
-          >
-            Four load-bearing pillars.{' '}
-            <span
-              className="font-accent"
-              style={{ fontStyle: 'italic' }}
-            >
-              Every one visible
-            </span>{' '}
-            in the product, not just the deck.
-          </h2>
-
-          <div
-            className="grid gap-x-16 gap-y-14"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}
-          >
-            {PILLARS.map(p => (
-              <div
-                key={p.n}
-                className="flex flex-col gap-4"
-                style={{ borderTop: '1px solid var(--color-hairline)', paddingTop: 24 }}
-              >
-                <div className="flex items-baseline justify-between gap-4">
-                  <span
-                    className="font-mono"
-                    style={{
-                      fontSize: 12,
-                      letterSpacing: '0.18em',
-                      color: 'var(--color-ink-subtle)',
-                    }}
-                  >
-                    {p.n}
-                  </span>
-                </div>
-                <h3
-                  className="font-display"
-                  style={{
-                    fontWeight: 500,
-                    fontSize: 26,
-                    lineHeight: '32px',
-                    letterSpacing: '-0.01em',
-                    color: 'var(--color-ink)',
-                  }}
-                >
-                  {p.title}
-                </h3>
-                <p
-                  style={{
-                    fontSize: 17,
-                    lineHeight: '28px',
-                    color: 'var(--color-ink-muted)',
-                  }}
-                >
-                  {p.body}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ═══════════════ WHO IT IS FOR ═══════════════ */}
-        <section
-          className={`${SECTION_PX} py-24 md:py-32`}
-          style={{
-            background: 'var(--color-paper-tint)',
-            borderTop: '1px solid var(--color-hairline)',
-            borderBottom: '1px solid var(--color-hairline)',
-          }}
-        >
-          <div
-            style={{
-              maxWidth: CONTAINER_MAX,
-              width: '100%',
-              margin: '0 auto',
-            }}
-          >
-            <div className="mb-12 flex items-center gap-3">
-              <span
-                aria-hidden
-                style={{
-                  display: 'inline-block',
-                  width: 28,
-                  height: 1,
-                  background: 'var(--color-ink-subtle)',
-                }}
-              />
-              <Eyebrow tone="strong">Who this is built for</Eyebrow>
-            </div>
-
-            <h2
-              className="font-display"
-              style={{
-                fontWeight: 500,
-                fontSize: 'clamp(32px, 4.5vw, 48px)',
-                lineHeight: 1.05,
-                letterSpacing: '-0.02em',
-                color: 'var(--color-ink)',
-                maxWidth: 880,
-                marginBottom: 48,
-              }}
-            >
-              Three customers.{' '}
-              <span
-                className="font-accent"
-                style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
-              >
-                One shared pain.
-              </span>
-            </h2>
-
-            <div
-              className="grid gap-x-10 gap-y-12"
-              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
-            >
-              {AUDIENCES.map(a => (
-                <div key={a.title} className="flex flex-col gap-3">
-                  <h3
-                    className="font-display"
-                    style={{
-                      fontWeight: 500,
-                      fontSize: 22,
-                      lineHeight: '28px',
-                      letterSpacing: '-0.005em',
-                      color: 'var(--color-ink)',
-                    }}
-                  >
-                    {a.title}
-                  </h3>
-                  <span
-                    className="font-mono"
-                    style={{
-                      fontSize: 11,
-                      letterSpacing: '0.14em',
-                      textTransform: 'uppercase',
-                      color: 'var(--color-ink-subtle)',
-                    }}
-                  >
-                    {a.example}
-                  </span>
-                  <p
-                    style={{
-                      fontSize: 15,
-                      lineHeight: '24px',
-                      color: 'var(--color-ink-muted)',
-                    }}
-                  >
-                    {a.body}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════ PLUG IT INTO ANYTHING ═══════════════ */}
-        <section
-          className={`${SECTION_PX} py-24 md:py-32`}
-          style={{
-            maxWidth: CONTAINER_MAX,
-            width: '100%',
-            margin: '0 auto',
-          }}
-        >
-          <div className="mb-10 flex items-center gap-3">
-            <span
-              aria-hidden
-              style={{
-                display: 'inline-block',
-                width: 28,
-                height: 1,
-                background: 'var(--color-ink-subtle)',
-              }}
-            />
-            <Eyebrow tone="strong">Plug it into anything</Eyebrow>
-          </div>
-
-          <h2
-            className="font-display"
-            style={{
-              fontWeight: 500,
-              fontSize: 'clamp(32px, 4.5vw, 48px)',
-              lineHeight: 1.05,
-              letterSpacing: '-0.02em',
-              color: 'var(--color-ink)',
-              maxWidth: 920,
-              marginBottom: 16,
-            }}
-          >
-            One ingest with Opus.{' '}
-            <span
-              className="font-accent"
-              style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
-            >
-              Any search engine at integration time.
-            </span>
-          </h2>
-
-          <p
-            style={{
-              fontSize: 'clamp(15px, 1.3vw, 17px)',
-              lineHeight: 1.55,
-              color: 'var(--color-ink-muted)',
-              maxWidth: 760,
-              marginBottom: 16,
-            }}
-          >
-            Upload a menu, then <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.92em', color: 'var(--color-ink)' }}>GET /api/catalog/&lt;run_id&gt;.json</span>.
-            The graph ships with aliases, search terms, ingredients and categories already populated, so the
-            dishes are indexable by <strong style={{ color: 'var(--color-ink)', fontWeight: 500 }}>Postgres full-text, Elasticsearch, Algolia or a vector DB</strong>{' '}
-            in milliseconds. No LLM in the hot path. No ML team.
-          </p>
-
-          <div
-            style={{
-              background: 'var(--color-paper-tint)',
-              border: '1px solid var(--color-hairline)',
-              borderRadius: 'var(--radius-card)',
-              padding: '20px 24px',
-              marginBottom: 40,
-              maxWidth: 760,
-              fontSize: 14,
-              lineHeight: '22px',
-              color: 'var(--color-ink-muted)',
-              display: 'flex',
-              gap: 16,
-              alignItems: 'flex-start',
-            }}
-          >
-            <span
-              aria-hidden
-              style={{
-                display: 'inline-block',
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: 'var(--color-gold-leaf)',
-                marginTop: 7,
-                flexShrink: 0,
-              }}
-            />
-            <span>
-              <strong style={{ color: 'var(--color-ink)', fontWeight: 500 }}>
-                Where Opus runs, explicitly.
-              </strong>
-              {' '}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Ingest</span>: once per menu, for vision + identity + alias generation.
-              {' '}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Playground</span>: to help you judge the graph before integrating.
-              {' '}<span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>Your integration</span>: never — your users search a static JSON, indexed however you like.
-            </span>
-          </div>
-
-          <div
-            className="grid gap-6"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}
-          >
-            {INTEGRATIONS.map(i => (
-              <div
-                key={i.target}
-                style={{
-                  background: 'var(--color-paper)',
-                  border: '1px solid var(--color-hairline)',
-                  borderRadius: 'var(--radius-card)',
-                  padding: 24,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                }}
-              >
-                <h3
-                  className="font-display"
-                  style={{
-                    fontWeight: 500,
-                    fontSize: 20,
-                    lineHeight: '26px',
-                    letterSpacing: '-0.005em',
-                    color: 'var(--color-ink)',
-                  }}
-                >
-                  {i.target}
-                </h3>
-                <span
-                  className="font-mono"
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: 'var(--color-ink-subtle)',
-                  }}
-                >
-                  {i.example}
-                </span>
-                <p
-                  style={{
-                    fontSize: 14,
-                    lineHeight: '22px',
-                    color: 'var(--color-ink-muted)',
-                  }}
-                >
-                  {i.need}
-                </p>
-                <div
-                  style={{
-                    borderTop: '1px solid var(--color-hairline)',
-                    paddingTop: 10,
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12,
-                    lineHeight: '18px',
-                    color: 'var(--color-ink)',
-                    letterSpacing: '0.01em',
-                  }}
-                >
-                  {i.payload}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ═══════════════ FINAL CTA ═══════════════ */}
+        {/* ═══════════════ 6 · FINAL CTA ═══════════════ */}
         <section
           className={`${SECTION_PX} py-24 md:py-32`}
           style={{
@@ -2166,8 +1437,14 @@ export function Landing({ onUpload, onSample }: Props) {
                 maxWidth: 680,
               }}
             >
-              The sample runs against a pre-computed bundle. Upload runs against Opus 4.7 live,
-              vision-native, with adaptive thinking only when the query is actually ambiguous.
+              The sample runs against a pre-computed bundle. Upload runs against Opus
+              4.7 live, vision-native, with{' '}
+              <GlossaryTerm
+                term="adaptive thinking"
+                definition="Opus 4.7 only spends extra reasoning cycles when a case is genuinely ambiguous — everything else goes straight through."
+                practical="You don't pay the slow-and-expensive tax on the 90% of dishes that are clearly one thing."
+              />{' '}
+              only when the query is actually ambiguous.
             </p>
             <div className="flex flex-wrap items-center gap-5 md:gap-8">
               <PrimaryCta onClick={onSample}>Try the sample menu</PrimaryCta>

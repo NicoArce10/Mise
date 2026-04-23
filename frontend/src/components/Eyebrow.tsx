@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 /**
  * Small all-caps label that sits above section headings throughout the
  * landing page. Factored out of `Landing.tsx` so sub-components
- * (e.g. `JsonPreviewBlock`) can render it without cross-importing the
+ * (e.g. `DishCardPreview`) can render it without cross-importing the
  * landing module.
  */
 export function Eyebrow({
