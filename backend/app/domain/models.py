@@ -244,6 +244,14 @@ class ProcessingRun(BaseModel):
     # ("<left> vs <right> → Merged / Kept separate"). Capped server-side
     # so the poll payload never runs away.
     live_reconciliations: list[LiveReconciliationEvent] = Field(default_factory=list)
+    # Uploaded source documents for this run's batch. The Processing
+    # screen renders these big — one thumbnail per source with a scanner
+    # line animation and the live `recent_dishes` chips stacked beside —
+    # so the user has something to look at while Opus is reading, and
+    # can *see* which PDF/photo each extracted dish came from. Populated
+    # server-side on the GET endpoint; default-empty so the field is
+    # additive (tests and fixtures don't have to construct sources).
+    sources: list[SourceDocument] = Field(default_factory=list)
 
 
 class MetricsPreview(BaseModel):

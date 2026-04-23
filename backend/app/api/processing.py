@@ -383,4 +383,13 @@ async def get_processing(processing_id: EntityId) -> ProcessingRun:
     run = store.get_run_meta(processing_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"run {processing_id} not found")
+    # Populate `sources` on the wire so the Processing screen can render
+    # the user's uploaded PDFs/photos full-size while Opus extracts. We
+    # resolve from the batch every request (cheap: dict lookup + list
+    # copy) rather than stuffing sources into every `update_state`
+    # call. When the batch is missing (tests, fixtures, expired state)
+    # we fall through silently — the field is additive.
+    batch = store.get_batch(run.batch_id)
+    if batch is not None and not run.sources:
+        run = run.model_copy(update={"sources": list(batch.sources)})
     return run

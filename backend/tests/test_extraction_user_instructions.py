@@ -141,10 +141,139 @@ def test_user_instructions_real_text_adds_hard_filter_block_first(
     # extract" rather than "extract, and by the way also do this".
     assert "HARD FILTER" in texts[0]
     assert directive in texts[0]
-    assert "DROPPED from the output entirely" in texts[0]
+    # Imperative tone — the model must not treat the filter as optional.
+    assert "DROPPED" in texts[0]
     assert "Drop silently" in texts[0]
+    # Audit trail: the prompt asks the model to list the dishes it
+    # dropped so the product can show a "receipt" to the user.
+    assert "excluded_by_user_filter" in texts[0]
+    # Few-shot examples are embedded to teach the model the exact
+    # shape we expect (filtered in / filtered out + audit list).
+    assert "FEW-SHOT EXAMPLES" in texts[0]
     # SECOND block is the generic per-chunk directive, unchanged.
     assert "Extract dishes per the rules" in texts[1]
+
+
+def test_post_filter_drops_candidate_that_also_appears_in_excluded_list(
+    monkeypatch,
+) -> None:
+    """If Opus contradicts itself — returning a candidate AND listing
+    that same dish in `excluded_by_user_filter` — we trust the
+    exclusion list and drop the candidate.
+
+    This is the defense-in-depth that makes the HARD FILTER feel
+    reliable to the user even when the model slips up on one item.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-ignored")
+
+    # Model returns Coca-Cola as a candidate but ALSO tells us it
+    # excluded Coca-Cola due to the filter — clear self-contradiction.
+    body = {
+        "candidates": [
+            {
+                "raw_name": "Pasta alla Bolognese",
+                "normalized_name": "Pasta alla Bolognese",
+                "inferred_dish_type": "pasta",
+                "ingredients": [],
+                "price_value": 12.0,
+                "price_currency": "EUR",
+                "is_modifier_candidate": False,
+                "is_ephemeral_candidate": False,
+                "aliases": [],
+                "search_terms": [],
+            },
+            {
+                "raw_name": "Coca-Cola",
+                "normalized_name": "Coca-Cola",
+                "inferred_dish_type": "drink",
+                "ingredients": [],
+                "price_value": 3.0,
+                "price_currency": "EUR",
+                "is_modifier_candidate": False,
+                "is_ephemeral_candidate": False,
+                "aliases": ["Coke"],
+                "search_terms": [],
+            },
+        ],
+        "excluded_by_user_filter": ["Coca-Cola"],
+    }
+
+    class _FakeMessages:
+        def create(self, **kwargs):
+            return _mk_sdk_response(body)
+
+    class _FakeClient:
+        messages = _FakeMessages()
+
+    with patch.object(ai_client, "Anthropic", return_value=_FakeClient()):
+        ai_client.get_client.cache_clear()
+        candidates = extraction._call_one_chunk(
+            source=_source(),
+            chunk_bytes=b"\xff\xd8\xff\xe0dummy",
+            media_type="image/jpeg",
+            chunk_label="",
+            span_prefix="",
+            effort="low",
+            max_tokens=256,
+            user_instructions="No beverages.",
+        )
+
+    names = [c.normalized_name for c in candidates]
+    assert "Pasta alla Bolognese" in names
+    assert "Coca-Cola" not in names, (
+        "post-filter must drop the self-contradicted candidate"
+    )
+
+
+def test_post_filter_matches_candidate_via_alias(monkeypatch) -> None:
+    """If an excluded name matches one of the candidate's aliases (not
+    its canonical name), the candidate must still be dropped — otherwise
+    a naive "Coke" exclusion wouldn't catch the "Coca-Cola" dish whose
+    aliases include "Coke".
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-ignored")
+
+    body = {
+        "candidates": [
+            {
+                "raw_name": "Coca-Cola 500ml",
+                "normalized_name": "Coca-Cola 500ml",
+                "inferred_dish_type": "drink",
+                "ingredients": [],
+                "price_value": 3.0,
+                "price_currency": "EUR",
+                "is_modifier_candidate": False,
+                "is_ephemeral_candidate": False,
+                "aliases": ["Coke", "Cola"],
+                "search_terms": [],
+            },
+        ],
+        "excluded_by_user_filter": ["coke"],
+    }
+
+    class _FakeMessages:
+        def create(self, **kwargs):
+            return _mk_sdk_response(body)
+
+    class _FakeClient:
+        messages = _FakeMessages()
+
+    with patch.object(ai_client, "Anthropic", return_value=_FakeClient()):
+        ai_client.get_client.cache_clear()
+        candidates = extraction._call_one_chunk(
+            source=_source(),
+            chunk_bytes=b"\xff\xd8\xff\xe0dummy",
+            media_type="image/jpeg",
+            chunk_label="",
+            span_prefix="",
+            effort="low",
+            max_tokens=256,
+            user_instructions="No beverages.",
+        )
+
+    assert candidates == [], (
+        "alias-based match should also trigger the post-filter"
+    )
 
 
 def test_user_instructions_do_not_leak_into_system_prompt(monkeypatch) -> None:

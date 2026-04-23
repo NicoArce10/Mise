@@ -1,7 +1,7 @@
 ---
 purpose: Extract dish candidates from a single menu evidence artifact (PDF page, photo, chalkboard, social post) and surface the natural-language handles a diner would use to ask for each dish.
 input_shape: one SourceDocument (vision-native — PDF/image sent as base64 image block).
-output_shape: ExtractionResponse = { candidates: list[DishCandidateLite] }
+output_shape: ExtractionResponse = { candidates: list[DishCandidateLite], excluded_by_user_filter: list[str] }
 adaptive_thinking: false
 validation: Pydantic model + one tightened retry.
 ---
@@ -160,11 +160,22 @@ are fine — don't pad.
    `HARD FILTER` (natural-language directive such as "skip beverages",
    "no vegetarian", "only pizzas, ignore the rest"), apply it as a
    strict *pre-filter*: any dish that violates it is DROPPED from the
-   output entirely — not flagged, not moved to ephemeral, not annotated,
-   and never mentioned in `decision_summary`. The filter controls WHICH
-   dishes qualify; the rules above still govern how each qualifying
-   dish is shaped. If a dish is borderline with respect to the filter,
-   apply the most restrictive reasonable reading and drop it.
+   `candidates` array entirely — not flagged, not moved to ephemeral,
+   not annotated, and never mentioned in a free-text field. The filter
+   controls WHICH dishes qualify; the rules above still govern how each
+   qualifying dish is shaped. If a dish is borderline with respect to
+   the filter, apply the most restrictive reasonable reading and drop
+   it.
+5. **Hard-filter audit trail.** For every dish you drop because of the
+   `HARD FILTER`, append a short human-readable name of the dish (as
+   it appears on the menu, e.g. `"Coca-Cola 500ml"`, `"Ensalada
+   Caesar"`) to `excluded_by_user_filter`. That array is a receipt the
+   product surfaces to the user so they can verify the filter worked.
+   Do NOT include items that were never on the menu, and do NOT
+   mention reasons — just names. If the filter dropped nothing, or no
+   filter was given, leave `excluded_by_user_filter` empty. Do not
+   populate this array for any other reason (typos, duplicates,
+   modifiers are excluded by the schema rules, not by this filter).
 
 ## Worked examples
 

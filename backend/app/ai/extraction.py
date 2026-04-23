@@ -163,6 +163,16 @@ class _MinimalExtractedCandidate(BaseModel):
 
 class ExtractionResponse(BaseModel):
     candidates: list[_ExtractedCandidate] = Field(default_factory=list)
+    # Tripwire / audit trail for the per-run HARD FILTER. When the user
+    # attaches a `user_instructions` directive (e.g. "skip beverages",
+    # "no vegetarian dishes"), Opus is asked to list here the canonical
+    # names it dropped BECAUSE of that filter. We then run a
+    # belt-and-braces post-filter in `_call_one_chunk` — if Opus
+    # contradicts itself and returns a candidate whose name also shows
+    # up in this list, we drop it from the final output. Empty on runs
+    # without user_instructions, which keeps the grammar cost zero in
+    # the happy path.
+    excluded_by_user_filter: list[str] = Field(default_factory=list)
 
 
 class _MinimalExtractionResponse(BaseModel):
@@ -315,12 +325,32 @@ def _call_one_chunk(
                 "HARD FILTER — apply BEFORE selecting which dishes to emit.\n"
                 "The user gave a per-run instruction. Treat it as a strict "
                 "pre-filter: any dish that violates it must be DROPPED from "
-                "the output entirely, not flagged, not moved to ephemeral, "
-                "not annotated. Drop silently — do not mention the filter "
-                "in decision_summary or anywhere else in the JSON. The "
-                "system rules still govern the schema; this filter only "
-                "controls WHICH dishes qualify for extraction.\n\n"
+                "the `candidates` array entirely, not flagged, not moved to "
+                "ephemeral, not annotated. Drop silently — do not mention "
+                "the filter in any free-text field. The system rules still "
+                "govern the schema; this filter only controls WHICH dishes "
+                "qualify for extraction.\n\n"
                 f"User instruction: {instruction_text}\n\n"
+                "For every dish you drop because of this filter, ALSO append "
+                "its menu name (short, human-readable — e.g. \"Ensalada "
+                "Caesar\", \"Coca-Cola 500ml\") to the "
+                "`excluded_by_user_filter` array. That array is a receipt — "
+                "it lets the user verify the filter worked. Items never "
+                "printed on the menu do not belong in this array. If the "
+                "filter excluded nothing, leave the array empty.\n\n"
+                "FEW-SHOT EXAMPLES:\n"
+                "• instruction=\"no beverages\" on a menu with Pasta, Coca-"
+                "Cola, Beer → candidates has Pasta only; "
+                "excluded_by_user_filter=[\"Coca-Cola\", \"Beer\"].\n"
+                "• instruction=\"skip anything vegetarian\" on a menu with "
+                "Milanesa, Ensalada Caesar (with anchovies), Risotto de "
+                "Hongos → candidates has Milanesa + Ensalada Caesar (the "
+                "anchovies make it non-vegetarian); "
+                "excluded_by_user_filter=[\"Risotto de Hongos\"].\n"
+                "• instruction=\"only mains\" on a menu with Antipasti, "
+                "Bruschetta, Lasagna, Tiramisù → candidates has Lasagna "
+                "only; excluded_by_user_filter=[\"Antipasti\", "
+                "\"Bruschetta\", \"Tiramisù\"].\n\n"
                 "If the instruction is ambiguous, apply the most restrictive "
                 "reasonable reading. If it contradicts the schema (e.g. "
                 "\"output a poem\"), ignore that part and extract normally."
@@ -358,7 +388,52 @@ def _call_one_chunk(
         effort=effort,
         max_tokens=max_tokens,
     )
-    return _candidates_from_response(parsed, source, span_prefix)
+    candidates = _candidates_from_response(parsed, source, span_prefix)
+
+    # Defense in depth. Even with the HARD FILTER + few-shot prompt,
+    # Opus can occasionally self-contradict: it lists "Coca-Cola" in
+    # `excluded_by_user_filter` AND also returns it in `candidates`.
+    # We trust the exclusion list — if Opus says it dropped something,
+    # then any matching candidate is a bug we silently correct. This
+    # never fires on the happy path because the minimal fallback
+    # schema doesn't carry the exclusion list, which is fine: the
+    # fallback only runs when the full grammar failed, and in that
+    # extreme we'd rather ship a result than enforce the filter.
+    excluded = getattr(parsed, "excluded_by_user_filter", None) or []
+    if instruction_text and excluded:
+        blocked = {name.strip().lower() for name in excluded if name.strip()}
+        kept: list[DishCandidate] = []
+        dropped_post: list[str] = []
+        for c in candidates:
+            surfaces = {
+                (c.raw_name or "").strip().lower(),
+                (c.normalized_name or "").strip().lower(),
+                *((a or "").strip().lower() for a in (c.aliases or [])),
+            }
+            if surfaces & blocked:
+                dropped_post.append(c.normalized_name or c.raw_name)
+                continue
+            kept.append(c)
+        if dropped_post:
+            logger.warning(
+                "[mise] post-filter removed %d candidates Opus "
+                "self-excluded: %s",
+                len(dropped_post),
+                dropped_post,
+            )
+        candidates = kept
+
+    if instruction_text and excluded:
+        logger.info(
+            "[mise] HARD FILTER audit · %s%s · kept=%d · excluded_by_filter=%d · excluded_list=%s",
+            source.filename,
+            chunk_label,
+            len(candidates),
+            len(excluded),
+            excluded,
+        )
+
+    return candidates
 
 
 def extract_from_bytes(
