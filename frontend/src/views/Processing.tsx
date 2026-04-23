@@ -283,7 +283,7 @@ export function Processing({
       </header>
 
       <main
-        className="mx-auto flex w-full flex-1 flex-col justify-center gap-12 px-10 py-16"
+        className="mx-auto flex w-full flex-1 flex-col gap-10 px-10 py-14"
         style={{ maxWidth: 880 }}
       >
         <section className="flex flex-col gap-5">
@@ -362,6 +362,32 @@ export function Processing({
             </motion.div>
           </AnimatePresence>
         </section>
+
+        {/* Scanner overlay: placed directly under the stage title so
+            a reviewer sees the live document preview + scanner
+            animation ABOVE the fold, without scrolling. During
+            `extracting` this becomes the visual centerpiece of the
+            screen — the progress bar + step counter below it remain
+            available but take a supporting role. Previously this
+            section lived at the bottom of the page which meant on
+            shorter viewports the user landed on an empty-looking
+            Processing screen during the entire extraction window. */}
+        <AnimatePresence>
+          {state === 'extracting' && processingId !== null && (
+            <motion.div
+              key="scanner-overlay"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ScannerOverlay
+                sources={sources}
+                recentDishes={recentDishes}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <section className="flex flex-col gap-3">
           <div
@@ -452,44 +478,11 @@ export function Processing({
           )}
         </section>
 
-        {/* Scanner overlay: full-size preview of each uploaded
-            PDF/photo with a sweeping scanner line + live dish chips
-            stacked beside. Shown during `extracting` on every real
-            run — even before the first poll returns `sources`, we
-            render the overlay in placeholder mode so the user always
-            sees the animation. While this is visible the horizontal
-            "Found so far" chip wall below stays hidden to avoid
-            showing the same dishes twice.
-
-            Historical note: this used to be gated on `sources.length > 0`,
-            which meant the first 1–2 polls (before the backend attached
-            sources to the run payload) showed a dead page. On short
-            photo-only runs that could be the ENTIRE extraction window,
-            so the user never saw the scanner at all. We now render
-            unconditionally during extracting on real runs — the
-            overlay knows how to degrade to a decorative card when
-            sources haven't arrived yet. */}
-        <AnimatePresence>
-          {state === 'extracting' && processingId !== null && (
-            <motion.div
-              key="scanner-overlay"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 6 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ScannerOverlay
-                sources={sources}
-                recentDishes={recentDishes}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Horizontal "Found so far" chip wall. Shown on the
             `reconciling` stage only — during `extracting` the scanner
-            overlay already displays live dish chips beside the source
-            preview, so a second chip wall would be redundant. */}
+            overlay (placed above the progress bar) already displays
+            live dish chips beside the source preview, so a second
+            chip wall would be redundant. */}
         <AnimatePresence>
           {state === 'reconciling' &&
             processingId !== null &&

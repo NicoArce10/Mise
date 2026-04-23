@@ -35,11 +35,11 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    # Type-only import: `CanonicalDish` is defined in `..domain.models`, which
-    # itself imports `QualitySignal` from this module. A runtime import would
-    # form a cycle, so we keep it under `TYPE_CHECKING` and stringify the
-    # annotations below.
-    from ..domain.models import CanonicalDish
+    # Type-only import: `CanonicalDish` and `SourceKind` are defined in
+    # `..domain.models`, which itself imports `QualitySignal` from this
+    # module. A runtime import would form a cycle, so we keep them
+    # under `TYPE_CHECKING` and stringify the annotations below.
+    from ..domain.models import CanonicalDish, SourceKind
 
 
 class QualityFlag(str, Enum):
@@ -181,10 +181,27 @@ def evaluate_quality(
     canonical_dishes: "list[CanonicalDish]",
     extraction_failures: int,
     extraction_total: int,
+    source_kinds: "list[SourceKind] | None" = None,
 ) -> QualitySignal:
-    """Score a pipeline run against the heuristic checks above."""
+    """Score a pipeline run against the heuristic checks above.
+
+    `source_kinds` is the list of `SourceKind`s that fed the run. When
+    every source is a promotional artifact (`POST`, `BOARD`) we suppress
+    the "missing prices / categories / ingredients" flags: those
+    formats routinely advertise 2–3 dishes by name only, and penalising
+    that as extraction failure produces false-positive "Likely failure"
+    signals on perfectly correct runs. The flags still apply to PDFs
+    and photos of printed menus, where missing prices genuinely does
+    suggest an extractor lost a column.
+    """
 
     n = len(canonical_dishes)
+
+    from ..domain.models import SourceKind as _SourceKind  # local import breaks cycle
+
+    promo_only = bool(source_kinds) and all(
+        k in (_SourceKind.POST, _SourceKind.BOARD) for k in (source_kinds or [])
+    )
 
     # Ratios — defined as 0 on empty menus so the caller can render them
     # in the UI without special-casing.
@@ -208,7 +225,13 @@ def evaluate_quality(
             "upload was a cover page, a partial crop, or an unsupported layout."
         )
 
-    if missing_price_ratio > MISSING_PRICE_THRESHOLD and n > 0:
+    # The three "menu shape" flags below only make sense for real menus
+    # (PDFs, printed-menu photos). For an Instagram post or a chalkboard
+    # we expect prices + sections + ingredients to be absent — the
+    # extractor is not at fault, the source genuinely doesn't have
+    # them. Suppressing the flags here avoids false-positive "Likely
+    # failure" verdicts on correct promo-source runs.
+    if not promo_only and missing_price_ratio > MISSING_PRICE_THRESHOLD and n > 0:
         flags.append(QualityFlag.MISSING_PRICES)
         reasons.append(
             f"{int(missing_price_ratio * 100)}% of dishes have no price. "
@@ -216,7 +239,7 @@ def evaluate_quality(
             "missing, the extractor likely lost an entire column."
         )
 
-    if missing_category_ratio > MISSING_CATEGORY_THRESHOLD and n > 0:
+    if not promo_only and missing_category_ratio > MISSING_CATEGORY_THRESHOLD and n > 0:
         flags.append(QualityFlag.MISSING_CATEGORIES)
         reasons.append(
             f"{int(missing_category_ratio * 100)}% of dishes have no section. "
@@ -224,7 +247,7 @@ def evaluate_quality(
             "this pass."
         )
 
-    if sparse_ingredient_ratio > SPARSE_INGREDIENT_THRESHOLD and n > 0:
+    if not promo_only and sparse_ingredient_ratio > SPARSE_INGREDIENT_THRESHOLD and n > 0:
         flags.append(QualityFlag.SPARSE_INGREDIENTS)
         reasons.append(
             f"{int(sparse_ingredient_ratio * 100)}% of dishes have empty "

@@ -74,31 +74,43 @@ export function ScannerOverlay({ sources, recentDishes }: Props) {
 
   return (
     <div
-      className="flex flex-col gap-6"
+      className="flex flex-col gap-4"
       style={{
         borderTop: '1px solid var(--color-hairline)',
-        paddingTop: 24,
+        paddingTop: 20,
       }}
     >
-      <div
-        className="font-mono"
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.18em',
-          textTransform: 'uppercase',
-          color: 'var(--color-ink-subtle)',
-        }}
-      >
-        Opus 4.7 · vision-native pass
+      <div className="flex items-baseline justify-between gap-4">
+        <span
+          className="font-mono"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--color-ink-subtle)',
+          }}
+        >
+          Opus 4.7 · vision-native pass
+        </span>
+        <span
+          className="font-accent"
+          style={{
+            fontStyle: 'italic',
+            fontSize: 12,
+            color: 'var(--color-ink-subtle)',
+          }}
+        >
+          Reading the document itself — no text recognition step.
+        </span>
       </div>
 
       <div
-        className="grid gap-6"
+        className="grid gap-5"
         style={{
-          // Source preview | dish chip column. Collapses to single
-          // column under 720px (mobile demo on a phone during the pitch
-          // still shouldn't be illegible).
-          gridTemplateColumns: 'minmax(0, 1fr) 240px',
+          // Source preview | dish chip column. Preview capped so a tall
+          // photo doesn't dominate the page; the chip column stays
+          // proportional so the "live dishes" signal is always legible.
+          gridTemplateColumns: 'minmax(0, 1fr) 220px',
         }}
       >
         {/* ---------- Active source preview with scanner ---------- */}
@@ -109,7 +121,12 @@ export function ScannerOverlay({ sources, recentDishes }: Props) {
             borderRadius: 'var(--radius-card)',
             border: '1px solid var(--color-hairline)',
             background: 'var(--color-paper-tint)',
-            aspectRatio: '4 / 3',
+            // Wider aspect ratio so portrait menus don't blow up the
+            // viewport height; pair with a hard max-height as a belt &
+            // braces on ultra-tall images. 16:10 keeps landscape PDFs
+            // fully visible without letterboxing.
+            aspectRatio: '16 / 10',
+            maxHeight: 260,
           }}
         >
           <AnimatePresence mode="wait">
@@ -247,20 +264,20 @@ export function ScannerOverlay({ sources, recentDishes }: Props) {
               gap: 4,
               // Cap the column so a 60-dish menu doesn't push the layout;
               // the newest chips are visible at the top.
-              maxHeight: 260,
+              maxHeight: 240,
               overflow: 'hidden',
               position: 'relative',
               maskImage:
-                'linear-gradient(to bottom, black 0%, black 85%, transparent 100%)',
+                'linear-gradient(to bottom, black 0%, black 82%, transparent 100%)',
               WebkitMaskImage:
-                'linear-gradient(to bottom, black 0%, black 85%, transparent 100%)',
+                'linear-gradient(to bottom, black 0%, black 82%, transparent 100%)',
             }}
           >
             <AnimatePresence initial={false}>
               {recentDishes
                 .slice()
                 .reverse()
-                .slice(0, 14)
+                .slice(0, 12)
                 .map(name => (
                   <motion.div
                     key={name}

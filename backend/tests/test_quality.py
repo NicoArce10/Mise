@@ -14,7 +14,7 @@ from app.core.quality import (
     QualityStatus,
     evaluate_quality,
 )
-from app.domain.models import CanonicalDish, DecisionSummary
+from app.domain.models import CanonicalDish, DecisionSummary, SourceKind
 
 
 def _dish(
@@ -119,6 +119,57 @@ def test_duplicate_canonicals_triggers_flag() -> None:
         assert any(
             "look like the same dish" in r for r in signal.reasons
         )
+
+
+def test_promo_only_run_suppresses_missing_menu_shape_flags() -> None:
+    """An Instagram post that advertises 3 dishes by name + photo should
+    NOT be flagged as ``Likely failure`` just because there are no
+    prices, no section headers, and no ingredient lists. Those flags
+    are calibrated for printed menus where missing them indicates a
+    lost column; on promo sources their absence is expected.
+
+    Regression: the real-world Voraz Instagram banner (Veggie Classic /
+    Veggie Insta / Cheddar) was producing confidence 55% + "Likely
+    failure" solely because all three dishes lacked prices and
+    sections — which is exactly what an IG post looks like by
+    construction.
+    """
+    dishes = [
+        _dish("Veggie Classic", price=None, category=None, ingredients=[]),
+        _dish("Veggie Insta", price=None, category=None, ingredients=[]),
+        _dish("Cheddar", price=None, category=None, ingredients=[]),
+    ]
+
+    signal = evaluate_quality(
+        canonical_dishes=dishes,
+        extraction_failures=0,
+        extraction_total=1,
+        source_kinds=[SourceKind.POST],
+    )
+
+    assert QualityFlag.MISSING_PRICES not in signal.flags
+    assert QualityFlag.MISSING_CATEGORIES not in signal.flags
+    assert QualityFlag.SPARSE_INGREDIENTS not in signal.flags
+    assert signal.status is not QualityStatus.LIKELY_FAILURE
+
+
+def test_printed_menu_pdf_still_flags_missing_prices() -> None:
+    """Complement to the promo-only test: if the source is a PDF of a
+    printed menu, missing prices genuinely does suggest the extractor
+    lost a column, so the flag must still fire.
+    """
+    dishes = [
+        _dish(f"Dish {i}", price=None if i < 5 else 10.0) for i in range(8)
+    ]
+
+    signal = evaluate_quality(
+        canonical_dishes=dishes,
+        extraction_failures=0,
+        extraction_total=1,
+        source_kinds=[SourceKind.PDF],
+    )
+
+    assert QualityFlag.MISSING_PRICES in signal.flags
 
 
 def test_likely_failure_on_empty_run() -> None:

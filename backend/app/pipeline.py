@@ -462,6 +462,7 @@ def _build_cockpit(
         canonical_dishes=canonical_dishes,
         extraction_failures=extraction_failures,
         extraction_total=len(sources),
+        source_kinds=[s.kind for s in sources],
     )
 
     # Enrich the reconciliation trace so the UI can narrate cross-source
