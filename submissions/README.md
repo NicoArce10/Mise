@@ -12,8 +12,8 @@ Deliverables for the hackathon submission.
 
 ## Links (filled in on submission day)
 
-- Demo video: `<YouTube / Loom URL>`
-- Repo: `<GitHub URL>`
+- Demo video: `<YouTube / Loom URL — fill on submission day>`
+- Repo: <https://github.com/NicoArce10/Mise>
 
 ## Rules
 - Every number in `written_summary.md` or in the video matches `metrics.json` exactly. No rounding, no "approximately".

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowLeft,
+  ArrowRight,
   Brain,
   Download,
   FileText,
+  Network,
   RotateCcw,
   Search,
   Sparkles,
@@ -517,63 +519,11 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
             Try it · {catalogCount} dish{catalogCount === 1 ? '' : 'es'} · {menuLabel}
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => setPreviewOpen(true)}
-            disabled={state.sources.length === 0}
-            className="cursor-pointer inline-flex items-center gap-2"
-            style={{
-              background: 'transparent',
-              color: 'var(--color-ink-muted)',
-              border: '1px solid var(--color-hairline)',
-              borderRadius: 'var(--radius-chip)',
-              padding: '8px 14px',
-              fontSize: 13,
-              letterSpacing: '0.02em',
-              opacity: state.sources.length === 0 ? 0.5 : 1,
-            }}
-            title="See the menu this demo loaded"
-          >
-            <FileText size={13} strokeWidth={1.7} />
-            View menu
-          </button>
-          <button
-            type="button"
-            onClick={() => downloadCatalog(state, processingId)}
-            disabled={state.canonical_dishes.length === 0}
-            className="cursor-pointer inline-flex items-center gap-2"
-            style={{
-              background: 'var(--color-ink)',
-              color: 'var(--color-paper)',
-              border: '1px solid var(--color-ink)',
-              borderRadius: 'var(--radius-chip)',
-              padding: '8px 14px',
-              fontSize: 13,
-              letterSpacing: '0.02em',
-              opacity: state.canonical_dishes.length === 0 ? 0.5 : 1,
-            }}
-            title="Download the dish graph as JSON — plug it into any downstream system"
-          >
-            <Download size={13} strokeWidth={1.7} />
-            Export JSON
-          </button>
-          <button
-            type="button"
-            onClick={onOpenCatalog}
-            className="cursor-pointer"
-            style={{
-              background: 'transparent',
-              color: 'var(--color-ink)',
-              border: '1px solid var(--color-hairline)',
-              borderRadius: 'var(--radius-chip)',
-              padding: '8px 14px',
-              fontSize: 13,
-              letterSpacing: '0.02em',
-            }}
-          >
-            See full catalog
-          </button>
+        <div className="flex items-center gap-3">
+          {/* Tertiary: start-over link. Kept as a quiet text-style
+              affordance so it doesn't steal attention from the primary
+              path (see the dish graph). In sample mode this doubles as
+              the "Upload your own menu" nudge. */}
           <button
             type="button"
             onClick={() => {
@@ -616,6 +566,87 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
             <ArrowLeft size={14} strokeWidth={1.5} />
             {isSample ? 'Upload your menu' : 'new menu'}
           </button>
+
+          {/* Secondary: view the uploaded source + export the JSON.
+              Both are valid follow-up actions but neither is the point
+              of the product — the dish graph is. Ghost buttons, lighter
+              visual weight. */}
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            disabled={state.sources.length === 0}
+            className="cursor-pointer inline-flex items-center gap-2"
+            style={{
+              background: 'transparent',
+              color: 'var(--color-ink-muted)',
+              border: '1px solid var(--color-hairline)',
+              borderRadius: 'var(--radius-chip)',
+              padding: '8px 14px',
+              fontSize: 13,
+              letterSpacing: '0.02em',
+              opacity: state.sources.length === 0 ? 0.5 : 1,
+            }}
+            title="See the menu this demo loaded"
+          >
+            <FileText size={13} strokeWidth={1.7} />
+            View menu
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadCatalog(state, processingId)}
+            disabled={state.canonical_dishes.length === 0}
+            className="cursor-pointer inline-flex items-center gap-2"
+            style={{
+              background: 'transparent',
+              color: 'var(--color-ink-muted)',
+              border: '1px solid var(--color-hairline)',
+              borderRadius: 'var(--radius-chip)',
+              padding: '8px 14px',
+              fontSize: 13,
+              letterSpacing: '0.02em',
+              opacity: state.canonical_dishes.length === 0 ? 0.5 : 1,
+            }}
+            title="Download the dish graph as JSON — plug it into any downstream system"
+          >
+            <Download size={13} strokeWidth={1.7} />
+            Export JSON
+          </button>
+
+          {/* PRIMARY CTA. The dish graph is the product. Everything
+              else on this page is a support surface (search demo,
+              export download, menu preview). A reviewer who lands here
+              from the landing page needs to see *what Opus actually
+              built* in one click — not play with the search box and
+              wander off. The button inherits the dark ink background
+              from the landing's primary CTA ("Run your own menu") so
+              the visual language is continuous across the app.
+
+              Value-rich copy: the dish count lives in the label so the
+              button doubles as a tiny data point instead of a blank
+              "See full catalog" that forces the eye to look elsewhere
+              for the N. */}
+          <button
+            type="button"
+            onClick={onOpenCatalog}
+            className="cursor-pointer inline-flex items-center gap-2"
+            style={{
+              background: 'var(--color-ink)',
+              color: 'var(--color-paper)',
+              border: '1px solid var(--color-ink)',
+              borderRadius: 'var(--radius-chip)',
+              padding: '10px 18px',
+              fontSize: 13,
+              letterSpacing: '0.02em',
+              fontWeight: 500,
+              boxShadow: '0 1px 2px rgba(18,18,20,0.06)',
+            }}
+            title="Open the full dish graph Opus built from your upload — canonical dishes, modifiers, ephemeral specials, reconciliation decisions."
+          >
+            <Network size={14} strokeWidth={1.7} />
+            See the {catalogCount} dish{catalogCount === 1 ? '' : 'es'} Opus built
+            <ArrowRight size={13} strokeWidth={1.7} />
+          </button>
+
         </div>
       </header>
 
@@ -1047,6 +1078,84 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
                     />
                   ))}
                 </div>
+              )}
+
+              {/* Post-success nudge. A reviewer who just got a useful
+                  search result is in the best possible frame to care
+                  about the rest of the product. Showing the "full dish
+                  graph" CTA right here (vs only in the header) is the
+                  classic SaaS repeat-CTA pattern — the primary action
+                  appears once above the fold, then again after the
+                  first moment of product-value. Hidden when there are
+                  no matches: surfacing a triumphant CTA on an empty
+                  result would feel tone-deaf. */}
+              {result.matches.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.32, ease: EASE, delay: 0.15 }}
+                  className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+                  style={{
+                    marginTop: 8,
+                    padding: '20px 22px',
+                    borderRadius: 'var(--radius-card)',
+                    background: 'var(--color-paper-tint)',
+                    border: '1px solid var(--color-hairline)',
+                  }}
+                >
+                  <div className="flex flex-col gap-1" style={{ maxWidth: 540 }}>
+                    <span
+                      className="font-mono"
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: '0.2em',
+                        textTransform: 'uppercase',
+                        color: 'var(--color-ink-subtle)',
+                      }}
+                    >
+                      You just verified one query · there are{' '}
+                      {catalogCount - 1} more dish
+                      {catalogCount - 1 === 1 ? '' : 'es'} below
+                    </span>
+                    <p
+                      className="font-accent"
+                      style={{
+                        fontStyle: 'italic',
+                        fontSize: 17,
+                        lineHeight: '24px',
+                        color: 'var(--color-ink)',
+                      }}
+                    >
+                      This search ran against the full dish graph Opus
+                      built from your upload. Open it to see every
+                      canonical dish, its aliases, the modifiers
+                      attached to it, and the merge/split decisions
+                      that got it there.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onOpenCatalog}
+                    className="cursor-pointer inline-flex items-center gap-2 shrink-0"
+                    style={{
+                      background: 'var(--color-ink)',
+                      color: 'var(--color-paper)',
+                      border: '1px solid var(--color-ink)',
+                      borderRadius: 'var(--radius-chip)',
+                      padding: '12px 20px',
+                      fontSize: 13,
+                      letterSpacing: '0.02em',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 1px 2px rgba(18,18,20,0.06)',
+                    }}
+                    title="Open the full dish graph — canonical dishes, modifiers, ephemerals, reconciliation decisions."
+                  >
+                    <Network size={14} strokeWidth={1.7} />
+                    Open the full dish graph
+                    <ArrowRight size={13} strokeWidth={1.7} />
+                  </button>
+                </motion.div>
               )}
             </motion.div>
           )}

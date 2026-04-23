@@ -2,8 +2,12 @@
   <img src="assets/mise-hero-banner.png" alt="Mise — any menu, any language, ask like a customer" width="100%">
 </p>
 
+<h1 align="center">Mise</h1>
+
 <p align="center">
   <em>Any menu. Any language. Ask like a customer.</em>
+  <br>
+  <sub>Drop a PDF, photo, chalkboard, or Instagram post. Get a searchable dish graph you can query in natural language — powered by Claude Opus 4.7.</sub>
 </p>
 
 <p align="center">
@@ -160,7 +164,7 @@ python -m venv .venv
 .venv\Scripts\activate                       # Windows PowerShell
 #  source .venv/bin/activate                 # macOS / Linux
 pip install -r requirements.txt
-pytest -q                                    # 21 tests should pass
+pytest -q                                    # 93 tests should pass
 uvicorn app.main:app --reload --port 8000    # in one terminal
 
 # 3. Frontend
