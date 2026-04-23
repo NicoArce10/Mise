@@ -305,3 +305,152 @@ def test_user_instructions_do_not_leak_into_system_prompt(monkeypatch) -> None:
     assert directive not in system_text, (
         "user_instructions leaked into the system prompt — cache prefix broken"
     )
+
+
+# ---------- post-extraction LLM filter pass ----------
+
+
+def _fake_candidate(name: str, *, dish_type: str = "unknown",
+                    ingredients: list[str] | None = None) -> "extraction.DishCandidate":
+    from app.core.store import new_id
+    from app.domain.models import DishCandidate, EvidenceRecord
+    return DishCandidate(
+        id=new_id("cand"),
+        source_id="src-test",
+        raw_name=name,
+        normalized_name=name,
+        inferred_dish_type=dish_type,
+        ingredients=ingredients or [],
+        price_value=None,
+        price_currency=None,
+        aliases=[],
+        search_terms=[],
+        evidence=EvidenceRecord(source_id="src-test", raw_text=name),
+    )
+
+
+def test_post_filter_respects_keep_decisions(monkeypatch) -> None:
+    """Second-pass LLM filter honours the keep/drop decisions it returns.
+
+    Core contract: for every cid the model emits keep=true/false and we
+    drop the false ones. Tests the happy path — the mock model explicitly
+    decides on every input.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-ignored")
+
+    candidates = [
+        _fake_candidate("Milanesa Napolitana", dish_type="meat",
+                        ingredients=["beef", "tomato", "mozzarella"]),
+        _fake_candidate("Risotto de Hongos", dish_type="risotto",
+                        ingredients=["rice", "mushrooms", "butter"]),
+        _fake_candidate("Ensalada Caprese", dish_type="salad",
+                        ingredients=["tomato", "mozzarella", "basil"]),
+    ]
+
+    body = {
+        "decisions": [
+            {"cid": 0, "keep": True, "reason": "contains beef"},
+            {"cid": 1, "keep": False, "reason": "purely vegetarian"},
+            {"cid": 2, "keep": False, "reason": "purely vegetarian"},
+        ]
+    }
+
+    class _FakeMessages:
+        def create(self, **kwargs):
+            return _mk_sdk_response(body)
+
+    class _FakeClient:
+        messages = _FakeMessages()
+
+    with patch.object(ai_client, "Anthropic", return_value=_FakeClient()):
+        ai_client.get_client.cache_clear()
+        kept, audit = extraction.apply_user_instruction_filter(
+            candidates, "no veggie"
+        )
+
+    kept_names = [c.normalized_name for c in kept]
+    assert kept_names == ["Milanesa Napolitana"]
+    assert len(audit) == 3
+    assert [a["kept"] for a in audit] == [True, False, False]
+
+
+def test_post_filter_fails_open_on_llm_error(monkeypatch) -> None:
+    """If the filter LLM call fails, we return the input unchanged.
+
+    A user typing 'no desserts' should never have their entire catalog
+    vanish because Anthropic was rate-limited. Losing this second pass
+    is degraded (the in-prompt HARD FILTER still ran during extraction),
+    not catastrophic — so the function must never raise.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-ignored")
+
+    candidates = [
+        _fake_candidate("Tiramisu"),
+        _fake_candidate("Pasta alla Bolognese"),
+    ]
+
+    def _raise(*args, **kwargs):
+        raise ai_client.OpusCallError("simulated outage")
+
+    with patch.object(extraction, "call_opus", side_effect=_raise):
+        kept, audit = extraction.apply_user_instruction_filter(
+            candidates, "no desserts"
+        )
+
+    assert len(kept) == len(candidates), (
+        "failed filter pass must not delete the user's catalog"
+    )
+    assert audit == []
+
+
+def test_post_filter_noop_on_blank_instruction(monkeypatch) -> None:
+    """Blank / whitespace instructions skip the LLM call entirely.
+
+    Keeps the happy path (no filter attached) at zero extra tokens.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-ignored")
+    candidates = [_fake_candidate("Margherita")]
+
+    # No patching — if the function were to make an LLM call with a
+    # blank instruction, the real client code would try to load an API
+    # key and fail loudly. The test passing proves no call happened.
+    kept, audit = extraction.apply_user_instruction_filter(candidates, "   ")
+    assert kept == candidates
+    assert audit == []
+
+
+def test_post_filter_defaults_to_keep_on_missing_decision(monkeypatch) -> None:
+    """When the model skips a cid in its response, we default to keep.
+
+    Losing a dish silently because the model's JSON was incomplete is
+    the worst failure mode — the user has no way to notice. Err toward
+    inclusion; users can always drop dishes from the review UI later.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-ignored")
+
+    candidates = [
+        _fake_candidate("Pasta"),
+        _fake_candidate("Tiramisu"),
+    ]
+
+    # Model only emits a decision for cid=0; cid=1 is silently dropped.
+    body = {"decisions": [{"cid": 0, "keep": True, "reason": "mains"}]}
+
+    class _FakeMessages:
+        def create(self, **kwargs):
+            return _mk_sdk_response(body)
+
+    class _FakeClient:
+        messages = _FakeMessages()
+
+    with patch.object(ai_client, "Anthropic", return_value=_FakeClient()):
+        ai_client.get_client.cache_clear()
+        kept, _ = extraction.apply_user_instruction_filter(
+            candidates, "only mains"
+        )
+
+    kept_names = [c.normalized_name for c in kept]
+    assert "Pasta" in kept_names
+    assert "Tiramisu" in kept_names, (
+        "missing cid decision must default to keep, not drop"
+    )

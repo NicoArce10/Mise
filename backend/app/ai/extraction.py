@@ -651,6 +651,178 @@ def extract_from_path(
     return extract_from_bytes(source, data, **kwargs)
 
 
+# ---------- post-extraction user-instruction filter ----------
+
+
+class _FilterDecision(BaseModel):
+    """One keep/drop ruling for a single candidate.
+
+    `cid` (not `id`) is the short integer index we hand the model — the
+    real EntityId strings are long (`cand_01HW...`) and burn tokens for
+    zero informational gain. We re-map back to real IDs on our side.
+    """
+
+    cid: int
+    keep: bool
+    reason: str = Field(max_length=120)
+
+
+class _FilterResponse(BaseModel):
+    decisions: list[_FilterDecision] = Field(default_factory=list)
+
+
+_FILTER_RESPONSE_SCHEMA: dict[str, Any] = _FilterResponse.model_json_schema()
+
+
+# System prompt for the post-filter pass. Kept deliberately terse — the
+# task is a narrow keep/drop classification with short reasons, and
+# shorter prompts compile faster on Anthropic's grammar side.
+_FILTER_SYSTEM_PROMPT = (
+    "You are a filter pass over a restaurant's already-extracted dish "
+    "catalog. The user gave a natural-language directive describing "
+    "which dishes they want to keep for THIS run (e.g. \"no beverages\", "
+    "\"skip vegetarian items\", \"only mains\", \"sin postres\", "
+    "\"nothing with shellfish\"). Your job: for every candidate, decide "
+    "keep=true if it satisfies the directive, keep=false otherwise.\n\n"
+    "How to read a dish:\n"
+    "• Use the name, inferred_dish_type, AND ingredients together. "
+    "A dish called \"Ensalada César\" with only `lettuce, parmesan, "
+    "croutons` IS vegetarian; the same name with `anchovies` in "
+    "ingredients is NOT.\n"
+    "• When the ingredients list is empty, fall back to the dish type "
+    "and name. Err on the side of KEEPING ambiguous items — the "
+    "downstream UI lets humans review dropped dishes, but a dish "
+    "dropped by mistake is invisible.\n"
+    "• Treat the directive as permissive, not strict: \"no veggie\" "
+    "means \"drop dishes whose ingredients are all vegetarian\", NOT "
+    "\"drop anything that has a vegetable on the plate\".\n\n"
+    "Reasons should be short and factual — e.g. \"purely vegetarian "
+    "(tomato, mozzarella, basil)\" or \"kept: contains chorizo\".\n"
+    "Return decisions for EVERY cid in the input, in any order."
+)
+
+
+def apply_user_instruction_filter(
+    candidates: list[DishCandidate],
+    user_instruction: str,
+    *,
+    effort: str = "low",
+    max_tokens: int = 4096,
+) -> tuple[list[DishCandidate], list[dict[str, Any]]]:
+    """Second-pass LLM filter against free-form user instructions.
+
+    We run this AFTER extraction because the in-prompt HARD FILTER
+    (see `_call_one_chunk`) is best-effort: Opus 4.7 occasionally
+    returns a dish it was told to skip, either because the instruction
+    was ambiguous in context or because the model momentarily forgot
+    its own pre-filter under token pressure. That fix patched the most
+    common self-contradiction (a dish emitted AND listed in
+    `excluded_by_user_filter`) but couldn't help when Opus silently
+    dropped the tracking itself.
+
+    This pass is a separate, dedicated classification call:
+      - input = the final candidates list + the user's instruction
+      - output = a keep/drop decision for every candidate, with a
+        one-line reason per decision for the audit log
+      - effort = "low" by default (classification is the simple case)
+
+    Returns `(kept, audit)` where `audit` is a list of dicts with
+    `name`, `kept` (bool), and `reason` — ready to feed a UI panel or
+    be written to the catalog export. The function NEVER raises on
+    LLM errors: on failure it returns the input unchanged with an
+    empty audit, so a flaky API call never silently erases a user's
+    whole menu.
+    """
+    instruction = (user_instruction or "").strip()
+    if not instruction or not candidates:
+        return list(candidates), []
+
+    # Map short indices (what the model sees) to the real candidates.
+    index_to_candidate: dict[int, DishCandidate] = {
+        i: c for i, c in enumerate(candidates)
+    }
+
+    # Render each candidate as a compact row. Keeping ingredients on a
+    # single comma-separated line makes the prompt predictable and
+    # cheaper; if ingredients are empty we still emit the field so the
+    # model doesn't have to special-case it.
+    def _row(i: int, c: DishCandidate) -> str:
+        ingr = ", ".join(c.ingredients) if c.ingredients else "—"
+        price = (
+            f"{c.price_value} {c.price_currency or ''}".strip()
+            if c.price_value is not None
+            else "—"
+        )
+        return (
+            f"cid={i}\n"
+            f"  name: {c.normalized_name or c.raw_name}\n"
+            f"  type: {c.inferred_dish_type or 'unknown'}\n"
+            f"  ingredients: {ingr}\n"
+            f"  price: {price}"
+        )
+
+    user_prompt = (
+        f"USER INSTRUCTION: {instruction}\n\n"
+        f"CANDIDATES ({len(candidates)}):\n\n"
+        + "\n\n".join(_row(i, c) for i, c in index_to_candidate.items())
+        + "\n\nFor every cid above, emit a decision with keep=true or "
+        "keep=false and a short reason. Do not add, skip, or rename "
+        "any cid."
+    )
+
+    try:
+        parsed: _FilterResponse = call_opus(
+            system_prompt=_FILTER_SYSTEM_PROMPT,
+            user_content=[text_block(user_prompt)],
+            response_model=_FilterResponse,
+            response_schema=_FILTER_RESPONSE_SCHEMA,
+            adaptive_thinking=False,  # simple classification, no need
+            effort=effort,
+            max_tokens=max_tokens,
+        )
+    except (OpusTransientError, OpusCallError) as exc:
+        # Fail OPEN — a filter pass that crashed should not erase the
+        # catalog. The in-prompt HARD FILTER already ran during
+        # extraction and caught the common cases; losing this second
+        # pass is degraded, not broken.
+        logger.warning(
+            "[mise] user-instruction post-filter LLM call failed "
+            "(%s) — returning unfiltered candidates",
+            exc,
+        )
+        return list(candidates), []
+
+    # Build a cid → decision map. If the model skipped any cid (rare,
+    # but possible under token pressure), default to keep so the user
+    # doesn't lose dishes silently.
+    keep_by_cid: dict[int, bool] = {i: True for i in index_to_candidate}
+    reason_by_cid: dict[int, str] = {i: "" for i in index_to_candidate}
+    for d in parsed.decisions:
+        if d.cid in keep_by_cid:
+            keep_by_cid[d.cid] = bool(d.keep)
+            reason_by_cid[d.cid] = d.reason
+
+    kept: list[DishCandidate] = []
+    audit: list[dict[str, Any]] = []
+    for i, c in index_to_candidate.items():
+        name = c.normalized_name or c.raw_name
+        keep = keep_by_cid[i]
+        audit.append({"name": name, "kept": keep, "reason": reason_by_cid[i]})
+        if keep:
+            kept.append(c)
+
+    dropped_names = [a["name"] for a in audit if not a["kept"]]
+    logger.info(
+        "[mise] user-instruction post-filter: kept=%d, dropped=%d, "
+        "instruction=%r, dropped_names=%s",
+        len(kept),
+        len(dropped_names),
+        instruction,
+        dropped_names,
+    )
+    return kept, audit
+
+
 # ---------- deterministic fallback (used when API calls are disabled) ----------
 
 _FALLBACK_HINTS = {

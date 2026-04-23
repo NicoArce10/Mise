@@ -64,7 +64,13 @@ export function ScannerOverlay({ sources, recentDishes }: Props) {
     [sources, active],
   );
 
-  if (sources.length === 0) return null;
+  // When `sources` hasn't arrived yet (first 1–2 polls, or a backend
+  // that hasn't been restarted to pick up the `sources` enrichment on
+  // the ProcessingRun payload) we STILL render the overlay so the user
+  // sees the scanner animation immediately. The preview area shows a
+  // neutral "reading your upload" placeholder instead of the real
+  // document; the dish chip column and scanner line are unchanged.
+  const inPlaceholderMode = sources.length === 0;
 
   return (
     <div
@@ -107,7 +113,7 @@ export function ScannerOverlay({ sources, recentDishes }: Props) {
           }}
         >
           <AnimatePresence mode="wait">
-            {active && (
+            {active ? (
               <motion.div
                 key={active.id}
                 initial={{ opacity: 0 }}
@@ -117,6 +123,42 @@ export function ScannerOverlay({ sources, recentDishes }: Props) {
                 style={{ position: 'absolute', inset: 0 }}
               >
                 <SourcePreview source={active} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="placeholder"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35, ease: EASE }}
+                className="flex flex-col items-center justify-center gap-2"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  textAlign: 'center',
+                  padding: 24,
+                }}
+              >
+                <span
+                  className="font-accent"
+                  style={{
+                    fontStyle: 'italic',
+                    fontSize: 15,
+                    color: 'var(--color-ink-muted)',
+                  }}
+                >
+                  Opus 4.7 is reading your upload
+                </span>
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.1em',
+                    color: 'var(--color-ink-subtle)',
+                  }}
+                >
+                  vision-native · no OCR
+                </span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -157,8 +199,10 @@ export function ScannerOverlay({ sources, recentDishes }: Props) {
             }}
           />
 
-          {/* Filename ribbon along the bottom of the active preview. */}
-          {active && (
+          {/* Filename ribbon along the bottom of the active preview.
+              Hidden in placeholder mode — we have no filename to show
+              and a fake one would be misleading. */}
+          {active && !inPlaceholderMode && (
             <div
               style={{
                 position: 'absolute',

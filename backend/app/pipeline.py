@@ -20,7 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from .ai.extraction import ExtractionFailure, extract_fallback, extract_from_bytes
+from .ai.extraction import (
+    ExtractionFailure,
+    apply_user_instruction_filter,
+    extract_fallback,
+    extract_from_bytes,
+)
 from .ai.reconciliation import reconcile_deterministic, reconcile_pair
 from .ai.routing import route_candidate
 from .core.metrics import apply_latest_report
@@ -36,6 +41,7 @@ from .domain.models import (
     Modifier,
     ProcessingRun,
     ProcessingState,
+    ReconciliationClass,
     ReconciliationResult,
     RouteLabel,
     SourceDocument,
@@ -358,11 +364,27 @@ def _build_cockpit(
             )
 
         # If this dish is NOT part of any merge, also check whether it was kept
-        # separate from another via a non-merge AMBIGUOUS verdict; surface that
-        # instead because the judges care about the "kept separate" narrative.
+        # separate from another via a non-merge AMBIGUOUS verdict; surface
+        # that instead because the "kept separate" narrative is informative.
+        #
+        # We DELIBERATELY ignore OBVIOUS_NON_MERGE gate verdicts here. Those
+        # are cheap deterministic rulings ("these two names share zero
+        # tokens") with a fixed 0.97 confidence that means "the gate was
+        # sure they weren't the same", NOT "we are 97% sure this dish was
+        # extracted well". Propagating that 0.97 to every singleton that
+        # happened to sit next to any other dish in the batch made the
+        # whole catalog display a uniform 0.97 — a confidence signal that
+        # carries no information. We only honour AMBIGUOUS non-merge
+        # verdicts because those DO come from Opus actually reading both
+        # candidates and reasoning about them, so their confidence is
+        # earned and worth surfacing.
         kept_separate_from: ReconciliationResult | None = None
         for r in reconciliations:
-            if not r.merged and (r.left_id == root_id or r.right_id == root_id):
+            if (
+                not r.merged
+                and r.gate_class == ReconciliationClass.AMBIGUOUS
+                and (r.left_id == root_id or r.right_id == root_id)
+            ):
                 kept_separate_from = r
                 break
         if kept_separate_from is not None and len(members) == 1:
@@ -556,6 +578,31 @@ def run_pipeline(
     # run FAILED with a transient/permanent hint for the UI.
     if failures and len(failures) == len(inputs):
         raise PipelineExtractionFailure(failures)
+
+    # Second-pass user-instruction filter. The in-prompt HARD FILTER in
+    # `_call_one_chunk` is best-effort and occasionally misses items
+    # (Opus 4.7 can self-contradict or silently drop the exclusion
+    # receipt when under token pressure). This dedicated keep/drop
+    # classification call runs AFTER every source returns, so it sees
+    # the full catalog, reads each dish's ingredients together with the
+    # user's directive, and re-applies the filter reliably — the
+    # "limpieza post-extraer" the user asked for. Only runs in real
+    # mode (the fallback fixtures don't have user-typed instructions).
+    instruction = (user_instructions or "").strip()
+    if mode == "real" and instruction and candidates:
+        before_count = len(candidates)
+        candidates, _audit = apply_user_instruction_filter(
+            candidates, instruction
+        )
+        if on_stage is not None:
+            dropped = before_count - len(candidates)
+            if dropped > 0:
+                on_stage(
+                    "extracting",
+                    f"Applied your filter: dropped {dropped} dish"
+                    f"{'es' if dropped != 1 else ''}.",
+                    {},
+                )
 
     if failures:
         logger.warning(

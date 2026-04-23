@@ -109,3 +109,98 @@ def test_all_bundles_produce_valid_cockpit(bundle: str) -> None:
         assert d.decision.lead_word in {"Merged", "Not merged", "Routed", "Held"}
     for e in cockpit.ephemerals:
         assert len(e.decision.text) <= 240
+
+
+def test_singleton_dish_confidence_is_not_inherited_from_obvious_non_merge() -> None:
+    """Regression test for the "every dish shows 0.97" bug.
+
+    Before this fix, any singleton canonical dish that happened to have
+    ONE `OBVIOUS_NON_MERGE` pair anywhere in the batch would inherit
+    that pair's hardcoded 0.97 confidence (see `_deterministic_non_merge`
+    in ai/reconciliation.py). On a typical menu every singleton is
+    trivially "non-merge" with every other singleton via the gate, so
+    the UI ended up showing a uniform 0.97 across the whole catalog —
+    a number carrying no information. The pipeline must now IGNORE
+    gate-level non-merge verdicts and keep the routed default (0.92)
+    for singletons that only have OBVIOUS_NON_MERGE neighbours.
+
+    We drive this with a hand-crafted pair of token-disjoint candidates
+    so the gate ONLY produces one OBVIOUS_NON_MERGE verdict (no merges,
+    no ambiguous). The bundle-based tests above don't hit this path
+    cleanly because real menus contain merges and ambiguous pairs.
+    """
+    from app.core.store import new_id
+    from app.domain.models import DishCandidate, EvidenceRecord, SourceDocument
+    from app.pipeline import _build_cockpit, _reconcile_all
+
+    # Two totally unrelated dishes — token-disjoint names, different
+    # types, no shared ingredients. The reconciler's gate will classify
+    # this as OBVIOUS_NON_MERGE (the 0.97 path).
+    src = SourceDocument(
+        id=new_id("src"),
+        filename="fake-menu.pdf",
+        kind="pdf",
+        content_type="application/pdf",
+        byte_size=0,
+        sha256="x" * 16,
+    )
+    a = DishCandidate(
+        id=new_id("cand"),
+        source_id=src.id,
+        raw_name="Milanesa Napolitana",
+        normalized_name="Milanesa Napolitana",
+        inferred_dish_type="meat",
+        ingredients=["beef", "tomato", "mozzarella"],
+        price_value=12.0,
+        price_currency="USD",
+        aliases=[],
+        search_terms=[],
+        evidence=EvidenceRecord(source_id=src.id, raw_text="Milanesa Napolitana"),
+    )
+    b = DishCandidate(
+        id=new_id("cand"),
+        source_id=src.id,
+        raw_name="Tiramisu",
+        normalized_name="Tiramisu",
+        inferred_dish_type="dessert",
+        ingredients=["mascarpone", "coffee", "cocoa"],
+        price_value=7.0,
+        price_currency="USD",
+        aliases=[],
+        search_terms=[],
+        evidence=EvidenceRecord(source_id=src.id, raw_text="Tiramisu"),
+    )
+
+    reconciliations = _reconcile_all([a, b], mode="fallback")
+    assert reconciliations, "disjoint pair should produce at least one verdict"
+    assert all(not r.merged for r in reconciliations)
+    # Confirm the 0.97 "leak source" IS present in the reconciliation
+    # record — otherwise the regression test proves nothing.
+    assert any(r.confidence == 0.97 for r in reconciliations), (
+        "fixture precondition: the gate should have produced an "
+        "OBVIOUS_NON_MERGE with the canonical 0.97 confidence"
+    )
+
+    cockpit = _build_cockpit(
+        processing_id="test-confidence",
+        batch_id="b-confidence",
+        sources=[src],
+        candidates=[a, b],
+        reconciliations=reconciliations,
+        elapsed_s=0.0,
+        extraction_failures=0,
+    )
+
+    for d in cockpit.canonical_dishes:
+        assert d.decision.confidence != 0.97, (
+            f"{d.canonical_name} inherited 0.97 from an OBVIOUS_NON_MERGE "
+            "gate verdict — this regresses the 'confidence signal is "
+            "informative' invariant"
+        )
+        # Singletons with ONLY gate-level non-merges keep the routed
+        # default (0.92). If this assertion ever needs to change,
+        # update the constant in `_build_cockpit` too.
+        assert d.decision.confidence == 0.92, (
+            f"{d.canonical_name} should have the default routed "
+            f"confidence (0.92), got {d.decision.confidence}"
+        )
