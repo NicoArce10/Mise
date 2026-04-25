@@ -155,27 +155,52 @@ const DEFAULT_QUERIES_IT = [
 type QueryLocale = 'es' | 'it' | 'en';
 
 function detectQueryLocale(state: CockpitState): QueryLocale {
-  const hay = state.canonical_dishes
-    .map(d => [d.canonical_name, ...d.search_terms, ...d.aliases].join(' '))
+  // CRITICAL: detect from `canonical_name` + `menu_category` only — the
+  // text that was actually printed on the menu. We deliberately do NOT
+  // look at `search_terms` because those are multilingual by design
+  // (Opus generates Spanish/Italian/English diner-vernacular variants
+  // for an English menu so a Spanish-speaking diner can still find a
+  // Caesar Salad by typing "ensalada caesar"). Including search_terms
+  // here would flag every English menu as Spanish — a real bug we
+  // observed on a 25-dish American breakfast menu showing "mila napo"
+  // suggestions in the search placeholder.
+  const printedText = state.canonical_dishes
+    .map(d => `${d.canonical_name} ${d.menu_category ?? ''}`)
     .join(' ')
     .toLowerCase();
-  if (!hay) return 'en';
-  // Spanish/Argentine markers — words specific enough that a false
-  // positive against an English/Italian menu is very unlikely.
-  if (
-    /\b(milanesa|empanada|provoleta|lomito|asado|chorizo|chimichurri|papas|carne|queso|pollo|pescado|postre|ensalada)\b/.test(
-      hay,
-    )
-  ) {
-    return 'es';
-  }
-  if (
-    /\b(pizza|pasta|risotto|gnocchi|antipasto|antipasti|primo|primi|secondo|secondi|dolce|dolci|formaggio|carne|pesce|insalata)\b/.test(
-      hay,
-    )
-  ) {
-    return 'it';
-  }
+  if (!printedText.trim()) return 'en';
+
+  // Score each locale by how many distinct marker words appear in the
+  // printed names. We require at least 2 hits AND a clear margin over
+  // the other languages, so a single ambiguous word ("pasta", "carne"
+  // — shared between IT and ES) doesn't flip the locale on its own.
+  const countHits = (re: RegExp): number => {
+    const matches = printedText.match(re);
+    return matches ? new Set(matches).size : 0;
+  };
+
+  const esHits = countHits(
+    // Argentine + general Spanish markers from printed dish/category names.
+    // Excluded: "papas", "carne", "queso", "pollo", "pescado", "ensalada"
+    // — these show up in English-menu search_terms and even in some
+    // English dish names ("Pollo a la Brasa" inside a US Latin spot).
+    /\b(milanesa|empanada|provoleta|lomito|asado|chorizo|chimichurri|postres?|entradas?|guarnici[oó]n|parrilla|hamburguesa|sandwich de|albah[aá]ca|al ajillo|a la plancha|del d[ií]a|con papas)\b/g,
+  );
+  const itHits = countHits(
+    // Italian markers — section names + canonical Italian dish words.
+    // "Pizza", "Pasta" alone are weak (international); we lean on Italian-
+    // specific words and section headers.
+    /\b(antipasti?|primi|secondi|contorni|dolci|formaggi|insalata|insalate|prosciutto|parmigian[oa]|carbonara|amatriciana|cacio e pepe|risotto|gnocchi|bruschetta|tiramis[uù]|panna cotta|focaccia|spaghetti|tagliatelle|pappardelle|linguine)\b/g,
+  );
+  const enHits = countHits(
+    /\b(burger|sandwich|wings|tenders|fries|cheesesteak|grilled|roasted|breakfast|brunch|toast|waffle|pancake|omelet|skillet|biscuit|chowder|chips|wrap|bowl|club|melt)\b/g,
+  );
+
+  // Decision: clear winner with margin >= 1, otherwise default to English
+  // (the most common menu language and the safest fallback for a US/EU
+  // judge testing the demo with their own menu).
+  if (esHits >= 2 && esHits > itHits && esHits > enHits) return 'es';
+  if (itHits >= 2 && itHits > esHits && itHits > enHits) return 'it';
   return 'en';
 }
 
@@ -249,10 +274,42 @@ function semanticQueries(state: CockpitState, locale: QueryLocale): string[] {
   return out;
 }
 
+// Per-term language guess. We only need to tell ES / IT / EN apart well
+// enough to *prefer* matches on the menu locale; we never reject a term
+// outright, because Opus's search_terms are deliberately multilingual to
+// support diner-vernacular queries in any language.
+function termLooksLike(term: string): QueryLocale | 'unknown' {
+  const t = term.toLowerCase();
+  if (
+    /\b(con|sin|de|del|la|el|los|las|para|que|al|algo|hamburguesa|sandwich de|ensalada|papas|pollo|queso|carne|pescado|postre|guarnici[oó]n|albah[aá]ca|d[ií]a|para compartir)\b/.test(
+      t,
+    )
+  ) {
+    return 'es';
+  }
+  if (
+    /\b(antipasti?|primi|secondi|dolci|insalata|formaggio|carbonara|amatriciana|risotto|gnocchi|tiramis[uù]|al ragù|al sugo|alla|della|piatti)\b/.test(
+      t,
+    )
+  ) {
+    return 'it';
+  }
+  if (
+    /\b(with|without|the|and|some|something|cheap|under|over|gluten[- ]?free|breakfast|lunch|dinner|burger|sandwich|fries|wings|tenders|share|sharing|hearty|crispy|cheesy)\b/.test(
+      t,
+    )
+  ) {
+    return 'en';
+  }
+  return 'unknown';
+}
+
 // Pick 4–6 example queries biased to whatever the uploaded menu seems to
-// contain — look at each dish's search_terms and sample from them. Falls
-// back to a locale-appropriate default set when extraction didn't
-// populate enough search_terms.
+// contain — look at each dish's search_terms and sample from them. Strongly
+// prefer terms whose detected language matches the menu's locale so a US
+// brunch menu doesn't show "sandwich de pargo con papas" next to "soup of
+// the day". Falls back to a locale-appropriate default set when extraction
+// didn't populate enough search_terms.
 function suggestedQueries(state: CockpitState, locale: QueryLocale): string[] {
   const pool = new Set<string>();
   for (const dish of state.canonical_dishes) {
@@ -266,10 +323,35 @@ function suggestedQueries(state: CockpitState, locale: QueryLocale): string[] {
   const arr = Array.from(pool);
   const fallback = defaultQueriesFor(locale).slice(0, 6);
   if (arr.length < 4) return fallback;
-  // Take a spread: every nth item so we don't cluster around one dish.
-  const step = Math.max(1, Math.floor(arr.length / 6));
-  const picked = arr.filter((_, i) => i % step === 0).slice(0, 6);
-  return picked.length >= 4 ? picked : fallback;
+
+  // Partition by detected language. `unknown` (short, neutral terms) is
+  // safe to mix with any locale.
+  const matchLocale: string[] = [];
+  const neutral: string[] = [];
+  const otherLocale: string[] = [];
+  for (const term of arr) {
+    const guess = termLooksLike(term);
+    if (guess === locale) matchLocale.push(term);
+    else if (guess === 'unknown') neutral.push(term);
+    else otherLocale.push(term);
+  }
+  // Spread within each bucket to avoid clustering on one dish.
+  const spread = (xs: string[], cap: number): string[] => {
+    if (xs.length <= cap) return xs;
+    const step = Math.max(1, Math.floor(xs.length / cap));
+    return xs.filter((_, i) => i % step === 0).slice(0, cap);
+  };
+  // Aim for 6, prioritise matchLocale, then neutral, then other-locale
+  // only if we still need fillers (rare). If we end up with fewer than 4
+  // total — extremely sparse extraction — fall back to the curated
+  // defaults so the playground never looks empty.
+  const picked = [
+    ...spread(matchLocale, 6),
+    ...spread(neutral, 6 - Math.min(6, matchLocale.length)),
+  ].slice(0, 6);
+  if (picked.length >= 4) return picked;
+  const padded = [...picked, ...spread(otherLocale, 6 - picked.length)].slice(0, 6);
+  return padded.length >= 4 ? padded : fallback;
 }
 
 function MatchedOnChip({ kind }: { kind: SearchMatchedOn }) {
