@@ -288,7 +288,7 @@ export function DishEditDialog({ dish, open, onClose, onSave }: Props) {
                   type="text"
                   value={aliases}
                   onChange={e => setAliases(e.target.value)}
-                  placeholder="e.g. Mila Napo, Milanesa Abundante"
+                  placeholder="alias one, alias two, alias three"
                   style={inputStyle(false)}
                 />
               </Field>
