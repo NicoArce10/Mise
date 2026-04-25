@@ -4,7 +4,22 @@ interface Props {
   dishCount: number;
   onExport: () => void;
   canExport: boolean;
-  onRestart: () => void;
+  /**
+   * Fires when the user clicks the "Mise" word-mark. Conventionally goes
+   * home / landing. Kept optional so surfaces that don't want a home
+   * link can leave it out; in that case the word-mark is non-interactive.
+   */
+  onGoHome?: () => void;
+  /**
+   * Fires when the user clicks the "New menu" / "Upload your menu"
+   * button. This MUST go to the upload surface, not the landing page.
+   * Previously we routed this through `onRestart` (the home link) and
+   * the two roles silently collided — clicking "New menu" sent the
+   * reviewer back to the marketing landing instead of the uploader,
+   * which felt like a dead end mid-session. Splitting the callbacks
+   * is how we fix that without having the consumer remember the trap.
+   */
+  onUploadNew: () => void;
   onOpenTryIt?: () => void;
   onViewMenu?: () => void;
   /** True when viewing the pre-computed demo menu. When true the
@@ -18,23 +33,24 @@ export function TopBar({
   dishCount,
   onExport,
   canExport,
-  onRestart,
+  onGoHome,
+  onUploadNew,
   onOpenTryIt,
   onViewMenu,
   sampleMode = false,
 }: Props) {
-  const handleRestart = () => {
+  const handleUploadNew = () => {
     // Only confirm when the user has real work to lose. In sampleMode
     // they didn't upload anything, so blocking them with a dialog when
     // we're literally telling them "upload yours" is friction theatre.
     if (sampleMode) {
-      onRestart();
+      onUploadNew();
       return;
     }
     const ok = window.confirm(
       'Start over? The current catalog will be cleared from this tab.',
     );
-    if (ok) onRestart();
+    if (ok) onUploadNew();
   };
 
   return (
@@ -45,9 +61,10 @@ export function TopBar({
       <div className="flex items-baseline gap-6">
         <button
           type="button"
-          onClick={onRestart}
+          onClick={onGoHome}
+          disabled={!onGoHome}
           aria-label="Mise — back to home"
-          title="Back to home"
+          title={onGoHome ? 'Back to home' : 'Mise'}
           className="font-display cursor-pointer"
           style={{
             fontWeight: 500,
@@ -58,6 +75,7 @@ export function TopBar({
             padding: 0,
             color: 'var(--color-ink)',
             letterSpacing: '-0.01em',
+            cursor: onGoHome ? 'pointer' : 'default',
           }}
         >
           Mise
@@ -112,7 +130,7 @@ export function TopBar({
         )}
         <button
           type="button"
-          onClick={handleRestart}
+          onClick={handleUploadNew}
           className="caption cursor-pointer inline-flex items-center gap-2"
           style={{
             background: sampleMode ? 'var(--color-paper-tint)' : 'transparent',

@@ -120,10 +120,17 @@ class _ExtractedCandidate(BaseModel):
     Deliberately small. Every extra field inflates the grammar the server-
     side json_schema compiler has to build, and big grammars under load
     produce the 400 "Grammar compilation timed out" that nuked earlier
-    demos. Fields that exist only to help the UI (raw_text, span_hint,
-    menu_category) were removed — `raw_text` falls back to `raw_name` in
-    `_candidates_from_response`, and the others aren't load-bearing for
-    reconciliation or search.
+    demos. `raw_text` and `span_hint` were removed for that reason —
+    `raw_text` falls back to `raw_name` in `_candidates_from_response`.
+
+    `menu_category` is intentionally KEPT on this schema even though it's
+    one extra field: it's load-bearing for the canonical export, the
+    search facet (`search.py`), the confidence scorer (`pipeline.py`),
+    and the quality signal (`core/quality.py`). Without it those
+    consumers all silently degrade — see the "missing_categories"
+    false-positive on every run prior to this fix. If the grammar
+    timeout returns, the fallback `_MinimalExtractedCandidate` (which
+    omits this field) still produces a usable catalog.
     """
 
     raw_name: str
@@ -140,6 +147,12 @@ class _ExtractedCandidate(BaseModel):
     # menu itself but that locals use when asking for this dish.
     aliases: list[str] = Field(default_factory=list)
     search_terms: list[str] = Field(default_factory=list)
+    # The visible section header the dish lives under on the evidence
+    # (e.g. "Pizzas", "Antipasti", "Breakfast", "Sides"). `None` when no
+    # header is visible — chalkboards, tweets, cropped photos. The model
+    # is instructed (see `prompts/extraction.md`) to copy the header
+    # verbatim in Title Case and never invent one.
+    menu_category: str | None = None
 
 
 class _MinimalExtractedCandidate(BaseModel):
@@ -243,6 +256,44 @@ def _split_pdf_pages(data: bytes) -> list[bytes]:
     return out
 
 
+# Defensive cap on `menu_category`. Real section headers are short
+# ("Pizzas", "Antipasti", "Side Dishes"). Anything beyond ~60 chars is
+# almost certainly a dish name the model misclassified as a section, or
+# the model echoing a marketing tagline. We truncate rather than drop so
+# the UI can still surface what was emitted while not blowing up the
+# search facet with multi-line strings.
+_MENU_CATEGORY_MAX_LEN = 60
+
+
+def _normalize_category(raw: str | None) -> str | None:
+    """Coerce a raw `menu_category` string into a clean, comparable form.
+
+    The pipeline's majority-vote logic in `_build_canonical_dish`
+    (pipeline.py) buckets reconciled members by exact-string equality, so
+    "PIZZAS", "Pizzas", and " pizzas " would otherwise count as three
+    different sections. We normalize at the extraction edge — once, here —
+    to keep the rest of the pipeline simple and to guarantee that the
+    canonical export carries one consistent shape ("Pizzas") regardless
+    of how each individual menu chose to typeset its own headers.
+
+    Rules:
+      - `None` / empty / whitespace-only → `None` (no false bucket).
+      - Collapse internal whitespace.
+      - Title-case (Python's `.title()` is unicode-aware enough for
+        accents — "Antipasti" stays "Antipasti", "Plato Del Día" stays
+        with its accent).
+      - Cap at `_MENU_CATEGORY_MAX_LEN` characters.
+    """
+    if raw is None:
+        return None
+    cleaned = " ".join(raw.split()).strip()
+    if not cleaned:
+        return None
+    if len(cleaned) > _MENU_CATEGORY_MAX_LEN:
+        cleaned = cleaned[:_MENU_CATEGORY_MAX_LEN].rstrip()
+    return cleaned.title()
+
+
 def _candidates_from_response(
     parsed: ExtractionResponse | _MinimalExtractionResponse,
     source: SourceDocument,
@@ -277,7 +328,9 @@ def _candidates_from_response(
                 is_ephemeral_candidate=getattr(candidate, "is_ephemeral_candidate", False),
                 aliases=candidate.aliases,
                 search_terms=candidate.search_terms,
-                menu_category=None,
+                menu_category=_normalize_category(
+                    getattr(candidate, "menu_category", None)
+                ),
                 evidence=evidence,
             )
         )
@@ -828,24 +881,24 @@ def apply_user_instruction_filter(
 _FALLBACK_HINTS = {
     "menu_pdf_branch_a.pdf": [
         {"raw_name": "Pizza Marghertia", "normalized_name": "Margherita",
-         "inferred_dish_type": "pizza",
+         "inferred_dish_type": "pizza", "menu_category": "Pizze",
          "ingredients": ["tomato", "mozzarella", "basil"], "price_value": 9.0, "price_currency": "EUR"},
         {"raw_name": "Pizza Funghi", "normalized_name": "Pizza Funghi",
-         "inferred_dish_type": "pizza",
+         "inferred_dish_type": "pizza", "menu_category": "Pizze",
          "ingredients": ["tomato", "mozzarella", "mushrooms"], "price_value": 11.0, "price_currency": "EUR"},
         {"raw_name": "Pizza Diavola", "normalized_name": "Pizza Diavola",
-         "inferred_dish_type": "pizza",
+         "inferred_dish_type": "pizza", "menu_category": "Pizze",
          "ingredients": ["tomato", "mozzarella", "salami", "chili"], "price_value": 12.0, "price_currency": "EUR"},
     ],
     "menu_photo_branch_b.jpg": [
         {"raw_name": "Margherita", "normalized_name": "Margherita",
-         "inferred_dish_type": "pizza",
+         "inferred_dish_type": "pizza", "menu_category": "Pizze",
          "ingredients": ["tomato", "mozzarella", "basil"], "price_value": 9.0, "price_currency": "EUR"},
         {"raw_name": "Calzone Funghi", "normalized_name": "Calzone Funghi",
-         "inferred_dish_type": "calzone",
+         "inferred_dish_type": "calzone", "menu_category": "Calzoni",
          "ingredients": ["mozzarella", "mushrooms", "ricotta"], "price_value": 13.0, "price_currency": "EUR"},
         {"raw_name": "Calzone Vegano", "normalized_name": "Calzone Vegano",
-         "inferred_dish_type": "calzone",
+         "inferred_dish_type": "calzone", "menu_category": "Calzoni",
          "ingredients": ["tomato", "vegan mozzarella", "vegetables"], "price_value": 12.5, "price_currency": "EUR"},
     ],
     "chalkboard_branch_c.jpg": [
@@ -869,30 +922,30 @@ _FALLBACK_HINTS = {
     ],
     "menu_pdf_main.pdf": [
         {"raw_name": "Tacos al Pastor", "normalized_name": "Tacos al Pastor",
-         "inferred_dish_type": "taco",
+         "inferred_dish_type": "taco", "menu_category": "Tacos",
          "ingredients": ["pork", "pineapple", "onion", "cilantro"], "price_value": 4.0, "price_currency": "USD"},
         {"raw_name": "Tacos de Carnitas", "normalized_name": "Tacos de Carnitas",
-         "inferred_dish_type": "taco",
+         "inferred_dish_type": "taco", "menu_category": "Tacos",
          "ingredients": ["pork", "onion", "cilantro"], "price_value": 4.0, "price_currency": "USD"},
         {"raw_name": "Tacos de Barbacoa", "normalized_name": "Tacos de Barbacoa",
-         "inferred_dish_type": "taco",
+         "inferred_dish_type": "taco", "menu_category": "Tacos",
          "ingredients": ["beef", "onion", "cilantro"], "price_value": 4.5, "price_currency": "USD"},
         {"raw_name": "Quesadilla de Queso", "normalized_name": "Quesadilla de Queso",
-         "inferred_dish_type": "quesadilla",
+         "inferred_dish_type": "quesadilla", "menu_category": "Quesadillas",
          "ingredients": ["cheese", "tortilla"], "price_value": 3.5, "price_currency": "USD"},
     ],
     "menu_screenshot_delivery.png": [
         {"raw_name": "Al Pastor Tacos", "normalized_name": "Tacos al Pastor",
-         "inferred_dish_type": "taco",
+         "inferred_dish_type": "taco", "menu_category": "Tacos",
          "ingredients": ["pork", "pineapple", "onion"], "price_value": 4.5, "price_currency": "USD"},
         {"raw_name": "Carnitas Tacos", "normalized_name": "Tacos de Carnitas",
-         "inferred_dish_type": "taco",
+         "inferred_dish_type": "taco", "menu_category": "Tacos",
          "ingredients": ["pork", "onion"], "price_value": 4.5, "price_currency": "USD"},
         {"raw_name": "Barbacoa Tacos", "normalized_name": "Tacos de Barbacoa",
-         "inferred_dish_type": "taco",
+         "inferred_dish_type": "taco", "menu_category": "Tacos",
          "ingredients": ["beef", "onion"], "price_value": 5.0, "price_currency": "USD"},
         {"raw_name": "Cheese Quesadilla", "normalized_name": "Quesadilla de Queso",
-         "inferred_dish_type": "quesadilla",
+         "inferred_dish_type": "quesadilla", "menu_category": "Quesadillas",
          "ingredients": ["cheese", "tortilla"], "price_value": 3.95, "price_currency": "USD"},
     ],
     "modifiers_chalkboard.jpg": [
@@ -908,27 +961,27 @@ _FALLBACK_HINTS = {
     ],
     "menu_pdf_lunch.pdf": [
         {"raw_name": "Beet Tartare", "normalized_name": "Beet Tartare",
-         "inferred_dish_type": "tartare",
+         "inferred_dish_type": "tartare", "menu_category": "Starters",
          "ingredients": ["beet", "capers", "lemon"], "price_value": 14.0, "price_currency": "USD"},
         {"raw_name": "Ricotta Gnudi", "normalized_name": "Ricotta Gnudi",
-         "inferred_dish_type": "gnudi",
+         "inferred_dish_type": "gnudi", "menu_category": "Mains",
          "ingredients": ["ricotta", "spinach", "butter"], "price_value": 18.0, "price_currency": "USD"},
         {"raw_name": "Mushroom Toast", "normalized_name": "Mushroom Toast",
-         "inferred_dish_type": "toast",
+         "inferred_dish_type": "toast", "menu_category": "Starters",
          "ingredients": ["mushroom", "bread", "thyme"], "price_value": 12.0, "price_currency": "USD"},
     ],
     "menu_pdf_dinner.pdf": [
         {"raw_name": "Short Rib", "normalized_name": "Short Rib",
-         "inferred_dish_type": "rib",
+         "inferred_dish_type": "rib", "menu_category": "Mains",
          "ingredients": ["beef", "red wine", "shallot"], "price_value": 34.0, "price_currency": "USD"},
         {"raw_name": "Halibut en Papillote", "normalized_name": "Halibut en Papillote",
-         "inferred_dish_type": "halibut",
+         "inferred_dish_type": "halibut", "menu_category": "Mains",
          "ingredients": ["halibut", "lemon", "thyme"], "price_value": 32.0, "price_currency": "USD"},
         {"raw_name": "Beet Tartare", "normalized_name": "Beet Tartare",
-         "inferred_dish_type": "tartare",
+         "inferred_dish_type": "tartare", "menu_category": "Starters",
          "ingredients": ["beet", "capers", "lemon"], "price_value": 16.0, "price_currency": "USD"},
         {"raw_name": "Ricotta Gnudi", "normalized_name": "Ricotta Gnudi",
-         "inferred_dish_type": "gnudi",
+         "inferred_dish_type": "gnudi", "menu_category": "Mains",
          "ingredients": ["ricotta", "spinach", "butter"], "price_value": 20.0, "price_currency": "USD"},
     ],
     "chef_special_board.jpg": [
@@ -962,6 +1015,7 @@ def extract_fallback(source: SourceDocument) -> list[DishCandidate]:
                 price_currency=h.get("price_currency"),
                 is_modifier_candidate=bool(h.get("is_modifier_candidate", False)),
                 is_ephemeral_candidate=bool(h.get("is_ephemeral_candidate", False)),
+                menu_category=_normalize_category(h.get("menu_category")),
                 evidence=EvidenceRecord(
                     source_id=source.id,
                     raw_text=h["raw_name"],

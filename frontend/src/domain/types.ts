@@ -65,6 +65,14 @@ export interface SourceDocument {
   sha256: string;
   width_px: number | null;
   height_px: number | null;
+  /**
+   * PDFs only. `null` on photos/posts/chalkboards (conceptually
+   * single-page) and on PDFs whose page count could not be determined
+   * at upload time (encrypted, truncated, or otherwise unreadable by
+   * pypdf). Used by the scanner preview to render a "page 1 of N"
+   * ribbon — omitted when the count is 1 or null.
+   */
+  page_count: number | null;
 }
 
 export interface EvidenceRecord {
@@ -175,6 +183,27 @@ export interface LiveReconciliationEvent {
   used_adaptive_thinking: boolean;
 }
 
+/**
+ * Structured per-source / per-page extraction status emitted by the
+ * backend every time an Opus page call completes. Replaces the earlier
+ * parsed `state_detail` string + wall-clock heuristic — the ScannerOverlay
+ * now reads this directly to decide which source is the hero and which
+ * page the thumbnail should render.
+ *
+ * Populated only during the real pipeline's extracting stage; null
+ * during reconciling/routing/ready and during the mock pipeline.
+ */
+export interface ExtractionProgress {
+  source_id: UUID;
+  /** 1-indexed position of the currently-processing source in the batch. */
+  source_idx: number;
+  source_total: number;
+  source_name: string;
+  /** Pages whose Opus call has *completed* (success or error). */
+  pages_done: number;
+  pages_total: number;
+}
+
 export interface ProcessingRun {
   id: UUID;
   batch_id: UUID;
@@ -197,6 +226,11 @@ export interface ProcessingRun {
   // user sees "Opus is reading *this* document right now" instead of a
   // bare progress bar. Empty on mock timelines.
   sources: SourceDocument[];
+  // Structured, real-time "Opus just finished page X of source Y"
+  // snapshot. Null until the first page of the first source completes,
+  // and during non-extraction stages. Consumed by ScannerOverlay to
+  // align its thumbnail+ribbon with reality instead of a timer.
+  extraction_progress?: ExtractionProgress | null;
 }
 
 export interface MetricsPreview {

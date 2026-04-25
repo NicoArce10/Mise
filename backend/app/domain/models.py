@@ -65,6 +65,11 @@ class SourceDocument(BaseModel):
     sha256: str
     width_px: int | None = None
     height_px: int | None = None
+    # PDFs only. Populated at upload time from `pypdf.PdfReader(...).pages`
+    # so the frontend can render a "page 1 of N" ribbon in the scanner
+    # preview. `None` on photos/posts/chalkboards — those are always
+    # single-page artifacts conceptually.
+    page_count: int | None = None
 
 
 class EvidenceRecord(BaseModel):
@@ -225,6 +230,29 @@ class LiveReconciliationEvent(BaseModel):
     used_adaptive_thinking: bool = False
 
 
+class ExtractionProgress(BaseModel):
+    """Per-source / per-page extraction status, emitted by the pipeline
+    every time an Opus page call completes.
+
+    This is the structured signal the Processing screen uses to drive its
+    "reading page X of N" thumbnail animation — *honestly* tied to what
+    the model actually did, instead of a wall-clock timer. A multi-page
+    PDF is split into one vision call per page (see `extraction._split_pdf_pages`),
+    and each time one of those calls returns we bump `pages_done`.
+
+    Because the workers can run 2 page calls concurrently, `pages_done`
+    represents "pages that have COMPLETED" — the UI can safely show
+    `pages_done + 1` as "page currently being processed".
+    """
+
+    source_id: EntityId
+    source_idx: int = Field(ge=1, description="1-indexed position in the batch")
+    source_total: int = Field(ge=1)
+    source_name: str
+    pages_done: int = Field(ge=0, description="Pages whose Opus call finished")
+    pages_total: int = Field(ge=1)
+
+
 class ProcessingRun(BaseModel):
     id: EntityId
     batch_id: EntityId
@@ -233,6 +261,13 @@ class ProcessingRun(BaseModel):
     adaptive_thinking_pairs: int = 0
     started_at: str
     ready_at: str | None = None
+    # Structured, real-time extraction progress. The Processing screen's
+    # thumbnail uses this (when present) to decide which source is
+    # currently being read and which page Opus is working on — replacing
+    # the earlier wall-clock heuristic. `None` during reconciling /
+    # routing / ready, and during the mock pipeline which doesn't
+    # produce page-level telemetry.
+    extraction_progress: "ExtractionProgress | None" = None
     # Live-extracted dish names, streamed during the EXTRACTING stage.
     # The Processing screen renders these as an animated chip wall so a
     # long Opus call on a 5-page menu never feels like a frozen spinner.

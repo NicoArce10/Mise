@@ -4,7 +4,6 @@ Each test gets a fresh FastAPI app + store so state doesn't leak across tests.
 """
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
 
 import pytest
@@ -30,6 +29,7 @@ def client() -> Iterator[TestClient]:
     """Fresh app + fresh store per test."""
     # Reload modules that hold module-level state so each test is isolated.
     import importlib
+
     import app.core.store as store_mod
 
     importlib.reload(store_mod)
@@ -38,12 +38,14 @@ def client() -> Iterator[TestClient]:
     import app.api.catalog as catalog_mod
     import app.api.processing as processing_mod
     import app.api.review as review_mod
+    import app.api.sources as sources_mod
     import app.api.upload as upload_mod
     import app.main as main_mod
 
     importlib.reload(upload_mod)
     importlib.reload(processing_mod)
     importlib.reload(review_mod)
+    importlib.reload(sources_mod)
     importlib.reload(catalog_mod)
     importlib.reload(main_mod)
 

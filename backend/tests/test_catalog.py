@@ -112,3 +112,107 @@ def test_catalog_includes_quality_signal(client: TestClient) -> None:
     assert isinstance(qs["reasons"], list)
     assert qs["metrics"]["dish_count"] == len(body["dishes"])
     assert 0.0 <= qs["metrics"]["missing_price_ratio"] <= 1.0
+
+
+# ---------- plug-and-play contract tests ----------
+
+
+def test_catalog_carries_schema_version(client: TestClient) -> None:
+    """Every export must declare its contract version so downstream
+    consumers can pin against `schema_version == "mise.catalog.v1"`.
+
+    Pinning this prevents accidental shape drift: if a future PR changes
+    the export shape, this test forces a deliberate version bump.
+    """
+    processing_id = _run_pipeline_to_ready(client)
+    body = client.get(f"/api/catalog/{processing_id}.json").json()
+
+    assert body.get("schema_version") == "mise.catalog.v1", (
+        f"schema_version drifted: got {body.get('schema_version')!r}"
+    )
+
+
+def test_catalog_generated_at_is_never_empty(client: TestClient) -> None:
+    """`generated_at` must always be a parseable ISO-8601 string. An empty
+    string crashes `Date.parse()` / `datetime.fromisoformat` in any
+    downstream consumer — observed live on a production export before this
+    fix.
+    """
+    from datetime import datetime
+
+    processing_id = _run_pipeline_to_ready(client)
+    body = client.get(f"/api/catalog/{processing_id}.json").json()
+
+    assert isinstance(body.get("generated_at"), str)
+    assert body["generated_at"].strip() != "", (
+        "generated_at MUST never be an empty string — that breaks every "
+        "downstream JSON parser that expects a timestamp"
+    )
+
+    iso = body["generated_at"].rstrip("Z").replace("Z", "")
+    parsed = datetime.fromisoformat(iso)
+    assert parsed is not None
+
+
+def test_catalog_dish_keys_are_stable_for_plug_and_play(client: TestClient) -> None:
+    """Every dish row carries the full plug-and-play key set.
+
+    Downstream POS / delivery / review systems consume these keys by
+    name; pinning the contract here means a missing key is a test
+    failure, not a runtime error in production.
+    """
+    processing_id = _run_pipeline_to_ready(client)
+    body = client.get(f"/api/catalog/{processing_id}.json").json()
+
+    assert len(body["dishes"]) > 0, "fixture should produce at least one dish"
+
+    required_keys = {
+        "id",
+        "canonical_name",
+        "aliases",
+        "search_terms",
+        "ingredients",
+        "menu_category",
+        "price",
+        "modifiers",
+        "sources",
+        "confidence",
+        "decision_summary",
+    }
+    for dish in body["dishes"]:
+        missing = required_keys - dish.keys()
+        assert not missing, f"dish {dish.get('id')} missing keys {missing}"
+        # Type sanity: lists are lists, optional fields can be None but never undefined.
+        assert isinstance(dish["aliases"], list)
+        assert isinstance(dish["search_terms"], list)
+        assert isinstance(dish["ingredients"], list)
+        assert isinstance(dish["modifiers"], list)
+        assert isinstance(dish["sources"], list)
+        assert dish["price"] is None or isinstance(dish["price"], dict)
+        assert dish["menu_category"] is None or isinstance(dish["menu_category"], str)
+        assert isinstance(dish["confidence"], (int, float))
+        assert 0.0 <= float(dish["confidence"]) <= 1.0
+
+
+def test_catalog_fallback_run_populates_menu_category(client: TestClient) -> None:
+    """End-to-end proof: a fallback run on the italian bundle must produce
+    dishes whose `menu_category` is populated, and the quality signal must
+    NOT raise `missing_categories` (the bug this whole audit fixes).
+
+    Before the fix: `missing_category_ratio == 1.0` on every run.
+    After the fix:  category populated → `missing_categories` flag absent.
+    """
+    processing_id = _run_pipeline_to_ready(client)
+    body = client.get(f"/api/catalog/{processing_id}.json").json()
+
+    categorized = [d for d in body["dishes"] if d["menu_category"]]
+    assert len(categorized) > 0, (
+        "after the fallback-hint enrichment, at least one dish in the "
+        "italian bundle must carry a menu_category"
+    )
+
+    flags = body["quality_signal"]["flags"]
+    assert "missing_categories" not in flags, (
+        "the missing_categories flag must NOT fire on a run whose "
+        "fallback hints populate the field — that was the original bug"
+    )

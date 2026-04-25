@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { sourceContentUrl } from '../api/client';
 import type { CanonicalDish, SourceDocument } from '../domain/types';
+import { formatPrice } from '../lib/formatPrice';
 
 /**
  * Modal that shows the menu the reviewer actually uploaded: original PDF
@@ -44,18 +45,6 @@ const KIND_META: Record<
     icon: <Instagram size={18} strokeWidth={1.5} />,
   },
 };
-
-function formatPrice(value: number | null, currency: string | null): string {
-  if (value == null) return '';
-  const symbol =
-    currency === 'USD' || currency === 'ARS'
-      ? '$'
-      : currency === 'EUR'
-        ? '€'
-        : '';
-  const num = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
-  return symbol ? `${symbol}${num}` : `${num} ${currency ?? ''}`.trim();
-}
 
 function SamplePreview({
   dishes,

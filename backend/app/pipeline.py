@@ -102,11 +102,13 @@ def _run_extraction(
     for source_idx, inp in enumerate(inputs, 1):
 
         def _on_page(done: int, pages_total: int, _source_idx: int = source_idx,
-                     _source_name: str = inp.source.filename) -> None:
+                     _source_name: str = inp.source.filename,
+                     _source_id: str = inp.source.id) -> None:
             if on_source_progress is not None:
                 on_source_progress(
                     "page_done",
                     {
+                        "source_id": _source_id,
                         "source_idx": _source_idx,
                         "source_total": total,
                         "source_name": _source_name,
@@ -215,6 +217,72 @@ def _union_find_merges(
         if r.merged:
             union(r.left_id, r.right_id)
     return parent
+
+
+def _singleton_confidence(
+    *,
+    canonical_name: str,
+    price_value: float | None,
+    menu_category: str | None,
+    ingredients: list[str],
+    aliases: list[str],
+    search_terms: list[str],
+    source_count: int,
+) -> float:
+    """Heuristic confidence for a canonical dish that wasn't merged with any
+    sibling.
+
+    The goal is NOT to produce a statistically calibrated probability — we
+    don't have the labelled data to claim that. The goal is to give the
+    reviewer a number that *moves* in line with what their eyes can see on
+    the card, so the "confidence" column stops feeling like a constant.
+
+    Signals (picked because the reviewer literally sees them on the card):
+
+    - base 0.80 — floor for any dish Opus emitted.
+    - +0.05 when a price exists (menus without prices are frequently mis-OCR).
+    - +0.04 when menu_category is populated (Opus was confident enough to
+      bucket it).
+    - +0.03 when we have >=3 ingredients (rich dish card), +0.01 when we
+      have 1–2.
+    - +0.02 when aliases are present (food-writer job ran).
+    - +0.02 when search_terms has >=3 entries (diner-facing handles filled).
+    - +0.02 when this canonical came from >=2 distinct sources (cross-source
+      agreement without needing a merge — e.g. duplicate branches).
+    - −0.10 when canonical_name is <3 chars (likely garbage extraction).
+    - −0.03 when canonical_name is ALL CAPS (often a chalkboard mis-read).
+
+    Result is clamped to [0.60, 0.97]. We never go to 1.0 because the model
+    wasn't 100% certain; we never drop below 0.60 because we already routed
+    the candidate through routing as a canonical dish.
+    """
+    score = 0.80
+    if price_value is not None:
+        score += 0.05
+    if menu_category:
+        score += 0.04
+    if len(ingredients) >= 3:
+        score += 0.03
+    elif len(ingredients) >= 1:
+        score += 0.01
+    if aliases:
+        score += 0.02
+    if len(search_terms) >= 3:
+        score += 0.02
+    if source_count >= 2:
+        score += 0.02
+    # Penalties for obvious extraction-quality smells. A 1-2 character name
+    # is almost always a corner-of-a-menu fragment Opus caught by accident;
+    # an all-caps name is often a chalkboard whose casing swallowed the
+    # information content.
+    if len(canonical_name.strip()) < 3:
+        score -= 0.10
+    elif (
+        canonical_name.strip() == canonical_name.strip().upper()
+        and len(canonical_name.strip()) >= 4
+    ):
+        score -= 0.03
+    return max(0.60, min(0.97, round(score, 2)))
 
 
 def _build_cockpit(
@@ -356,11 +424,27 @@ def _build_cockpit(
                 confidence=source_r.confidence,
             )
         else:
-            # Singleton canonical — no merge happened.
+            # Singleton canonical — no merge happened. Previously we hard-coded
+            # 0.92 here, which meant EVERY singleton dish in a batch (the
+            # common case when the user uploads a single source) surfaced the
+            # exact same confidence number. That's a useless signal to a
+            # reviewer: a dish with a clean name+price+category+ingredients
+            # clearly deserves more trust than one where Opus only read the
+            # name. We now derive the confidence heuristically from how
+            # complete the extraction actually is, which produces a spread
+            # that tracks what the reviewer is looking at.
             decision = DecisionSummary(
                 text=f"Routed as canonical dish from {len(source_ids)} source(s).",
                 lead_word="Routed",
-                confidence=0.92,
+                confidence=_singleton_confidence(
+                    canonical_name=canonical_name,
+                    price_value=price_value,
+                    menu_category=menu_category,
+                    ingredients=ingredients,
+                    aliases=aliases,
+                    search_terms=search_terms,
+                    source_count=len(source_ids),
+                ),
             )
 
         # If this dish is NOT part of any merge, also check whether it was kept
@@ -534,6 +618,7 @@ def run_pipeline(
         if on_stage is None:
             return
         if stage == "page_done":
+            source_id = extra.get("source_id")
             name = extra.get("source_name", "")
             pages_done = int(extra.get("pages_done", 0))
             pages_total = int(extra.get("pages_total", 1))
@@ -551,15 +636,23 @@ def run_pipeline(
                     if source_total == 1
                     else f"Read {source_idx} of {source_total} sources"
                 )
+            # IMPORTANT: forward source_id / source_name / source_total
+            # into `extra`. The API layer uses those to build the
+            # structured `ExtractionProgress` snapshot the Processing
+            # screen reads. Dropping them here silently disables the
+            # "real per-page telemetry" path on the client.
             on_stage(
                 "extracting",
                 detail,
                 {
                     "done": source_idx - (0 if pages_done < pages_total else 0),
                     "total": source_total,
+                    "source_id": source_id,
+                    "source_name": name,
+                    "source_idx": source_idx,
+                    "source_total": source_total,
                     "pages_done": pages_done,
                     "pages_total": pages_total,
-                    "source_idx": source_idx,
                 },
             )
         elif stage == "dishes_found":

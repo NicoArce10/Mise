@@ -197,10 +197,106 @@ def test_singleton_dish_confidence_is_not_inherited_from_obvious_non_merge() -> 
             "gate verdict — this regresses the 'confidence signal is "
             "informative' invariant"
         )
-        # Singletons with ONLY gate-level non-merges keep the routed
-        # default (0.92). If this assertion ever needs to change,
-        # update the constant in `_build_cockpit` too.
-        assert d.decision.confidence == 0.92, (
-            f"{d.canonical_name} should have the default routed "
-            f"confidence (0.92), got {d.decision.confidence}"
-        )
+        # Singletons now get a heuristic confidence derived from how
+        # complete the extraction is. Both fixture dishes have the same
+        # shape (name + price + 3 ingredients, no category/aliases/search)
+        # so they should land on the same score, within the clamped
+        # [0.60, 0.97] band — just not the constant 0.97 that the bug
+        # would have produced.
+        assert 0.60 <= d.decision.confidence <= 0.97
+
+
+def test_singleton_confidence_spreads_with_extraction_completeness() -> None:
+    """The confidence column must *move* across the catalog.
+
+    Before the heuristic fix, every singleton ended up on the same
+    hard-coded 0.92 because the pipeline had no other signal to plug in.
+    That made the Confidence badge in the Cockpit look like a branding
+    element rather than information. Here we assemble three candidates
+    that vary in extraction completeness and assert their confidences
+    actually differ.
+    """
+    from app.core.store import new_id
+    from app.domain.models import DishCandidate, EvidenceRecord, SourceDocument
+    from app.pipeline import _build_cockpit, _reconcile_all
+
+    src = SourceDocument(
+        id=new_id("src"),
+        filename="mixed.pdf",
+        kind="pdf",
+        content_type="application/pdf",
+        byte_size=0,
+        sha256="x" * 16,
+    )
+    # Rich: name + price + category + ingredients + aliases + search.
+    rich = DishCandidate(
+        id=new_id("cand"),
+        source_id=src.id,
+        raw_name="Milanesa Napolitana con Papas",
+        normalized_name="Milanesa Napolitana con Papas",
+        inferred_dish_type="milanesa",
+        ingredients=["beef", "tomato", "mozzarella", "papas"],
+        price_value=8500.0,
+        price_currency="ARS",
+        menu_category="mains",
+        aliases=["Mila Napo", "Napolitana con papas"],
+        search_terms=["mila napo", "napo con papas", "milanga napo"],
+        evidence=EvidenceRecord(source_id=src.id, raw_text="Milanesa Napolitana"),
+    )
+    # Medium: name + price, nothing else.
+    medium = DishCandidate(
+        id=new_id("cand"),
+        source_id=src.id,
+        raw_name="Gaseosa",
+        normalized_name="Gaseosa",
+        inferred_dish_type="drink",
+        ingredients=[],
+        price_value=1500.0,
+        price_currency="ARS",
+        menu_category=None,
+        aliases=[],
+        search_terms=[],
+        evidence=EvidenceRecord(source_id=src.id, raw_text="Gaseosa"),
+    )
+    # Sparse: name only, no price, no ingredients, no category.
+    sparse = DishCandidate(
+        id=new_id("cand"),
+        source_id=src.id,
+        raw_name="Especial",
+        normalized_name="Especial",
+        inferred_dish_type="unknown",
+        ingredients=[],
+        price_value=None,
+        price_currency=None,
+        menu_category=None,
+        aliases=[],
+        search_terms=[],
+        evidence=EvidenceRecord(source_id=src.id, raw_text="Especial"),
+    )
+
+    reconciliations = _reconcile_all([rich, medium, sparse], mode="fallback")
+    cockpit = _build_cockpit(
+        processing_id="test-spread",
+        batch_id="b-spread",
+        sources=[src],
+        candidates=[rich, medium, sparse],
+        reconciliations=reconciliations,
+        elapsed_s=0.0,
+        extraction_failures=0,
+    )
+
+    by_name = {d.canonical_name: d.decision.confidence for d in cockpit.canonical_dishes}
+    # Exact values are intentionally NOT pinned — the heuristic is allowed
+    # to evolve. What MUST hold is the ordering: richer extraction =>
+    # higher confidence. That's the product promise of the signal.
+    rich_conf = by_name["Milanesa Napolitana con Papas"]
+    medium_conf = by_name["Gaseosa"]
+    sparse_conf = by_name["Especial"]
+    assert rich_conf > medium_conf > sparse_conf, (
+        f"Confidence ordering broken — rich={rich_conf} medium={medium_conf} "
+        f"sparse={sparse_conf}. The reviewer needs richer extractions to "
+        "score higher than sparse ones, otherwise the badge is decorative."
+    )
+    # And none of them should land on the ancient constant.
+    assert rich_conf != 0.92
+    assert medium_conf != 0.92 or sparse_conf != 0.92

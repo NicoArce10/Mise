@@ -81,6 +81,12 @@ export function App() {
             setProcessingId(pid);
             nav.push('processing');
           }}
+          // "Mise" word-mark is a back-to-landing affordance on every
+          // chrome surface (Processing, TryIt, Cockpit). It used to be
+          // a static span here, which made the logo silently change
+          // behavior depending on which view you were on. Now it's
+          // consistent across the entire flow.
+          onGoHome={goToLanding}
         />
       )}
 
@@ -115,7 +121,12 @@ export function App() {
             state={cockpit.state}
             processingId={sampleMode ? 'sample' : processingId}
             onOpenCatalog={() => nav.push('catalog')}
+            // Logo → landing. "new menu" / "Upload again" buttons →
+            // the uploader. Two callbacks because the two roles USED to
+            // collide on a single prop and the "new menu" button was
+            // silently going to the landing page instead.
             onRestart={goToLanding}
+            onUploadNew={goToUpload}
           />
         </>
       )}

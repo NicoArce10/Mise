@@ -58,3 +58,26 @@ def test_upload_rejects_over_limit(client: TestClient) -> None:
     ]
     resp = client.post("/api/upload", files=many)
     assert resp.status_code == 400
+
+
+def test_upload_413_detail_is_human_readable(client: TestClient) -> None:
+    """Past regression: a file above the size cap returned 413 but the
+    frontend treated it as "backend unreachable" and routed the user to
+    sample mode, which looked like "Opus found zero dishes in my menu".
+
+    The fix has two sides — the frontend now reads and surfaces
+    `detail`, and the backend must ship a `detail` that is actually
+    useful to a human (concrete file name, concrete observed size,
+    concrete limit, concrete next step). This test pins the shape.
+    """
+    huge = b"\xff\xd8\xff" + b"\x00" * (30 * 1024 * 1024)  # ~30 MB JPEG payload
+    resp = client.post(
+        "/api/upload",
+        files=[("files", ("my_menu.jpg", huge, "image/jpeg"))],
+    )
+    assert resp.status_code == 413
+    detail = resp.json()["detail"]
+    assert "my_menu.jpg" in detail
+    assert "MB" in detail
+    # Mention of the limit so the user knows how much to trim.
+    assert "25" in detail

@@ -6,6 +6,13 @@ python-multipart==0.0.20
 httpx==0.28.1
 anthropic>=0.40.0
 pypdf>=6.0
+# PDF raster rendering for the ScannerOverlay's "viendo hoja X" effect.
+# pypdfium2 is a Google-maintained pdfium wheel with no system
+# dependencies (works cross-platform from a pure `pip install`, unlike
+# pdf2image which needs poppler). Pillow is used to re-encode the
+# rendered bitmap into PNG for HTTP transport.
+pypdfium2>=5.7
+Pillow>=10
 pytest==8.3.4
 pytest-asyncio==0.25.2
 ruff==0.8.4

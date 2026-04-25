@@ -15,6 +15,7 @@ from ..domain.models import (
     CockpitState,
     DecisionRequest,
     EntityId,
+    ExtractionProgress,
     LiveReconciliationEvent,
     ModerationStatus,
     ProcessingRun,
@@ -48,6 +49,23 @@ class InMemoryStore:
     def get_source_bytes(self, source_id: EntityId) -> bytes | None:
         with self._lock:
             return self._source_bytes.get(source_id)
+
+    def get_source_bytes_by_sha(self, sha256: str) -> bytes | None:
+        """Look up persisted bytes by the source's content hash.
+
+        Used by the PDF-page renderer so its LRU cache can be keyed on
+        content (stable across a re-upload of the same PDF) instead of
+        the per-process `source_id`. If two sources share a sha, they
+        by definition share bytes, so the first one we find wins.
+        """
+        with self._lock:
+            for batch in self._batches.values():
+                for src in batch.sources:
+                    if src.sha256 == sha256:
+                        data = self._source_bytes.get(src.id)
+                        if data is not None:
+                            return data
+        return None
 
     def find_source(self, source_id: EntityId):
         """Return the `SourceDocument` for this id by scanning all batches.
@@ -152,6 +170,26 @@ class InMemoryStore:
             if len(merged) > self._LIVE_RECONCILIATIONS_CAP:
                 merged = merged[-self._LIVE_RECONCILIATIONS_CAP:]
             updated = existing.model_copy(update={"live_reconciliations": merged})
+            self._run_meta[run_id] = updated
+            return updated
+
+    def update_extraction_progress(
+        self, run_id: EntityId, progress: ExtractionProgress
+    ) -> ProcessingRun | None:
+        """Attach a per-page extraction snapshot to the run.
+
+        Called from the pipeline's on_page_done callback: the live
+        Processing screen reads `processing.extraction_progress` to
+        render the thumbnail of the source Opus is currently reading
+        and the page number it just finished. Idempotent — each call
+        overwrites the previous snapshot for this run, so a poll that
+        happens between two updates sees the newer one.
+        """
+        with self._lock:
+            existing = self._run_meta.get(run_id)
+            if existing is None:
+                return None
+            updated = existing.model_copy(update={"extraction_progress": progress})
             self._run_meta[run_id] = updated
             return updated
 

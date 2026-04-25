@@ -72,7 +72,14 @@ interface ExportedEphemeral {
   review_status?: 'approved' | 'edited';
 }
 
+// Stable contract version. Mirrors `_SCHEMA_VERSION` in
+// `backend/app/api/catalog.py`. Bumped on incompatible changes only —
+// adding a new optional field is NOT a breaking change. Downstream
+// consumers can pin against `schema_version === "mise.catalog.v1"`.
+export const CATALOG_SCHEMA_VERSION = 'mise.catalog.v1';
+
 export interface ExportedCatalog {
+  schema_version: typeof CATALOG_SCHEMA_VERSION;
   run_id: UUID | 'sample';
   generated_at: string;
   model: string;
@@ -94,6 +101,17 @@ export interface ExportedCatalog {
     ephemerals: number;
     excluded_rejected: number;
   };
+}
+
+/**
+ * Pick a non-empty ISO-8601 timestamp for the export. Mirrors
+ * `_safe_generated_at` in the backend so the field is *never* an empty
+ * string (which would crash `Date.parse()` in any downstream consumer).
+ */
+function safeGeneratedAt(state: CockpitState): string {
+  const candidate = state.processing.ready_at ?? state.processing.started_at ?? '';
+  if (candidate.trim()) return candidate;
+  return new Date().toISOString();
 }
 
 /**
@@ -192,8 +210,9 @@ export function buildCatalogPayload(
   );
 
   return {
+    schema_version: CATALOG_SCHEMA_VERSION,
     run_id: runId,
-    generated_at: state.processing.ready_at ?? state.processing.started_at,
+    generated_at: safeGeneratedAt(state),
     model: 'claude-opus-4-7',
     sources: state.sources.map(s => ({
       id: s.id,

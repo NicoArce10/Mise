@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mise — demo cards</title>
+  <meta name="viewport" content="width=1920, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --paper: #FBF8F2;
+      --paper-tint: #F3EEE3;
+      --paper-deep: #E9E1CF;
+      --ink: #1C1917;
+      --ink-muted: #57534E;
+      --ink-subtle: #A8A29E;
+      --hairline: #E7E5E1;
+
+      --font-display: 'Fraunces', Georgia, serif;
+      --font-accent: 'Instrument Serif', Georgia, serif;
+      --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%; width: 100%;
+      background: #000; overflow: hidden;
+      font-family: var(--font-sans); color: var(--ink);
+    }
+
+    .stage {
+      position: fixed; inset: 0;
+      display: grid; place-items: center;
+      background: #000;
+    }
+    .card {
+      width: 1920px; height: 1080px;
+      background: var(--paper);
+      position: relative;
+      display: none;
+      transform-origin: center center;
+    }
+    .card.active { display: block; }
+
+    /* Safe-area container inside each card */
+    .frame {
+      position: absolute;
+      inset: 120px 160px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .mono { font-family: var(--font-mono); }
+
+    /* ── Cards 01 + 02 · Numeric hook ───────────────────── */
+    .hook .number {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 320px;
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+    }
+    .hook .caption {
+      margin-top: 56px;
+      font-family: var(--font-accent);
+      font-style: italic;
+      font-size: 64px;
+      line-height: 1.15;
+      color: var(--ink-muted);
+      max-width: 1480px;
+    }
+    .hook .foot {
+      position: absolute;
+      left: 0; right: 0; bottom: 120px;
+      display: flex; justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 18px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-subtle);
+    }
+
+    /* ── Card 03 · Wordmark ─────────────────────────────── */
+    .opening .word {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 400px;
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+    }
+    .opening .subtitle {
+      font-family: var(--font-accent);
+      font-style: italic;
+      font-size: 84px;
+      line-height: 1.1;
+      color: var(--ink-muted);
+      margin-top: 48px;
+    }
+    .opening .foot {
+      position: absolute;
+      left: 0; right: 0; bottom: 120px;
+      display: flex; justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 18px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-subtle);
+    }
+
+    /* ── Card 04 · Closing ──────────────────────────────── */
+    .closing .frame { gap: 48px; }
+    .closing .word {
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 360px;
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+    }
+    .closing .strap {
+      font-family: var(--font-accent);
+      font-style: italic;
+      font-size: 92px;
+      line-height: 1.12;
+      color: var(--ink-muted);
+      max-width: 1500px;
+    }
+    .closing .pillars {
+      position: absolute;
+      left: 160px; right: 160px; bottom: 120px;
+      display: flex; justify-content: center; align-items: center;
+      gap: 40px;
+      font-family: var(--font-mono);
+      font-size: 16px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-subtle);
+    }
+    .closing .pillars .dot {
+      width: 4px; height: 4px; border-radius: 999px;
+      background: var(--ink-subtle);
+      display: inline-block;
+    }
+    .closing .pillars .model {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    /* ── HUD (hidden during capture) ─────────────────────── */
+    .hud {
+      position: fixed; inset: auto 24px 24px auto;
+      display: flex; gap: 16px; align-items: center;
+      font-family: var(--font-mono);
+      font-size: 12px; letter-spacing: 0.14em;
+      color: #8b8a85;
+      background: rgba(0,0,0,0.55);
+      padding: 8px 12px; border-radius: 4px;
+      z-index: 999;
+      user-select: none;
+    }
+    .hud[hidden] { display: none !important; }
+    .hud kbd {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: #1f1e1b; color: #e9e7e2;
+      padding: 2px 6px; border-radius: 3px;
+      border: 1px solid #3a3834;
+    }
+    .hud .counter { color: #e9e7e2; }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+
+    <!-- ───────── 01 · Numeric hook A ───────── -->
+    <div class="card hook active" data-label="01 · hook · 0:00–0:03">
+      <div class="frame">
+        <div class="number">2&#8211;3 hours.</div>
+        <div class="caption">to onboard one menu, by hand.</div>
+      </div>
+      <div class="foot">the cost of a single restaurant onboarding</div>
+    </div>
+
+    <!-- ───────── 02 · Numeric hook B ───────── -->
+    <div class="card hook" data-label="02 · hook · 0:03–0:06">
+      <div class="frame">
+        <div class="number">240 hours / year.</div>
+        <div class="caption">to keep it in sync, per location.</div>
+      </div>
+      <div class="foot">menus change weekly. nobody updates the JSON.</div>
+    </div>
+
+    <!-- ───────── 03 · Wordmark ───────── -->
+    <div class="card opening" data-label="03 · wordmark · 0:06–0:08">
+      <div class="frame">
+        <div class="word">Mise</div>
+        <div class="subtitle">a dish&#8209;understanding engine</div>
+      </div>
+      <div class="foot">claude&#8209;opus&#8209;4&#8209;7</div>
+    </div>
+
+    <!-- ───────── 04 · Closing ───────── -->
+    <div class="card closing" data-label="04 · closing · 2:55–3:00">
+      <div class="frame">
+        <div class="word">Mise.</div>
+        <div class="strap">Any menu, any language,<br />ask like a customer.</div>
+      </div>
+      <div class="pillars">
+        <span class="model">claude&#8209;opus&#8209;4&#8209;7</span>
+        <span class="dot"></span>
+        <span>vision&#8209;native</span>
+        <span class="dot"></span>
+        <span>adaptive thinking</span>
+        <span class="dot"></span>
+        <span>structured output</span>
+        <span class="dot"></span>
+        <span>xhigh effort</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD — press H to toggle; hidden before capture -->
+  <div class="hud" id="hud">
+    <span class="counter" id="counter">01 / 04</span>
+    <span>·</span>
+    <span id="label">01 · hook · 0:00–0:03</span>
+    <span>·</span>
+    <kbd>←</kbd> <kbd>→</kbd> nav
+    <span>·</span>
+    <kbd>H</kbd> hide
+    <span>·</span>
+    <kbd>F</kbd> fullscreen
+  </div>
+
+  <script>
+    const cards   = Array.from(document.querySelectorAll('.card'));
+    const hud     = document.getElementById('hud');
+    const counter = document.getElementById('counter');
+    const label   = document.getElementById('label');
+
+    let i = 0;
+
+    function fit() {
+      const W = window.innerWidth, H = window.innerHeight;
+      const s = Math.min(W / 1920, H / 1080);
+      cards.forEach(c => {
+        c.style.transform = `scale(${s})`;
+        c.style.transformOrigin = 'center center';
+      });
+    }
+    window.addEventListener('resize', fit);
+    fit();
+
+    function show(n) {
+      i = (n + cards.length) % cards.length;
+      cards.forEach((c, k) => c.classList.toggle('active', k === i));
+      counter.textContent = `${String(i+1).padStart(2,'0')} / ${String(cards.length).padStart(2,'0')}`;
+      label.textContent   = cards[i].dataset.label || '';
+      location.hash = `#${i+1}`;
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i+1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp')                  { e.preventDefault(); show(i-1); }
+      else if (e.key >= '1' && e.key <= '4')                                  { show(parseInt(e.key,10)-1); }
+      else if (e.key === 'h' || e.key === 'H')                                { hud.hidden = !hud.hidden; }
+      else if (e.key === 'f' || e.key === 'F')                                {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      const mid = window.innerWidth / 2;
+      show(e.clientX > mid ? i + 1 : i - 1);
+    });
+
+    const initial = parseInt((location.hash || '').replace('#',''), 10);
+    show(Number.isFinite(initial) && initial > 0 ? initial - 1 : 0);
+  </script>
+</body>
+</html>

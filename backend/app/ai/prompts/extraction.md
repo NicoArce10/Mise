@@ -85,6 +85,53 @@ One of: `pizza`, `calzone`, `pasta`, `taco`, `quesadilla`, `salad`,
 `milanesa`, `empanada`, `lomito`, `provoleta`, `choripán`, `dessert`,
 `drink`, `unknown`.
 
+### menu_category
+The **section header the dish is printed under on the evidence**, copied
+verbatim and Title-Cased. This is what a printed menu typesets in big
+letters above a group of dishes — `PIZZAS`, `Antipasti`, `Breakfast`,
+`Side Dishes`, `Postres`, `Desayunos`, `Sandwiches`. Strict rules:
+
+a. **Use the visible header, never invent one.** If the menu has
+   `PIZZAS` printed above a list, every dish in that list gets
+   `menu_category="Pizzas"`. If the next list lives under
+   `STARTERS`, those dishes get `menu_category="Starters"`. The
+   word(s) MUST appear on the evidence.
+b. **Preserve the original language.** An Italian trattoria menu
+   stays `Antipasti` / `Primi` / `Secondi` / `Dolci`. An Argentine
+   parrilla stays `Entradas` / `Parrilla` / `Postres`. A US bistro
+   stays `Brunch` / `Lunch` / `Dinner`. Do NOT translate.
+c. **Title Case, accents preserved.** `PIZZAS` → `Pizzas`,
+   `desayunos` → `Desayunos`, `PLATOS DEL DÍA` → `Platos Del Día`.
+d. **Drop decoration.** Trailing colons (`Pizzas:`), bracketed
+   modifiers (`Pizzas (12 in)`), and ASCII underlines/divider chars
+   are stripped. The category is *just the section name*.
+e. **`null` when there is no visible header.** This is the common
+   case for:
+   - Chalkboards or boards listing 1–3 daily dishes.
+   - Instagram / Twitter posts promoting a single item.
+   - Photos that crop *into* a menu and miss the header band.
+   - Single-page handouts that list dishes flat with no sectioning.
+   When in doubt — when you cannot point to printed letters above
+   the dish that are visibly a section name — emit `null`. **A
+   wrong category is worse than a missing one** because the catalog
+   downstream uses this field as a search facet and a confidence
+   signal.
+f. **Length cap: ~60 characters.** If a "header" runs longer than a
+   short noun phrase (`"Wood-fired pizzas hand-tossed in our oven"`),
+   it is descriptive copy, not a section header — emit `null`.
+
+Worked mini-examples:
+
+- A printed menu page with `STARTERS` printed at the top, then
+  `Bruschetta`, `Burrata`, `Carpaccio` listed under it →
+  three candidates, all with `menu_category="Starters"`.
+- A chalkboard reading just `Today: Lamb Ragù — $24` → one
+  candidate, `menu_category=null` (no section header visible).
+- A two-column PDF with `PASTAS` on the left column and `MAINS`
+  on the right → pastas get `"Pastas"`, mains get `"Mains"`.
+  Use the column the dish lives in, not the closest header in
+  reading order.
+
 ## Natural-language handles — the food-writer job
 
 For every **non-modifier, non-ephemeral** dish, populate two lists.
@@ -99,8 +146,12 @@ likely types). Include:
   Napolitana`, `Napolitana`).
 - Shortened forms used in WhatsApp / delivery searches.
 
-Cap at 8 aliases. No ingredients, no descriptive phrases here — aliases
-are literally *names for the dish*.
+Target 3–6 aliases per dish; absolute cap is 8. When fewer than 3 fit the
+rule above (e.g. a generic item like "Coca-Cola" or an obscure regional
+specialty with no alt names), emit what you honestly know and stop — do
+NOT pad with descriptive phrases, ingredients, or translations. No
+ingredients, no descriptive phrases here — aliases are literally *names
+for the dish*.
 
 ### search_terms — how a diner asks for this
 
@@ -179,7 +230,7 @@ are fine — don't pad.
 
 ## Worked examples
 
-Evidence: a printed menu that reads "Milanesa Napolitana con papas — $8.500"
+Evidence: a printed menu page with `MILANESAS` printed as the section header, listing "Milanesa Napolitana con papas — $8.500"
 Expected:
 ```json
 {
@@ -189,6 +240,7 @@ Expected:
   "ingredients": [],
   "price_value": 8500.0,
   "price_currency": "ARS",
+  "menu_category": "Milanesas",
   "aliases": ["Milanesa Napolitana", "Mila Napo con papas", "Napolitana con papas"],
   "search_terms": [
     "mila napo",
@@ -201,7 +253,7 @@ Expected:
 }
 ```
 
-Evidence: a delivery screenshot that reads "Double Cheddar Burger — served with rustic fries — $14"
+Evidence: a delivery screenshot under the section `BURGERS` that reads "Double Cheddar Burger — served with rustic fries — $14"
 Expected:
 ```json
 {
@@ -211,6 +263,7 @@ Expected:
   "ingredients": ["rustic fries"],
   "price_value": 14.0,
   "price_currency": "USD",
+  "menu_category": "Burgers",
   "aliases": ["Double Cheddar", "Cheddar Double Burger"],
   "search_terms": [
     "burger doble cheddar",
@@ -223,7 +276,7 @@ Expected:
 }
 ```
 
-Evidence: a chalkboard photo that reads "add burrata +3"
+Evidence: a chalkboard photo that reads "add burrata +3" (no section header on the board)
 Expected:
 ```json
 {
@@ -234,12 +287,13 @@ Expected:
   "price_value": 3.0,
   "price_currency": "EUR",
   "is_modifier_candidate": true,
+  "menu_category": null,
   "aliases": [],
   "search_terms": []
 }
 ```
 
-Evidence: an Instagram post that reads "Tonight only: Linguine del giorno"
+Evidence: an Instagram post that reads "Tonight only: Linguine del giorno" (no section header — the post IS the header)
 Expected:
 ```json
 {
@@ -250,6 +304,7 @@ Expected:
   "price_value": null,
   "price_currency": null,
   "is_ephemeral_candidate": true,
+  "menu_category": null,
   "aliases": [],
   "search_terms": []
 }

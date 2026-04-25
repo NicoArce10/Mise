@@ -28,6 +28,21 @@ export function sourceContentUrl(sourceId: UUID): string {
 }
 
 /**
+ * URL for a single rendered page of a PDF source as PNG. Backed by
+ * `pypdfium2` on the server, with a per-(sha256, page) LRU cache so
+ * the ScannerOverlay can ping the same page repeatedly as it cycles
+ * without hammering pdfium.
+ *
+ * Page number is **1-indexed** to match the way users (and prompts)
+ * talk about menus: "page 3 of 17". Only works for sources whose
+ * kind === 'pdf'; requesting a page for an image source returns 404.
+ */
+export function sourcePageUrl(sourceId: UUID, page: number): string {
+  const n = Math.max(1, Math.floor(page));
+  return `${API_BASE}/api/sources/${encodeURIComponent(sourceId)}/page/${n}.png`;
+}
+
+/**
  * URL of the exportable dish-graph JSON for a processing run.
  * Browser download target for the "Export JSON" button in TryIt — the
  * backend sets `Content-Disposition: attachment` so the click saves the
@@ -39,18 +54,44 @@ export function catalogUrl(processingId: UUID): string {
 
 export class ApiError extends Error {
   readonly status: number;
-  constructor(message: string, status: number) {
+  /**
+   * The human-readable error message extracted from the response body
+   * (FastAPI's `{detail: "..."}`), or null if the body wasn't JSON.
+   * Callers should prefer this over `.message` for user-facing UI —
+   * `.message` includes the request path and status code, which reads
+   * like developer chrome to end users.
+   */
+  readonly detail: string | null;
+  constructor(message: string, status: number, detail: string | null = null) {
     super(message);
     this.status = status;
+    this.detail = detail;
   }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(`${API_BASE}${path}`, init);
   if (!resp.ok) {
+    // Best-effort read of the error body. FastAPI returns
+    // `{ "detail": "..." }` on HTTPException; if the body is empty or
+    // not JSON (CORS preflight, network error pages, etc.) we just
+    // don't attach a `detail` and the UI falls back to the generic
+    // status message. `response.clone()` isn't needed because we only
+    // read the body once and don't return the response downstream.
+    let detail: string | null = null;
+    try {
+      const body = await resp.json();
+      const raw = (body as { detail?: unknown }).detail;
+      if (typeof raw === 'string' && raw.trim()) {
+        detail = raw;
+      }
+    } catch {
+      /* body wasn't JSON — that's fine, detail stays null */
+    }
     throw new ApiError(
       `${init?.method ?? 'GET'} ${path} → ${resp.status}`,
       resp.status,
+      detail,
     );
   }
   return (await resp.json()) as T;

@@ -151,6 +151,34 @@ def _advance_pipeline_real(
                 )
                 if new_names:
                     store.append_recent_dishes(run_id, new_names)
+                # Structured per-page progress snapshot. Emitted whenever
+                # a page Opus call completes — the Processing screen reads
+                # this to sync its thumbnail to the source/page currently
+                # being processed, instead of relying on wall-clock timers.
+                # We guard on `source_id` so non-page ticks (pure dish-
+                # name emits, filter-applied summaries) don't overwrite
+                # the snapshot with a null.
+                if extra and extra.get("source_id"):
+                    from ..domain.models import ExtractionProgress  # noqa: WPS433
+                    try:
+                        progress = ExtractionProgress(
+                            source_id=extra["source_id"],
+                            source_idx=int(extra.get("source_idx", 1)),
+                            source_total=int(extra.get("source_total", 1)),
+                            source_name=str(extra.get("source_name", "")),
+                            pages_done=int(extra.get("pages_done", 0)),
+                            pages_total=int(extra.get("pages_total", 1)),
+                        )
+                    except Exception as build_exc:  # pragma: no cover
+                        # Defensive — a malformed tick must never crash
+                        # the pipeline thread. Log and keep going.
+                        logger.warning(
+                            "[mise] malformed extraction progress tick %r: %s",
+                            extra,
+                            build_exc,
+                        )
+                    else:
+                        store.update_extraction_progress(run_id, progress)
             elif stage == "reconciling":
                 # A single reconciliation tick can carry TWO kinds of info:
                 #   1. Progress counters (pair N/M + adaptive count) → drives

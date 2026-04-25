@@ -21,6 +21,7 @@ import {
 import { downloadCatalog } from '../api/exportCatalog';
 import { SourcePreviewModal } from '../components/SourcePreviewModal';
 import type { CanonicalDish, CockpitState } from '../domain/types';
+import { formatPrice } from '../lib/formatPrice';
 
 // Error states TryIt can reach. `expired` means the backend no longer knows
 // this processing_id (typical after a `uvicorn --reload`). That is a recovery
@@ -102,17 +103,32 @@ interface Props {
   state: CockpitState;
   processingId: string | null;
   onOpenCatalog: () => void;
+  /**
+   * Home link for the Mise word-mark. Goes to the landing page.
+   */
   onRestart: () => void;
+  /**
+   * "New menu" / "Upload your menu" action. Goes to the uploader, NOT
+   * the landing. Before this split, both buttons routed through
+   * `onRestart` and sent the reviewer to the marketing landing when
+   * what they wanted was to upload another menu.
+   */
+  onUploadNew: () => void;
 }
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
 const CONTAINER_MAX = 1100;
 
-// Curated queries in the local vernacular the demo script relies on. These
-// are evidence-grounded: the model can only surface what is actually in the
-// menu that was uploaded. A fresh menu will surface fresh examples via
-// `suggestedQueries()` — these are the fallback the hero demo leans on.
-const DEFAULT_QUERIES = [
+// Default queries are the fallback for menus that didn't surface enough
+// `search_terms` for `suggestedQueries()` to lean on. The Argentine
+// bistró sample (the one the demo video uses) is local-vernacular by
+// design; everything else gets language-neutral, evidence-grounded
+// suggestions Opus can resolve regardless of the menu's source language.
+//
+// We pick the fallback set based on a cheap language sniff over the
+// extracted dish corpus so an Italian pizzeria doesn't see Spanish
+// queries it has nothing to match against.
+const DEFAULT_QUERIES_ES = [
   'mila napo abundante',
   'algo veggie que no sea ensalada',
   'burger doble cheddar con papas',
@@ -120,13 +136,72 @@ const DEFAULT_QUERIES = [
   'algo tipo cuarto de libra',
   'sandwich de queso derretido',
 ];
+const DEFAULT_QUERIES_EN = [
+  'something vegetarian that is not a salad',
+  'cheesy melted sandwich',
+  'a hearty pasta dish',
+  'thin-crust pizza with tomato',
+  'something to share for two',
+  'a sweet dessert under ten',
+];
+const DEFAULT_QUERIES_IT = [
+  'una pizza margherita classica',
+  'qualcosa di vegetariano',
+  'pasta con sugo di carne',
+  'un dolce della casa',
+  'antipasto della casa',
+];
+
+type QueryLocale = 'es' | 'it' | 'en';
+
+function detectQueryLocale(state: CockpitState): QueryLocale {
+  const hay = state.canonical_dishes
+    .map(d => [d.canonical_name, ...d.search_terms, ...d.aliases].join(' '))
+    .join(' ')
+    .toLowerCase();
+  if (!hay) return 'en';
+  // Spanish/Argentine markers — words specific enough that a false
+  // positive against an English/Italian menu is very unlikely.
+  if (
+    /\b(milanesa|empanada|provoleta|lomito|asado|chorizo|chimichurri|papas|carne|queso|pollo|pescado|postre|ensalada)\b/.test(
+      hay,
+    )
+  ) {
+    return 'es';
+  }
+  if (
+    /\b(pizza|pasta|risotto|gnocchi|antipasto|antipasti|primo|primi|secondo|secondi|dolce|dolci|formaggio|carne|pesce|insalata)\b/.test(
+      hay,
+    )
+  ) {
+    return 'it';
+  }
+  return 'en';
+}
+
+function defaultQueriesFor(locale: QueryLocale): string[] {
+  switch (locale) {
+    case 'es':
+      return DEFAULT_QUERIES_ES;
+    case 'it':
+      return DEFAULT_QUERIES_IT;
+    default:
+      return DEFAULT_QUERIES_EN;
+  }
+}
+
+// Search placeholder mirrors the same locale heuristic so a US burger
+// joint doesn't see "mila napo abundante" suggested as input.
+function searchPlaceholder(locale: QueryLocale): string {
+  return defaultQueriesFor(locale).slice(0, 3).join(' · ');
+}
 
 // Semantic queries that showcase what the graph can do beyond lexical
 // matching: exclusions, dietary filters, price budgets, shareability. We
-// append 2 of these to the curated pool when the extracted menu has the
-// signal to back them (has vegetarian dishes, has prices, etc.). If the
-// evidence doesn't support the capability, we don't advertise it.
-function semanticQueries(state: CockpitState): string[] {
+// append a few of these to the curated pool when the extracted menu has
+// the signal to back them (has vegetarian dishes, has prices, etc.). If
+// the evidence doesn't support the capability, we don't advertise it.
+function semanticQueries(state: CockpitState, locale: QueryLocale): string[] {
   const out: string[] = [];
   const hay = state.canonical_dishes
     .map(d =>
@@ -140,19 +215,45 @@ function semanticQueries(state: CockpitState): string[] {
     )
     .join(' ')
     .toLowerCase();
-  const hasDietary = /veget|vegan|sin gluten|gluten[- ]?free|lacteos|lactose/.test(hay);
+  const hasDietary =
+    /veget|vegan|sin gluten|gluten[- ]?free|lact[eo]se|dairy[- ]?free/.test(hay);
   const hasPrice = state.canonical_dishes.some(d => d.price_value != null);
-  const hasShareable = /compart|tabla|para dos|share/.test(hay);
-  if (hasDietary) out.push('algo sin gluten');
-  if (hasPrice) out.push('menos de 15');
-  if (hasShareable) out.push('para compartir entre dos');
+  const hasShareable = /compart|tabla|para dos|share|sharing|condividere/.test(hay);
+  if (hasDietary) {
+    out.push(
+      locale === 'es'
+        ? 'algo sin gluten'
+        : locale === 'it'
+          ? 'qualcosa senza glutine'
+          : 'something gluten-free',
+    );
+  }
+  if (hasPrice) {
+    out.push(
+      locale === 'es'
+        ? 'opciones más económicas'
+        : locale === 'it'
+          ? 'piatti più economici'
+          : 'cheaper options',
+    );
+  }
+  if (hasShareable) {
+    out.push(
+      locale === 'es'
+        ? 'para compartir entre dos'
+        : locale === 'it'
+          ? 'da condividere in due'
+          : 'something to share for two',
+    );
+  }
   return out;
 }
 
 // Pick 4–6 example queries biased to whatever the uploaded menu seems to
 // contain — look at each dish's search_terms and sample from them. Falls
-// back to DEFAULT_QUERIES when extraction didn't populate search_terms.
-function suggestedQueries(state: CockpitState): string[] {
+// back to a locale-appropriate default set when extraction didn't
+// populate enough search_terms.
+function suggestedQueries(state: CockpitState, locale: QueryLocale): string[] {
   const pool = new Set<string>();
   for (const dish of state.canonical_dishes) {
     for (const term of dish.search_terms) {
@@ -163,18 +264,12 @@ function suggestedQueries(state: CockpitState): string[] {
     }
   }
   const arr = Array.from(pool);
-  if (arr.length < 4) return DEFAULT_QUERIES.slice(0, 6);
+  const fallback = defaultQueriesFor(locale).slice(0, 6);
+  if (arr.length < 4) return fallback;
   // Take a spread: every nth item so we don't cluster around one dish.
   const step = Math.max(1, Math.floor(arr.length / 6));
   const picked = arr.filter((_, i) => i % step === 0).slice(0, 6);
-  return picked.length >= 4 ? picked : DEFAULT_QUERIES.slice(0, 6);
-}
-
-function formatPrice(value: number | null, currency: string | null): string {
-  if (value == null) return '';
-  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'ARS' ? '$' : '';
-  const num = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
-  return symbol ? `${symbol}${num}` : `${num} ${currency ?? ''}`.trim();
+  return picked.length >= 4 ? picked : fallback;
 }
 
 function MatchedOnChip({ kind }: { kind: SearchMatchedOn }) {
@@ -374,7 +469,7 @@ function MatchCard({
   );
 }
 
-export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) {
+export function TryIt({ state, processingId, onOpenCatalog, onRestart, onUploadNew }: Props) {
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [result, setResult] = useState<SearchResult | null>(null);
@@ -393,9 +488,11 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
     return m;
   }, [state.canonical_dishes]);
 
+  const queryLocale = useMemo(() => detectQueryLocale(state), [state]);
+
   const examples = useMemo(() => {
-    const base = suggestedQueries(state);
-    const sem = semanticQueries(state);
+    const base = suggestedQueries(state, queryLocale);
+    const sem = semanticQueries(state, queryLocale);
     const seen = new Set<string>();
     const out: string[] = [];
     for (const q of [...base, ...sem]) {
@@ -406,7 +503,12 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
       if (out.length >= 7) break;
     }
     return out;
-  }, [state]);
+  }, [state, queryLocale]);
+
+  const placeholder = useMemo(
+    () => searchPlaceholder(queryLocale),
+    [queryLocale],
+  );
 
   const runSearch = useCallback(
     async (q: string) => {
@@ -527,21 +629,23 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
           <button
             type="button"
             onClick={() => {
-              // Sample mode never has anything to lose — skip the
-              // confirm so the "upload yours" nudge feels frictionless.
+              // This button uploads a NEW menu — it must land on the
+              // uploader, not the marketing landing. Sample mode never
+              // has anything to lose — skip the confirm so the
+              // "upload yours" nudge feels frictionless.
               if (isSample) {
-                onRestart();
+                onUploadNew();
                 return;
               }
               const hasWork = activeQuery.length > 0 || result !== null;
               if (!hasWork) {
-                onRestart();
+                onUploadNew();
                 return;
               }
               const ok = window.confirm(
-                'Start over? This search will be cleared.',
+                'Upload a new menu? This search session will be cleared.',
               );
-              if (ok) onRestart();
+              if (ok) onUploadNew();
             }}
             className="cursor-pointer"
             style={{
@@ -745,7 +849,7 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="mila napo abundante · algo veggie que no sea ensalada · burger doble cheddar con papas"
+            placeholder={placeholder}
             className="flex-1 bg-transparent outline-none"
             style={{
               fontSize: 18,
@@ -895,7 +999,12 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
-                      onClick={onRestart}
+                      // The error says "upload the menu again" — the
+                      // primary action must go to the uploader, not the
+                      // landing page. Using `onUploadNew` instead of
+                      // `onRestart` makes the button do what the
+                      // sentence above it promises.
+                      onClick={onUploadNew}
                       className="cursor-pointer inline-flex items-center gap-2"
                       style={{
                         background: 'var(--color-ink)',
@@ -908,7 +1017,7 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart }: Props) 
                       }}
                     >
                       <RotateCcw size={13} strokeWidth={1.7} />
-                      Start over
+                      Upload again
                     </button>
                     <button
                       type="button"

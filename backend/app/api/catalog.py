@@ -6,6 +6,9 @@ downstream system (review app, delivery feed, POS import) can consume
 without knowing Mise's internal state.
 
 This is the "plug it into anything" endpoint. Stable shape, stable keys.
+Every payload carries a `schema_version` so consumers can pin the
+contract; bump it (and document the diff) when an incompatible change
+ships. The current version is `mise.catalog.v1`.
 
 Moderation semantics (the Approve / Edit / Reject buttons in the Cockpit):
 - REJECTED dishes and ephemerals are excluded from the export entirely.
@@ -18,6 +21,7 @@ Moderation semantics (the Approve / Edit / Reject buttons in the Cockpit):
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -36,6 +40,31 @@ from ..domain.models import (
 )
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
+
+# Stable contract version. Bump on incompatible changes only — added
+# fields with safe defaults are NOT a breaking change. Downstream
+# consumers can pin against `schema_version == "mise.catalog.v1"`.
+_SCHEMA_VERSION = "mise.catalog.v1"
+
+
+def _safe_generated_at(cockpit: CockpitState) -> str:
+    """Pick a non-empty ISO-8601 timestamp for the export.
+
+    The internal `ProcessingRun` inside `CockpitState` is built by the
+    pipeline with empty `started_at` / `ready_at` strings (the store keeps
+    the authoritative timestamps in `_run_meta`, separate from the cockpit
+    snapshot). If we surfaced those raw strings, downstream consumers
+    parsing `generated_at` with `Date.parse()` / `datetime.fromisoformat`
+    would crash on an empty string — a real bug observed on the exported
+    `mise-catalog-run-c309dcb86fd9.json`. We fall back to the request-
+    time UTC timestamp so the field is *always* a valid ISO-8601 string.
+    """
+    candidate = cockpit.processing.ready_at or cockpit.processing.started_at or ""
+    if candidate.strip():
+        return candidate
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
+        "+00:00", "Z"
+    )
 
 
 def _price(value: float | None, currency: str | None) -> dict[str, Any] | None:
@@ -167,8 +196,9 @@ def _build_catalog(processing_id: EntityId, cockpit: CockpitState) -> dict[str, 
         }
 
     return {
+        "schema_version": _SCHEMA_VERSION,
         "run_id": processing_id,
-        "generated_at": cockpit.processing.ready_at or cockpit.processing.started_at,
+        "generated_at": _safe_generated_at(cockpit),
         "model": "claude-opus-4-7",
         "quality_signal": quality_payload,
         "sources": [

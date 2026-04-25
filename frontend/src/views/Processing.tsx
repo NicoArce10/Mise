@@ -105,6 +105,14 @@ export function Processing({
   // payload). Stable for the duration of the run — the scanner overlay
   // uses this to render "Opus is looking at THIS" while extracting.
   const [sources, setSources] = useState<SourceDocument[]>([]);
+  // Structured per-page extraction progress from the backend. When
+  // present, the ScannerOverlay uses this directly (no timers, no
+  // heuristics) to sync its thumbnail to the source+page Opus just
+  // finished. Null for mock runs, single-image runs, and every stage
+  // other than 'extracting'.
+  const [extractionProgress, setExtractionProgress] = useState<
+    import('../domain/types').ExtractionProgress | null
+  >(null);
   const cancelled = useRef(false);
 
   // Wall-clock ticker so the user sees the run isn't frozen even when a
@@ -138,6 +146,9 @@ export function Processing({
           if (Array.isArray(run.sources) && run.sources.length > 0) {
             setSources(run.sources);
           }
+          // `extraction_progress` is optional on the wire (absent on
+          // older backends and on mock runs) — normalize to null.
+          setExtractionProgress(run.extraction_progress ?? null);
           if (run.state === 'ready') {
             setTimeout(() => !cancelled.current && onReady(), 600);
             return;
@@ -384,6 +395,7 @@ export function Processing({
               <ScannerOverlay
                 sources={sources}
                 recentDishes={recentDishes}
+                extractionProgress={extractionProgress}
               />
             </motion.div>
           )}

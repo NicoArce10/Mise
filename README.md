@@ -38,7 +38,9 @@ Every food product — delivery app, review platform, POS, dish-reviews side-pro
 
 Mise removes that wall.
 
-**Drop any menu. Get a searchable dish graph.** A JSON catalog with canonical names, prices, ingredients, and the *natural-language handles* a diner actually types — `mila napo`, `napo con papas`, `burger doble cheddar`, `quesa simple`. Then plug that catalog into anything: a search box, a delivery feed, a POS import, a review app.
+**Drop any menu. Get a searchable dish graph.** A JSON catalog with canonical names, prices (USD, EUR, GBP, ARS, BRL, MXN, JPY, CHF and any other ISO-4217 code Opus reads off the menu), ingredients, and the *natural-language handles* a diner actually types — `mila napo`, `napo con papas`, `burger doble cheddar`, `pizza margherita classica`, `gluten-free pasta`. Then plug that catalog into anything: a search box, a delivery feed, a POS import, a review app.
+
+The pipeline is **language-neutral by construction**: extraction prompts Opus to preserve the menu's source language for every field except where translation is requested explicitly. The Try It surface and the Catalog view auto-detect the menu's locale (Spanish / Italian / English) and adapt example queries, placeholder copy, and category headers to match — an Italian pizzeria never sees Argentine slang and vice versa.
 
 It is not OCR. It is a **dish-understanding engine** powered by `claude-opus-4-7` — vision-native, identity-aware, and search-ready by construction.
 
@@ -48,27 +50,75 @@ It is not OCR. It is a **dish-understanding engine** powered by `claude-opus-4-7
 2. **Extracts** dish candidates with typo correction, reordered-compound normalization, and the diner-vernacular aliases and search terms — from a single Opus 4.7 structured-output call per source.
 3. **Reconciles** candidates across sources through a deterministic prefilter that escalates only ambiguous pairs to Opus 4.7 with **adaptive thinking**, so one dish stays one dish across branches and typos.
 4. **Routes** edge cases deterministically — `canonical` · `modifier` · `ephemeral` · `needs-review` — so a delivery feed never shows "add burrata +3" as a standalone item.
-5. **Serves it back** two ways: a natural-language **search** endpoint (`POST /api/search`) that takes "algo abundante con queso" and returns the right dishes, and an **export** endpoint (`GET /api/catalog/:run_id.json`) with the full catalog ready to plug into any system.
+5. **Serves it back** two ways: a natural-language **search** endpoint (`POST /api/search/:run_id`) that takes "algo abundante con queso" and returns the right dishes, and an **export** endpoint (`GET /api/catalog/:run_id.json`) with the full catalog ready to plug into any system.
 
 ## The JSON catalog
 
-The primary output. One endpoint, one shape, zero custom integration per restaurant:
+The primary output. One endpoint, one shape, zero custom integration per restaurant. The contract is pinned by `schema_version` so downstream consumers can target a stable shape:
 
 ```json
 {
-  "id": "dish-abc123",
-  "canonical_name": "Milanesa Napolitana",
-  "price": { "value": 8500, "currency": "ARS" },
-  "aliases": ["Mila Napo", "Milanesa a la Napolitana", "Napolitana"],
-  "search_terms": ["mila napo", "napo con papas", "milanesa abundante con queso y jamon"],
-  "ingredients": ["breaded beef", "tomato", "mozzarella", "ham"],
-  "modifiers": [{ "name": "add papas rústicas", "price_delta": 1200 }],
-  "sources": [{ "filename": "menu_pdf.pdf", "span": "p3" }],
-  "confidence": 0.92
+  "schema_version": "mise.catalog.v1",
+  "run_id": "run-abc123",
+  "generated_at": "2026-04-25T12:34:56Z",
+  "model": "claude-opus-4-7",
+  "quality_signal": {
+    "status": "ok",
+    "confidence": 0.91,
+    "flags": [],
+    "reasons": [],
+    "metrics": {
+      "dish_count": 38,
+      "missing_price_ratio": 0.0,
+      "missing_category_ratio": 0.05,
+      "sparse_ingredient_ratio": 0.10
+    }
+  },
+  "sources": [
+    { "id": "src-001", "filename": "menu_pdf.pdf", "kind": "pdf",
+      "content_type": "application/pdf", "sha256": "07e1705..." }
+  ],
+  "dishes": [
+    {
+      "id": "dish-abc123",
+      "canonical_name": "Milanesa Napolitana",
+      "menu_category": "Carnes y Parrilla",
+      "price": { "value": 8500, "currency": "ARS" },
+      "aliases": ["Mila Napo", "Milanesa a la Napolitana", "Napolitana"],
+      "search_terms": ["mila napo", "napo con papas", "milanesa abundante con queso y jamon"],
+      "ingredients": ["breaded beef", "tomato", "mozzarella", "ham"],
+      "modifiers": [
+        {
+          "id": "mod-papas",
+          "text": "+ papas rústicas",
+          "price_delta": { "value": 1200, "currency": "ARS" },
+          "parent_dish_id": "dish-abc123",
+          "sources": [{ "source_id": "src-001", "filename": "menu_pdf.pdf", "kind": "pdf" }]
+        }
+      ],
+      "sources": [{ "source_id": "src-001", "filename": "menu_pdf.pdf", "kind": "pdf" }],
+      "confidence": 0.92,
+      "decision_summary": "Merged because the normalized name matches and ingredients are compatible.",
+      "review_status": "approved"
+    }
+  ],
+  "unattached_modifiers": [],
+  "ephemerals": [],
+  "counts": {
+    "sources": 1,
+    "dishes": 38,
+    "modifiers_attached": 12,
+    "modifiers_unattached": 0,
+    "ephemerals": 0,
+    "excluded_rejected": 0
+  }
 }
 ```
 
-Every restaurant tech company re-invents this shape manually. Mise generates it from a photo.
+Every restaurant tech company re-invents this shape manually. Mise generates it from a photo. Two contract guarantees consumers can rely on:
+
+- **`schema_version` is pinned.** Incompatible changes bump the version; additive fields with safe defaults are not breaking. A consumer pinning against `mise.catalog.v1` will keep parsing old runs forever.
+- **`generated_at` is always a non-empty ISO-8601 UTC timestamp.** Falls back to request-time UTC if the pipeline didn't stamp one, so `Date.parse()` and `datetime.fromisoformat()` work out of the box. (We hit this exact bug in an earlier export and pinned a regression test for it.)
 
 ## Identity reasoning — why the search works
 
@@ -131,15 +181,15 @@ The dish graph is the product. Every integration is the same two steps:
 1. `POST /api/upload` → `POST /api/process/:batch_id` with the restaurant's menus.
 2. `GET /api/catalog/:run_id.json` → drop the JSON into your system.
 
-Three concrete integrations the demo targets:
+The contract is shape-only — no Mise-specific SDK, no webhook protocol, no integration code shipped in this repo. The three use-case templates below describe how the same JSON maps onto the systems most consumer-food products are already running internally; they are **shape compatibility, not announced partnerships**.
 
-| Target | What they need | What Mise gives them |
+| Use-case template | What that consumer needs | What the catalog already provides |
 |---|---|---|
-| **Review & discovery apps** onboarding a restaurant | Canonical dishes, aliases for user-typed reviews, stable IDs across branches | The full catalog. A reviewer typing "mila napo" matches the canonical "Milanesa Napolitana" via `search_terms`. |
-| **Delivery platforms** importing non-POS restaurants (Rappi / PedidosYa / Uber Eats) | Item list with prices, grouped modifiers, no ephemeral specials polluting the menu | `canonical` items with `price`, `modifiers[]`, and `ephemeral` items filtered out at ingest. |
-| **POS / catalog migrations** | Dedup across branch menus, typo normalization, structured modifiers | Reconciled items with typos folded into `aliases`, branch variants merged, modifiers attached. |
+| **Review & discovery app** onboarding a restaurant | Canonical dishes, aliases for user-typed reviews, stable IDs across branches | Full `canonical_dishes` with `aliases` and `search_terms`. A reviewer typing "mila napo" matches the canonical "Milanesa Napolitana". |
+| **Delivery platform** importing a non-POS restaurant | Item list with prices, grouped modifiers, no one-night specials polluting the catalog | `canonical` items with `price` and `modifiers[]`; `ephemeral` items partitioned into a separate array, droppable at ingest. |
+| **POS / catalog migration** across branches | Dedup across branch menus, typo normalization, structured modifiers | Reconciled items with typos folded into `aliases`, branch variants merged, modifiers attached to parents. |
 
-The catalog is versioned per `run_id`, so re-uploading a new menu produces a diffable JSON the downstream system can apply as an update.
+The catalog is versioned per `run_id`, so re-uploading a new menu produces a diffable JSON the consuming system can apply as an update.
 
 ## Stack
 
@@ -164,7 +214,7 @@ python -m venv .venv
 .venv\Scripts\activate                       # Windows PowerShell
 #  source .venv/bin/activate                 # macOS / Linux
 pip install -r requirements.txt
-pytest -q                                    # 93 tests should pass
+pytest -q                                    # full suite passes (118+ tests)
 uvicorn app.main:app --reload --port 8000    # in one terminal
 
 # 3. Frontend
@@ -177,7 +227,7 @@ cd ..
 python scripts/smoke_api.py                  # exits 0 if the key works
 ```
 
-Open the app at <http://127.0.0.1:5173>. Drop a menu PDF/photo on the landing TryIt panel → the pipeline runs → the dish graph appears with search ("algo abundante con queso"), aliases, and the full JSON catalog ready to export. The internal Review Cockpit (for auditing merge/split decisions) is available at <http://127.0.0.1:5173/cockpit>.
+Open the app at <http://127.0.0.1:5173>. Drop a menu PDF/photo on the landing panel → the pipeline runs → the search playground (`/tryit`) opens with the dish graph, aliases, and natural-language search ("algo abundante con queso"). The Review/Catalog audit view at <http://127.0.0.1:5173/catalog> shows every merge/split decision with provenance, lets a reviewer approve/edit/reject, and exposes the **Download JSON** button that hits `GET /api/catalog/:run_id.json`.
 
 ## Repository layout
 

@@ -68,6 +68,7 @@ export const mockCockpit: CockpitState = {
       sha256: '0a0a…carta',
       width_px: null,
       height_px: null,
+      page_count: 4,
     },
     {
       id: IDS.src_photo_pizarron,
@@ -77,6 +78,7 @@ export const mockCockpit: CockpitState = {
       sha256: '0b0b…pizarron',
       width_px: 1920,
       height_px: 1280,
+      page_count: null,
     },
   ],
   canonical_dishes: [
