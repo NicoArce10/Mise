@@ -1,10 +1,10 @@
 import type { CockpitState } from '../domain/types';
 
-// Sample fixture — an Argentine bistró (inspired by the builder's own
-// restaurant, generalized so no real brand is shipped in the public repo).
-// Stable UUIDs so the frontend and any future backend fixture can share
-// them. The purpose of this sample is to make the offline demo feel real
-// and match the queries documented in `docs/demo_script.md`.
+// Sample fixture — an Argentine bistró (generalized; no real brand is
+// shipped in the public repo). Stable UUIDs so the frontend and any
+// future backend fixture can share them. The purpose of this sample
+// is to make the offline demo feel real and exercise the same queries
+// the live API path is graded on (`evals/search_golden.json`).
 //
 // Every dish carries aliases + search_terms the extractor would have
 // written. The catalog is what Opus 4.7 would produce against a typical

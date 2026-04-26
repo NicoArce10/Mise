@@ -92,6 +92,28 @@ def test_bundle_03_chef_special_routed_as_ephemeral() -> None:
     assert "Chef's Special" in eph_texts
 
 
+def test_bundle_02_keeps_al_pastor_and_carnitas_separate() -> None:
+    """Regression: shared pork/onion ingredients are not enough to merge tacos.
+
+    `Tacos al Pastor` and `Tacos de Carnitas` have the same dish type and
+    overlapping ingredients, but they are different canonical dishes. The
+    reordered English listing `Al Pastor Tacos` should alias only to pastor,
+    never be absorbed into carnitas.
+    """
+    cockpit = run_pipeline(
+        processing_id="test-02-pastor",
+        batch_id="b-02-pastor",
+        inputs=_inputs("bundle_02_taqueria"),
+        mode="fallback",
+    )
+
+    by_name = {d.canonical_name: d for d in cockpit.canonical_dishes}
+    assert "Tacos al Pastor" in by_name
+    assert "Tacos de Carnitas" in by_name
+    assert "Al Pastor Tacos" in by_name["Tacos al Pastor"].aliases
+    assert "Al Pastor Tacos" not in by_name["Tacos de Carnitas"].aliases
+
+
 @pytest.mark.parametrize("bundle", ["bundle_01_italian", "bundle_02_taqueria", "bundle_03_bistro"])
 def test_all_bundles_produce_valid_cockpit(bundle: str) -> None:
     cockpit = run_pipeline(

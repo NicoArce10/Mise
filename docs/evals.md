@@ -1,7 +1,12 @@
 # Mise Evaluation Harness
 
 ## Purpose
-Produce measured, reportable evidence that Mise performs identity reconciliation correctly. The numbers surfaced in the demo video, written summary, and README come from this harness — not from estimation.
+Produce measured, reportable evidence for the two claims Mise publishes:
+
+1. The **identity graph** handles merge / non-merge / modifier / ephemeral decisions correctly.
+2. The **search layer** resolves diner-style queries without inventing dishes.
+
+Numbers surfaced in the demo video, written summary, and README come from these harnesses — never from estimation.
 
 ## Scope
 Small enough to build and run in the hackathon window. Large enough to be credible.
@@ -126,3 +131,23 @@ Minimum bar for the submission to quote metrics in the video and written summary
 - Anything requiring external data sources
 
 These are out of scope for the harness by design. The harness measures pipeline correctness only.
+
+## Search metrics
+
+`submissions/metrics.json` is intentionally narrow: it contains the search
+numbers quoted in the written summary. Reproduce it with:
+
+```bash
+python evals/run_search_eval.py --mode fallback
+```
+
+That harness grades `evals/search_golden.json` against
+`evals/fixtures/bistro_argentino.py` and reports:
+
+- `top1_accuracy`
+- `top3_accuracy`
+- `zero_invention_rate`
+
+Identity-graph metrics stay in the `run_eval.py` report; search metrics stay
+in `submissions/metrics.json`. Do not mix the two in copy unless both files
+are shown or cited explicitly.

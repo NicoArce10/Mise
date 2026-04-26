@@ -1146,7 +1146,7 @@ export function TryIt({ state, processingId, onOpenCatalog, onRestart, onUploadN
                     textTransform: 'uppercase',
                   }}
                 >
-                  Opus 4.7 is reading the menu
+                  Searching the dish graph
                 </span>
               </div>
               <p

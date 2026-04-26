@@ -347,6 +347,7 @@ def _call_one_chunk(
     effort: str,
     max_tokens: int,
     user_instructions: str | None = None,
+    excluded_sink: list[str] | None = None,
 ) -> list[DishCandidate]:
     """Run a single Opus 4.7 vision call on one chunk (full file or one PDF page).
 
@@ -486,6 +487,24 @@ def _call_one_chunk(
             excluded,
         )
 
+    # Receipt: surface every dish Opus dropped because of the user's
+    # filter so the Cockpit can render an "Excluded by user filter"
+    # section. The sink is opt-in (None on the legacy paths) so existing
+    # call sites and tests don't have to change.
+    if excluded_sink is not None and excluded:
+        seen = {n.strip().lower() for n in excluded_sink}
+        for name in excluded:
+            if not isinstance(name, str):
+                continue
+            stripped = name.strip()
+            if not stripped:
+                continue
+            key = stripped.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            excluded_sink.append(stripped)
+
     return candidates
 
 
@@ -498,6 +517,7 @@ def extract_from_bytes(
     on_page_done: OnPageDone | None = None,
     on_candidates_found: OnCandidatesFound | None = None,
     user_instructions: str | None = None,
+    excluded_sink: list[str] | None = None,
 ) -> list[DishCandidate]:
     """Call Opus 4.7 on this source's raw bytes.
 
@@ -539,6 +559,7 @@ def extract_from_bytes(
                 effort=resolved_effort,
                 max_tokens=max_tokens,
                 user_instructions=user_instructions,
+                excluded_sink=excluded_sink,
             )
         except OpusTransientError as exc:
             logger.error("[mise] opus unreachable for %s: %s", source.filename, exc)
@@ -626,6 +647,7 @@ def extract_from_bytes(
                     effort=page_effort,
                     max_tokens=max_tokens,
                     user_instructions=user_instructions,
+                    excluded_sink=excluded_sink,
                 )
             ] = idx
             # Stagger submission so the first few pages don't all hit the

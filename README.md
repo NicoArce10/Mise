@@ -17,7 +17,7 @@
   <a href="#architecture">Architecture</a> ·
   <a href="#plug-it-into-anything">Integrations</a> ·
   <a href="#quickstart">Quickstart</a> ·
-  <a href="docs/demo_script.md">Demo</a> ·
+  <a href="#for-hackathon-judges">Demo</a> ·
   <a href="docs/evals.md">Evals</a>
 </p>
 
@@ -52,6 +52,18 @@ It is not OCR. It is a **dish-understanding engine** powered by `claude-opus-4-7
 4. **Routes** edge cases deterministically — `canonical` · `modifier` · `ephemeral` · `needs-review` — so a delivery feed never shows "add burrata +3" as a standalone item.
 5. **Serves it back** two ways: a natural-language **search** endpoint (`POST /api/search/:run_id`) that takes "algo abundante con queso" and returns the right dishes, and an **export** endpoint (`GET /api/catalog/:run_id.json`) with the full catalog ready to plug into any system.
 
+## Why this is not just Claude chat
+
+A Claude chat with Opus 4.7 can read a menu and produce a one-off JSON answer. Mise turns that model capability into an operational system:
+
+- **Persistent review workflow** — every dish can be approved, edited, or rejected. Rejecting changes the export. Decoration would be a lie.
+- **Auditable filtering with receipts** — when the reviewer types a natural-language filter (e.g. *"Drop the Lobster Enchilado Rings — its price is 'Market price' and it goes through a different pricing flow"*), Opus drops the matching dish during extraction and records its name (and reason, when supplied) in `excluded_by_user_filter[]`. The Cockpit renders that list as its own visible section; the exported JSON carries the same array. An auditor verifies the filter ran without rerunning the pipeline.
+- **Visible contract identity** — the Cockpit shows a pill with `mise.catalog.v1 · run-… · N dishes` at all times, mirroring the top-level fields of the export. A judge or a downstream engineer reads the contract off the screen without opening a file.
+- **Stable integration contract** — every export carries `schema_version: "mise.catalog.v1"`, `run_id`, source hashes, `review_status`, `quality_signal`, and the `user_instructions` echo, so downstream systems can parse the same shape this week and next.
+- **Search-ready graph** — aliases, diner-vernacular `search_terms`, modifiers attached to parents, ephemerals routed separately, and per-decision summaries are first-class fields, not prose a human has to copy-clean from a chat transcript.
+
+Claude is the reasoning engine. Mise is the system around it. In a chat, you would still have to copy, clean, reject, version, audit, and wire the result yourself. Mise does that as the product.
+
 ## The JSON catalog
 
 The primary output. One endpoint, one shape, zero custom integration per restaurant. The contract is pinned by `schema_version` so downstream consumers can target a stable shape:
@@ -68,49 +80,79 @@ The primary output. One endpoint, one shape, zero custom integration per restaur
     "flags": [],
     "reasons": [],
     "metrics": {
-      "dish_count": 38,
+      "dish_count": 14,
       "missing_price_ratio": 0.0,
-      "missing_category_ratio": 0.05,
-      "sparse_ingredient_ratio": 0.10
+      "missing_category_ratio": 0.0,
+      "sparse_ingredient_ratio": 0.07
     }
   },
+  "user_instructions": "Drop the Lobster Enchilado Rings — its price is \"Market price\" and it goes through a different pricing flow.",
   "sources": [
-    { "id": "src-001", "filename": "menu_pdf.pdf", "kind": "pdf",
-      "content_type": "application/pdf", "sha256": "07e1705..." }
+    { "id": "src-001", "filename": "menu_.jpg", "kind": "photo",
+      "content_type": "image/jpeg", "sha256": "07e1705..." }
   ],
   "dishes": [
     {
       "id": "dish-abc123",
-      "canonical_name": "Milanesa Napolitana",
-      "menu_category": "Carnes y Parrilla",
-      "price": { "value": 8500, "currency": "ARS" },
-      "aliases": ["Mila Napo", "Milanesa a la Napolitana", "Napolitana"],
-      "search_terms": ["mila napo", "napo con papas", "milanesa abundante con queso y jamon"],
-      "ingredients": ["breaded beef", "tomato", "mozzarella", "ham"],
+      "canonical_name": "1910 Pizza",
+      "menu_category": "Pizzas from Our Oven",
+      "price": { "value": 28, "currency": "USD" },
+      "aliases": ["1910"],
+      "search_terms": ["pizza with figs", "fig pizza", "ricotta and prosciutto pizza"],
+      "ingredients": ["pizza dough", "ricotta cheese", "prosciutto ham", "figs"],
+      "modifiers": [],
+      "sources": [{ "source_id": "src-001", "filename": "menu_.jpg", "kind": "photo" }],
+      "confidence": 0.93,
+      "decision_summary": "Routed as canonical dish from 1 source.",
+      "review_status": "approved"
+    },
+    {
+      "id": "dish-def456",
+      "canonical_name": "Cesar Salad",
+      "menu_category": "Salads",
+      "price": { "value": 12, "currency": "USD" },
+      "aliases": ["Caesar Salad", "Caesar"],
+      "search_terms": ["cesar", "caesar with chicken", "romaine and parmesan"],
+      "ingredients": ["romaine lettuce", "creamy caesar dressing", "croutons", "parmesan"],
       "modifiers": [
         {
-          "id": "mod-papas",
-          "text": "+ papas rústicas",
-          "price_delta": { "value": 1200, "currency": "ARS" },
-          "parent_dish_id": "dish-abc123",
-          "sources": [{ "source_id": "src-001", "filename": "menu_pdf.pdf", "kind": "pdf" }]
+          "id": "mod-steak",
+          "text": "Add steak or chicken",
+          "price_delta": { "value": 13, "currency": "USD" },
+          "parent_dish_id": "dish-def456",
+          "sources": [{ "source_id": "src-001", "filename": "menu_.jpg", "kind": "photo" }]
         }
       ],
-      "sources": [{ "source_id": "src-001", "filename": "menu_pdf.pdf", "kind": "pdf" }],
-      "confidence": 0.92,
-      "decision_summary": "Merged because the normalized name matches and ingredients are compatible.",
+      "sources": [{ "source_id": "src-001", "filename": "menu_.jpg", "kind": "photo" }],
+      "confidence": 0.91,
+      "decision_summary": "Routed as canonical dish from 1 source.",
       "review_status": "approved"
     }
   ],
   "unattached_modifiers": [],
-  "ephemerals": [],
+  "ephemerals": [
+    {
+      "id": "eph-soup",
+      "text": "Soup of the Day",
+      "sources": [{ "source_id": "src-001", "filename": "menu_.jpg", "kind": "photo" }],
+      "confidence": 0.88,
+      "decision_summary": "Routed as ephemeral — varies daily."
+    }
+  ],
+  "excluded_by_user_filter": [
+    {
+      "name": "Lobster Enchilado Rings",
+      "reason": "Market price item — matched user filter."
+    }
+  ],
   "counts": {
     "sources": 1,
-    "dishes": 38,
-    "modifiers_attached": 12,
+    "dishes": 14,
+    "modifiers_attached": 3,
     "modifiers_unattached": 0,
-    "ephemerals": 0,
-    "excluded_rejected": 0
+    "ephemerals": 2,
+    "excluded_rejected": 0,
+    "excluded_by_user_filter": 1
   }
 }
 ```
@@ -122,14 +164,15 @@ Every restaurant tech company re-invents this shape manually. Mise generates it 
 
 ## Identity reasoning — why the search works
 
-The search is only as good as the identity graph underneath it. These four demo decisions — anchored in the eval harness and the video — prove the identity layer holds up:
+The search is only as good as the identity graph underneath it. The five decisions below come from running the **demo menu shipped with the repo** (`Menus/Menu Demo/menu_.jpg`, a real one-page bistro menu used with permission) through the live Opus 4.7 pipeline with the filter `Drop the Lobster Enchilado Rings — its price is "Market price" and it goes through a different pricing flow.` Each row is reproduced live in the demo video. The dish names below are the canonical names extracted by Opus from this specific menu — they are ground truth for that file, not a generic taxonomy.
 
-| Evidence | Decision | Why it matters for search |
+| Evidence on the menu | Decision | Why it matters for search |
 |---|---|---|
-| `Marghertia` (typo, Branch A) · `Margherita` (Branch B) · `+burrata` (Branch C) | **Merged** as `Margherita`, typo becomes an alias, burrata becomes a modifier | A query for "margarita con burrata" resolves to one dish, not three partial matches |
-| `Pizza Funghi` · `Calzone Funghi` (identical ingredients) | **Kept separate** | Query "funghi sin masa cerrada" correctly returns the pizza, not the calzone |
-| `add burrata +3` on a chalkboard | Routed as **modifier** attached to `Margherita` | Search never surfaces "add burrata" as a dish, and "margherita con burrata" composes the modifier into the result |
-| `Chef's Special` from an Instagram post | Routed as **ephemeral** | The catalog doesn't fossilize a one-night special into a permanent dish |
+| `Cesar Salad` printed on the menu (typo) — extractor proposes aliases `Caesar Salad`, `Caesar` | Aliases are **pre-computed at extraction** time | A diner typing `cesar` (or `caesar`) returns the canonical dish — no full-text fuzzy needed downstream |
+| `1910 Pizza — Star-cut pizza with mozzarella and ricotta cheese, topped with arugula, prosciutto ham, and figs.` | `figs` surfaces as a **first-class ingredient** on the dish | Query *"pizza with figs"* returns 1910 Pizza without ever typing the word *pizza* — that's not OCR, that's structured ingredient indexing |
+| `NEW! CESAR SALAD` followed by `Add steak or chicken — $13`, `Add shrimp — $16` | Add-ons routed as **modifiers** attached to Cesar Salad | The catalog never shows `+steak $13` as a standalone dish; queries like *"caesar with shrimp"* compose the modifier into the result |
+| `SOUP OF THE DAY · varies daily` and `CREAM OF THE DAY · varies daily` | Routed as **ephemerals** in their own array | The permanent search index doesn't fossilize "varies daily" items; downstream consumers can opt into ephemerals or drop them at ingest |
+| `LOBSTER ENCHILADO RINGS · Market price.` + filter `Drop the Lobster Enchilado Rings — its price is "Market price"` | Excluded during extraction. Recorded in `excluded_by_user_filter[]` with the reason. The filter targets the dish by name **plus** by price condition because the menu has three other items mentioning lobster (`Cream of the Day`, `Grilled Seafood Skewer`, and one more in `From Our Seas`); a single-criterion filter would be ambiguous. | Query *"lobster"* returns *Grilled Seafood Skewer* (which contains lobster as an ingredient) but **not** Lobster Enchilado Rings. The withholding is auditable in the export and honored by the search layer (`backend/app/ai/search.py` filters `REJECTED` items consistently with `catalog.py`) |
 
 ## Architecture
 
@@ -185,7 +228,7 @@ The contract is shape-only — no Mise-specific SDK, no webhook protocol, no int
 
 | Use-case template | What that consumer needs | What the catalog already provides |
 |---|---|---|
-| **Review & discovery app** onboarding a restaurant | Canonical dishes, aliases for user-typed reviews, stable IDs across branches | Full `canonical_dishes` with `aliases` and `search_terms`. A reviewer typing "mila napo" matches the canonical "Milanesa Napolitana". |
+| **Review & discovery app** onboarding a restaurant | Canonical dishes, aliases for user-typed reviews, stable IDs across branches | Full `dishes[]` with `aliases` and `search_terms`. A reviewer typing `cesar` (typo) or `papas locas` (local naming) matches the canonical dish on the menu. |
 | **Delivery platform** importing a non-POS restaurant | Item list with prices, grouped modifiers, no one-night specials polluting the catalog | `canonical` items with `price` and `modifiers[]`; `ephemeral` items partitioned into a separate array, droppable at ingest. |
 | **POS / catalog migration** across branches | Dedup across branch menus, typo normalization, structured modifiers | Reconciled items with typos folded into `aliases`, branch variants merged, modifiers attached to parents. |
 
@@ -214,7 +257,7 @@ python -m venv .venv
 .venv\Scripts\activate                       # Windows PowerShell
 #  source .venv/bin/activate                 # macOS / Linux
 pip install -r requirements.txt
-pytest -q                                    # full suite passes (118+ tests)
+pytest -q                                    # full suite passes (122+ tests)
 uvicorn app.main:app --reload --port 8000    # in one terminal
 
 # 3. Frontend
@@ -246,23 +289,36 @@ Mise/
 ## Documentation
 
 - [`docs/product.md`](docs/product.md) — product brief
-- [`docs/demo_script.md`](docs/demo_script.md) — three-minute shot list
 - [`docs/cockpit_visual_direction.md`](docs/cockpit_visual_direction.md) — editorial / cartographic design tokens
 - [`docs/evals.md`](docs/evals.md) — evaluation harness specification
 - [`docs/competitive_benchmark.md`](docs/competitive_benchmark.md) — how to reproduce the Mise vs Veryfi / Klippa comparison on your own hardware, with your own credentials
 - [`docs/references.md`](docs/references.md) — notes and sources
+- [`docs/demo/`](docs/demo/) — pre-rendered title cards used in the submission video (HTML + capture instructions)
 
 ## For hackathon judges
 
-If you are reviewing this submission:
+If you are reviewing this submission, the deliverables are:
 
-1. **Demo video** — link in [`submissions/README.md`](submissions/README.md)
-2. **Written summary** — [`submissions/written_summary.md`](submissions/written_summary.md)
-3. **Measured metrics** — [`submissions/metrics.json`](submissions/metrics.json), reproducible via `python evals/run_eval.py --bundle all`
+1. **Demo video** — link in [`submissions/README.md`](submissions/README.md) (≤ 3:00, recorded against the live Opus 4.7 API path on the menu committed to this repo).
+2. **Written summary** — [`submissions/written_summary.md`](submissions/written_summary.md).
+3. **Measured search metrics** — [`submissions/metrics.json`](submissions/metrics.json), reproducible via `python evals/run_search_eval.py --mode fallback`.
 4. **Competitive benchmark** — reproducible side-by-side with Veryfi (requires your own Veryfi API key): `python evals/run_competitor_bench.py --bundle bundle_01_italian --mise-mode real --with-veryfi`. Methodology: [`docs/competitive_benchmark.md`](docs/competitive_benchmark.md).
 5. **Try it live** — the Quickstart above is copy-pasteable; smoke-test completes in under a minute.
 
-Every quantitative claim in the demo video is produced by `evals/run_eval.py` or `evals/run_competitor_bench.py`. If a number isn't in one of those reports, it isn't in the video. The contract is in [`docs/evals.md`](docs/evals.md).
+### How this submission maps onto the four judging axes
+
+| Axis (weight) | Where it shows up in the deliverable |
+|---|---|
+| **Impact (30 %)** — who benefits, how much it matters | [Why Mise exists](#why-mise-exists) frames the wall every food product hits; [Plug it into anything](#plug-it-into-anything) names the three downstream consumer templates (review apps, delivery platforms, POS / catalog migration); the demo opens on the same wall in voice-over before any UI shows up. |
+| **Demo (25 %)** — working, impressive, live | The video is **~86 % live screen recording** of the real product: drop a real one-page menu (`Menus/Menu Demo/menu_.jpg`, included with the restaurant's written permission), the live Opus 4.7 pipeline runs end-to-end on camera, the natural-language search lands queries against the real graph, and the JSON catalog downloads with `schema_version`, `run_id`, and `excluded_by_user_filter[]` populated. No motion-graphics reconstruction of the UI. |
+| **Opus 4.7 Use (25 %)** — creative, beyond basic integration | Four distinct Opus 4.7 calls per run: vision-native extraction (PDFs as `document` blocks, photos as base64 `image` blocks, no external OCR), reconciliation with **`thinking: {"type": "adaptive"}`** gated only on ambiguous pairs, routing of edge cases as `modifier` / `ephemeral` / `needs-review`, and natural-language search with adaptive thinking on multi-constraint queries. Structured output via `output_config.format = {type: "json_schema", ...}` validated by Pydantic before any data leaves the backend. See [Architecture](#architecture). |
+| **Depth & Execution (20 %)** — real craft, not a quick hack | Pinned schema (`mise.catalog.v1`), versioned exports, `excluded_by_user_filter[]` as an auditable receipt, deterministic reconciliation gate that escalates only ambiguous pairs, regex-first routing with a price guard, ephemeral cache control, raw-response logging under `MISE_RAW_LOG_PATH`, an eval harness that fails the build under threshold, and 122+ tests including regression tests on the contract guarantees described in [The JSON catalog](#the-json-catalog). The [`CHANGELOG.md`](CHANGELOG.md) documents what landed in MVP scope and what was deliberately cut. |
+
+Every quantitative claim in the demo video is produced by `evals/run_search_eval.py`, `evals/run_eval.py`, or `evals/run_competitor_bench.py`. If a number isn't in one of those reports, it isn't in the video. The contract is in [`docs/evals.md`](docs/evals.md).
+
+### Why this is more than "open Claude chat and paste a menu"
+
+The most natural challenge is *"can't a judge just open Claude on the web, paste this menu, and get the same JSON?"* — answered explicitly in [Why this is not just Claude chat](#why-this-is-not-just-claude-chat) and demonstrated end-to-end in the video: persistent review (approve / edit / reject mutates the export), auditable filtering with a visible receipt, a pinned schema and run identity surfaced as a UI pill, a stable integration contract (`schema_version`, `run_id`, `review_status`, `quality_signal`, `user_instructions` echo), and a search-ready graph with diner-vernacular `aliases` + `search_terms` as first-class fields. Claude is the reasoning engine; Mise is the system around it.
 
 ## License
 

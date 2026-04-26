@@ -101,3 +101,11 @@ docs/acceptance_criteria.md
 docs/project_brief.md
 docs/plans/
 submissions/written_summary_template.md
+
+# Recording playbook + design notes — these reveal the second-by-second
+# narrative strategy (anti-Opus-chat defense, judging-axis coverage,
+# Apple-keynote pacing, sound design, what to say in each beat). The
+# product, the README, the changelog and the submission summary are
+# the deliverable; the recording recipe is not.
+docs/demo_recording_playbook.md
+docs/demo_script.md

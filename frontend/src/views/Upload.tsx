@@ -177,7 +177,7 @@ export function Upload({ onStart, onGoHome }: Props) {
   return (
     <div className="flex min-h-screen flex-col">
       <header
-        className="flex items-baseline gap-6 px-10 py-5"
+        className="flex items-baseline gap-6 px-10 py-4"
         style={{ borderBottom: '1px solid var(--color-hairline)' }}
       >
         {onGoHome ? (
@@ -215,11 +215,11 @@ export function Upload({ onStart, onGoHome }: Props) {
           Upload · your menu
         </span>
       </header>
-      <main className="mx-auto flex w-full max-w-[800px] flex-col gap-8 px-10 py-16">
+      <main className="mx-auto flex w-full max-w-[800px] flex-col gap-6 px-10 pt-8 pb-10">
         <div className="flex flex-col gap-3">
           <h1
             className="font-display"
-            style={{ fontWeight: 500, fontSize: 56, lineHeight: '60px', letterSpacing: '-0.01em' }}
+            style={{ fontWeight: 500, fontSize: 48, lineHeight: '52px', letterSpacing: '-0.01em' }}
           >
             Drop your menu.
           </h1>
@@ -227,8 +227,8 @@ export function Upload({ onStart, onGoHome }: Props) {
             className="font-accent"
             style={{
               fontStyle: 'italic',
-              fontSize: 22,
-              lineHeight: '28px',
+              fontSize: 20,
+              lineHeight: '26px',
               color: 'var(--color-ink-muted)',
             }}
           >
@@ -252,7 +252,7 @@ export function Upload({ onStart, onGoHome }: Props) {
             border: `1px ${dragOver ? 'solid' : 'dashed'} ${dragOver ? 'var(--color-ink)' : 'var(--color-hairline)'}`,
             background: dragOver ? 'var(--color-paper-tint)' : 'transparent',
             borderRadius: 'var(--radius-card)',
-            padding: 64,
+            padding: 40,
             transition: 'border-color 180ms, background 180ms',
           }}
         >
@@ -391,13 +391,15 @@ export function Upload({ onStart, onGoHome }: Props) {
           </p>
         )}
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p
             className="caption"
             style={{
               color: 'var(--color-ink-subtle)',
               letterSpacing: '0.04em',
               fontSize: 12,
+              flex: '1 1 auto',
+              minWidth: 0,
             }}
           >
             Typical extraction · 15–45 s per menu page
@@ -414,6 +416,8 @@ export function Upload({ onStart, onGoHome }: Props) {
               borderRadius: 'var(--radius-chip)',
               padding: '12px 20px',
               letterSpacing: '0.04em',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               opacity:
                 submitting || files.length === 0 || instructionOver ? 0.5 : 1,
               cursor:

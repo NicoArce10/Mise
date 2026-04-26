@@ -231,6 +231,23 @@ def reconcile_deterministic(
             **_pair_display_fields(a, b),  # type: ignore[arg-type]
         )
 
+    if not s.name_close and not s.name_exact:
+        summary = (
+            f"Not merged — both are {s.type_a} dishes, but the names differ "
+            "and shared ingredients alone are not identity."
+        )[:240]
+        return ReconciliationResult(
+            left_id=a.id,
+            right_id=b.id,
+            gate_class=ReconciliationClass.AMBIGUOUS,
+            merged=False,
+            canonical_name=None,
+            confidence=0.88,
+            decision_summary=summary,
+            used_adaptive_thinking=False,
+            **_pair_display_fields(a, b),  # type: ignore[arg-type]
+        )
+
     # name_close AND (type_same OR type unknown) → merge after typo normalization.
     canonical = (
         a.normalized_name if len(a.normalized_name) >= len(b.normalized_name)

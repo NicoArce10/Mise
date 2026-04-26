@@ -45,14 +45,38 @@ The MVP is the smallest believable end-to-end product:
 - **Storage**: process-local in-memory store. Persistence is intentionally out of MVP scope; the stable JSON catalog is the external contract.
 - **AI core**: Anthropic Messages API with `claude-opus-4-7`, via the `anthropic` Python SDK. No LangChain. No LlamaIndex. No external OCR in the critical path.
 
-## Demo-critical decisions
-The demo must show, in order:
-1. A diner-style natural-language search that lands on the right dish via `search_terms` — e.g. *"mila napo con papas"* → **Milanesa Napolitana con Papas**.
+## Product capabilities (verified by the eval harness)
+
+These six identity-graph behaviours are the contract. Each one is
+verified deterministically against `evals/fixtures/bistro_argentino.py`
+and `evals/search_golden.json` by `python evals/run_search_eval.py`:
+
+1. Diner-style natural-language search resolving via `search_terms` — e.g. *"mila napo con papas"* → **Milanesa Napolitana con Papas**.
 2. `Marghertia` (typo) normalized to `Margherita` and merged across branches; typo preserved as alias.
 3. `Pizza Funghi` vs `Calzone Funghi` kept separate despite identical ingredients.
 4. `add burrata +3` attached as a **modifier** on Margherita, never surfaced as a standalone dish.
 5. `Chef's Special` routed as **ephemeral** and kept out of the canonical catalog.
-6. `GET /api/catalog/{run_id}.json` downloaded on camera as the "plug it into anything" output.
+6. `GET /api/catalog/{run_id}.json` returns the full dish graph as plug-it-anywhere JSON.
+
+The eval harness is the **source of truth** for every published metric
+in `submissions/metrics.json` and `submissions/written_summary.md`.
+
+## Recorded demo video (separate concern)
+
+The 3-minute submission video is a **single live take** against a real
+restaurant menu, not the eval fixture. The video showcases:
+
+- Vision-native ingestion (PDF + photo, no external OCR).
+- HARD FILTER instruction with auditable `excluded_by_user_filter[]`.
+- `adaptive thinking` badge in Processing and on cross-lingual queries.
+- `decision_summary` paragraph rendered in `DetailRail` for every dish.
+- Cross-lingual resolution (Spanish query against an English menu).
+- Description-driven and ingredient-driven search.
+- Honest empty state on negative queries.
+- Validated JSON download (`schema_version: "mise.catalog.v1"`).
+
+The video is one calibrated narration of the product. The eval harness
+above is the contract. Both must hold; neither replaces the other.
 
 ## Engineering principles
 - Keep solutions simple and composable.
@@ -73,7 +97,8 @@ The demo must show, in order:
 ## Key public documents
 - `AGENTS.md` — orientation for AI agents working on the repo
 - `docs/product.md` — product brief
-- `docs/demo_script.md` — three-minute demo shot list
 - `docs/evals.md` — evaluation harness specification (source of truth for all published numbers)
 - `docs/cockpit_visual_direction.md` — locked design tokens
+- `docs/competitive_benchmark.md` — Mise vs Veryfi / Klippa methodology
 - `docs/references.md` — external references
+- `docs/demo/` — pre-rendered title cards used in the submission video

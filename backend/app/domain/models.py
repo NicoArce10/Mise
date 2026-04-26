@@ -301,6 +301,25 @@ class MetricsPreview(BaseModel):
     time_to_review_pack_seconds: float | None = None
 
 
+class ExcludedItem(BaseModel):
+    """One dish Opus 4.7 dropped because it matched the reviewer's filter.
+
+    Surfaced as a "receipt" in the Cockpit so the reviewer can verify the
+    filter actually fired, and downstream consumers reading the exported
+    JSON can audit why a dish that appears printed on the menu image is
+    not in the catalog.
+
+    `reason` is set when the second-pass keep/drop classifier produced
+    one (e.g. "purely vegetarian"); the in-prompt HARD FILTER pass during
+    extraction returns names without an explanation, in which case
+    `reason` stays None and the UI renders a generic "matched user
+    filter" caption.
+    """
+
+    name: str
+    reason: str | None = None
+
+
 class CockpitState(BaseModel):
     """Exactly what `GET /api/review/{processing_id}` returns.
 
@@ -330,6 +349,11 @@ class CockpitState(BaseModel):
     # honors it. We intentionally don't try to machine-verify the filter:
     # the reviewer's eyes on the canonical list are the ground truth.
     user_instructions: str | None = None
+    # Receipt of every dish Opus 4.7 dropped because of `user_instructions`.
+    # Combines the in-prompt HARD FILTER pass (no reason) and the post-
+    # extraction keep/drop classifier (reason supplied by the model). Empty
+    # on runs without a filter or runs that excluded nothing.
+    excluded_by_user_filter: list[ExcludedItem] = Field(default_factory=list)
 
 
 # ---------- Internal wire models (not exposed in the CockpitState) ----------

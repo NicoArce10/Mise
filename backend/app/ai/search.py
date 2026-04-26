@@ -17,7 +17,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from ..domain.models import CockpitState
+from ..domain.models import CockpitState, ModerationStatus
 from .client import OpusCallError, call_opus, text_block
 from .prompts import load as load_prompt
 
@@ -69,6 +69,13 @@ def _dish_digest(cockpit: CockpitState) -> list[dict[str, Any]]:
     IDs, no reconciliation trace, no moderation state. Modifiers are
     attached to their parent so the model can satisfy "with X"
     requests.
+
+    Dishes the reviewer rejected are dropped here so that *both* the
+    natural-language search path and the offline fallback see the same
+    catalog the JSON export does. Without this filter, a reviewer
+    could reject a dish in the Cockpit and still see it surface in
+    Try It on the next query — that would make the moderation flow
+    look cosmetic rather than load-bearing.
     """
     mod_by_parent: dict[str, list[dict[str, Any]]] = {}
     for m in cockpit.modifiers:
@@ -84,6 +91,8 @@ def _dish_digest(cockpit: CockpitState) -> list[dict[str, Any]]:
 
     dishes: list[dict[str, Any]] = []
     for d in cockpit.canonical_dishes:
+        if d.moderation is ModerationStatus.REJECTED:
+            continue
         dishes.append(
             {
                 "id": d.id,
@@ -261,6 +270,10 @@ def search_fallback(*, query: str, cockpit: CockpitState, top_k: int = 5) -> Sea
 
     scored: list[SearchMatch] = []
     for d in cockpit.canonical_dishes:
+        # Mirror the export: a rejected dish is gone from the catalog,
+        # gone from the LLM digest, and gone from the fallback too.
+        if d.moderation is ModerationStatus.REJECTED:
+            continue
         name_low = d.canonical_name.lower()
         aliases_low = [a.lower() for a in d.aliases]
         search_terms_low = [s.lower() for s in d.search_terms]
@@ -317,8 +330,11 @@ def search_fallback(*, query: str, cockpit: CockpitState, top_k: int = 5) -> Sea
 
     scored.sort(key=lambda m: -m.score)
     matches = scored[:top_k]
+    visible = sum(
+        1 for d in cockpit.canonical_dishes if d.moderation is not ModerationStatus.REJECTED
+    )
     interpretation = (
-        f"Fallback: token-overlap search over {len(cockpit.canonical_dishes)} dishes."
+        f"Fallback: token-overlap search over {visible} dishes."
         if matches
         else f"Nothing on this menu matches '{query}'. Mise will not invent a dish."
     )

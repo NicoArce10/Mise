@@ -81,6 +81,7 @@ function emptyState(): CockpitState {
     metrics_preview: metrics,
     quality_signal: null,
     user_instructions: null,
+    excluded_by_user_filter: [],
   };
 }
 

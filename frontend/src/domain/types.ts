@@ -273,6 +273,17 @@ export interface QualitySignal {
   sparse_ingredient_ratio: number;
 }
 
+/**
+ * One dish Opus 4.7 dropped because it matched the reviewer's filter.
+ * Pairs name (always present) with reason (model-supplied when the
+ * second-pass keep/drop classifier produced one; null when the in-prompt
+ * HARD FILTER pass returned the name without an explanation).
+ */
+export interface ExcludedItem {
+  name: string;
+  reason?: string | null;
+}
+
 export interface CockpitState {
   processing: ProcessingRun;
   sources: SourceDocument[];
@@ -293,4 +304,11 @@ export interface CockpitState {
    * honored it.
    */
   user_instructions?: string | null;
+  /**
+   * Receipt of every dish Opus 4.7 dropped because of `user_instructions`.
+   * Combines both filter passes (in-prompt HARD FILTER + post-extraction
+   * keep/drop classifier). Empty on runs without a filter or runs that
+   * excluded nothing.
+   */
+  excluded_by_user_filter?: ExcludedItem[];
 }

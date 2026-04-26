@@ -607,8 +607,8 @@ export function Landing({ onUpload, onSample }: Props) {
           </motion.p>
 
           <motion.div {...reveal(0.12)} className="flex flex-wrap items-center gap-4 md:gap-6">
-            <PrimaryCta onClick={onSample}>Try with a real menu</PrimaryCta>
-            <SecondaryCta onClick={onUpload}>Upload your own</SecondaryCta>
+            <PrimaryCta onClick={onUpload}>Upload your own menu</PrimaryCta>
+            <SecondaryCta onClick={onSample}>See it on a sample menu</SecondaryCta>
           </motion.div>
 
           {/* Trust strip — the four guarantees that used to live in a
@@ -749,7 +749,7 @@ export function Landing({ onUpload, onSample }: Props) {
                   ),
                 },
                 {
-                  title: '240 hours a year, per location',
+                  title: '240 hours a year, per restaurant',
                   body: (
                     <>
                       Keeping one menu in sync across DoorDash, Uber Eats, Grubhub and
@@ -1036,12 +1036,12 @@ export function Landing({ onUpload, onSample }: Props) {
               marginBottom: 16,
             }}
           >
-            DoorDash built this for themselves.{' '}
+            DoorDash built theirs — and kept it inside DoorDash.{' '}
             <span
               className="font-accent"
               style={{ fontStyle: 'italic', color: 'var(--color-ink-muted)' }}
             >
-              Opus 4.7 lets us ship it as an API.
+              Mise is the same idea, open as an API.
             </span>
           </h2>
 
@@ -1065,9 +1065,11 @@ export function Landing({ onUpload, onSample }: Props) {
             </a>
             : OCR extracts text, an LLM turns it into structured data, a classifier
             scores whether the result is good enough, and anything uncertain is routed
-            to a human. It runs in production, at scale — and it stays inside DoorDash.
-            Every other delivery platform and aggregator has to build something
-            comparable on their own.
+            to a human. It runs in production, at scale — and it stays{' '}
+            <em>inside DoorDash</em>. Every other delivery platform, every POS, every
+            review app, every ghost kitchen has to build something comparable on its
+            own — or pay someone hours per restaurant to do it by hand. Mise is that
+            piece, open and shippable.
           </p>
 
           <p
@@ -1109,7 +1111,7 @@ export function Landing({ onUpload, onSample }: Props) {
               lineHeight: 1.55,
               color: 'var(--color-ink-muted)',
               maxWidth: 860,
-              marginBottom: 40,
+              marginBottom: 16,
             }}
           >
             Mise is a{' '}
@@ -1122,6 +1124,21 @@ export function Landing({ onUpload, onSample }: Props) {
             the canonical menu, aliases, search terms, specials lane and a quality
             signal in a single call. Shape is stable, ready for Postgres, Elastic or
             a vector DB on day one.
+          </p>
+
+          <p
+            style={{
+              fontSize: 'clamp(15px, 1.3vw, 17px)',
+              lineHeight: 1.55,
+              color: 'var(--color-ink-muted)',
+              maxWidth: 860,
+              marginBottom: 40,
+            }}
+          >
+            A Claude chat can analyze a menu once and return a plausible JSON.
+            Mise turns that model capability into a system: approve, edit, reject,
+            trace excluded rows, export the same schema every time, and hand the
+            result to another product without copy-cleaning a transcript.
           </p>
 
           <div

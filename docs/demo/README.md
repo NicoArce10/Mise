@@ -1,14 +1,15 @@
 # Demo assets — how to use
 
-The demo is **86 % live screen recording of the real product** and
-14 % pre-rendered cards (2 numeric hooks + wordmark + closing).
-Everything between the hooks and the closing card is Mise on camera.
+The demo is **about 86 % live screen recording of the real product** and
+**~19 seconds of cards** (0:00–0:10 hooks · 0:27–0:42 wall + wordmark ·
+3:32–3:38 closing). Everything outside those windows is Mise on camera.
 
 Two files live here:
 
-- `cards.html` — standalone 4-card HTML rendered in the product's own
-  type system. Cards 01 + 02 carry the numeric hook, card 03 is the
-  wordmark, card 04 is the closing.
+- `cards.html` — standalone 5-card HTML rendered in the product's own
+  type system. Cards 01 + 02 carry the numeric hook, card 02b is the
+  three-line "wall" (DoorDash · Veryfi · everyone else, stagger-revealed),
+  card 03 is the wordmark, card 04 is the closing.
 - `export-cards.mjs` — optional Node script to batch-export the cards
   as 1920 × 1080 PNGs using Playwright.
 
@@ -22,8 +23,13 @@ Recommended. Produces four PNGs that drop directly into CapCut.
 2. Press `F` to go full-screen.
 3. Press `H` to hide the HUD at the bottom-right.
 4. Capture each card with **Win + Shift + S** → "Full-screen snip".
-5. Save as `card-01.png`, `card-02.png`, `card-03.png`, `card-04.png`.
-6. Navigate with `←` / `→` or press `1` / `2` / `3` / `4`.
+5. Save as `card-01.png`, `card-02.png`, `card-02b.png`, `card-03.png`,
+   `card-04.png`. **For card 02b** capture three frames: one when only
+   the first line is visible (`card-02b-1.png`), one when the first two
+   are visible (`card-02b-2.png`), and one with all three (`card-02b-3.png`).
+   You will sequence them in Clipchamp to drive the stagger reveal.
+6. Navigate with `←` / `→` or press `1` / `2` / `3` / `4` / `5` (1 = hook A,
+   2 = hook B, 3 = wall, 4 = wordmark Mise, 5 = closing).
 
 Tip — use a 1920 × 1080 monitor if possible. On higher-DPI screens
 the card still renders crisp, but the captured PNG will be larger;
@@ -51,16 +57,30 @@ exactly 1920 × 1080.
 
 | Card | Timestamp | Purpose |
 |---|---|---|
-| 01 · numeric hook A | 0:00 – 0:03 | `2–3 hours.` (cost of one menu by hand). Silent. |
-| 02 · numeric hook B | 0:03 – 0:06 | `240 hours / year.` (cost of keeping it in sync). Silent. |
-| 03 · wordmark | 0:06 – 0:08 | `Mise` + Opus 4.7 footer. Silent. |
-| 04 · closing | 2:55 – 3:00 | Tagline + 4 Opus 4.7 capabilities strip. |
+| 01 · numeric hook A | 0:00 – 0:03 | `2–3 hours.` (cost of one menu by hand). **No voice yet** — only SFX in post (tick + thump + ambient pad at ~12 % volume). The brain reads the number. |
+| 02 · numeric hook B | 0:03 – 0:10 | `Hundreds of hours.` (a year, per restaurant — one menu in sync across every channel). Voice starts here. Source: [Nutrislice](https://blog.nutrislice.com/why-manual-menu-updates-are-costing-you-time) — *"hundreds of lost hours annually"*. |
+| 02b · the wall | **0:27 – 0:38 — three lines, stagger-revealed** | `DoorDash built it for themselves.` · `Veryfi sells lines.` · `Everyone else: by hand.` Each line fades in (800 ms) on its own, synced with the narrator naming each player (0:27 · 0:31 · 0:34). Synthesis lower-thirds, **not** speech subtitles — the lines paraphrase the voice-over in three crisp beats. Card holds in full until 0:38, then fades into the wordmark. |
+| 03 · wordmark | **0:38 – 0:42 — synced with voice** | `Mise` + Opus 4.7 footer. The card fades in **exactly** as the narrator says *"So I built Mise"*. Cupertino-style reveal: visual name and verbal name land together, with a soft piano sting in post. The callback *"… One menu. One file. Done."* lands while the wordmark is still 100 % opaque, before the fade-out at 0:42. |
+| 04 · closing | 3:32 – 3:38 | Single tagline (*"The menu-import layer that didn't exist."*) + Opus 4.7 attribution. **No buzzword strip** — the close is humanly stated, not enumerated. |
 
-Everything between 0:08 and 2:55 is the live product. See
-`docs/demo_script.md` for the per-second shot list of the product
-segment (upload → processing → catalog tour → moderation → Try-It →
-export). The opening voice-over rides on top of the live `/upload`
-recording starting at 0:09 — it is **not** layered over a card.
+Everything between 0:11 and 3:32, except the wall reveal at 0:27–0:38
+and the wordmark reveal at 0:38–0:42, is the live product. The
+narrator (builder Nicolás Arce) introduces himself in Phase 2 —
+between 0:11 and 0:27, while dragging the menu into the dropzone —
+to satisfy the *"Built FROM what you know"* judging axis without
+spending the opening seconds on a face-cam. The 0:27 – 0:38 wall
+card names DoorDash and Veryfi explicitly to anticipate the
+*"hasn't this been done?"* objection inside the video itself,
+instead of leaving it to comments — and breaks up an otherwise
+static 27-second stretch on the upload screen. The 0:38 – 0:42
+wordmark reveal lands the product name at the dramatic peak of
+the competitive beat.
+
+The recording-day source of truth (cards → upload → processing →
+Cockpit → Try-It → export, with the full voice-over and the design
+rationale behind every beat) is kept private to the builder's
+workflow and is not part of the public deliverable. The output of
+that workflow is the submission video itself.
 
 ---
 

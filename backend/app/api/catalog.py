@@ -195,11 +195,26 @@ def _build_catalog(processing_id: EntityId, cockpit: CockpitState) -> dict[str, 
             },
         }
 
+    # Filter receipt — every dish Opus dropped because of the
+    # reviewer-supplied `user_instructions`. Surfaced at the top level so a
+    # downstream system reading the catalog has *both* halves of the
+    # contract: what shipped (dishes[]) and what was deliberately
+    # withheld (excluded_by_user_filter[]). An auditor can verify the
+    # filter ran without re-running the pipeline.
+    excluded_by_filter_payload = [
+        {
+            "name": item.name,
+            **({"reason": item.reason} if item.reason else {}),
+        }
+        for item in (cockpit.excluded_by_user_filter or [])
+    ]
+
     return {
         "schema_version": _SCHEMA_VERSION,
         "run_id": processing_id,
         "generated_at": _safe_generated_at(cockpit),
         "model": "claude-opus-4-7",
+        "user_instructions": cockpit.user_instructions or None,
         "quality_signal": quality_payload,
         "sources": [
             {
@@ -221,6 +236,7 @@ def _build_catalog(processing_id: EntityId, cockpit: CockpitState) -> dict[str, 
         "ephemerals": [
             _ephemeral_payload(eph, sources_by_id) for eph in included_ephemerals
         ],
+        "excluded_by_user_filter": excluded_by_filter_payload,
         "counts": {
             "sources": len(cockpit.sources),
             "dishes": len(included_dishes),
@@ -228,6 +244,7 @@ def _build_catalog(processing_id: EntityId, cockpit: CockpitState) -> dict[str, 
             "modifiers_unattached": len(unattached),
             "ephemerals": len(included_ephemerals),
             "excluded_rejected": excluded_dish_count,
+            "excluded_by_user_filter": len(excluded_by_filter_payload),
         },
     }
 

@@ -8,6 +8,7 @@ import { DetailRail } from '../components/DetailRail';
 import { MetricsPane } from '../components/MetricsPane';
 import { QualitySignalPane } from '../components/QualitySignalPane';
 import { ReconciliationNarrative } from '../components/ReconciliationNarrative';
+import { ExcludedByUserFilter } from '../components/ExcludedByUserFilter';
 import { FilterAppliedBanner } from '../components/FilterAppliedBanner';
 import { UnattachedModifiersLane } from '../components/UnattachedModifiersLane';
 import { CockpitToolbar, type ViewDensity } from '../components/CockpitToolbar';
@@ -515,6 +516,15 @@ export function Cockpit({
               exactly what Opus was instructed to do BEFORE scanning the
               results. Renders nothing if the reviewer didn't attach a filter. */}
           <FilterAppliedBanner instructions={state.user_instructions} />
+
+          {/* Receipt of every dish Opus dropped due to the filter. The
+              FilterAppliedBanner above tells the user *what* the filter
+              was; this block tells them *what came out* — the auditable
+              counterpart that turns "trust me" into a verifiable list. */}
+          <ExcludedByUserFilter
+            items={state.excluded_by_user_filter}
+            instructions={state.user_instructions}
+          />
 
           {processingFailed && (
             <div

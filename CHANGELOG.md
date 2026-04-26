@@ -38,16 +38,19 @@ All notable changes to Mise are documented here. Format is loosely based on
   leaves a JSONL trace with content blocks, stop reason, and usage counts.
 
 ### Measured
-- 3 bundles, 10 sources, 15 canonical dishes, 5 modifiers, 2 ephemerals.
-- `merge_precision = 1.00`, `merge_recall = 1.00`, `non_merge_accuracy = 1.00`,
-  `modifier_routing_accuracy = 1.00`.
-- `ephemeral_routing_accuracy = 0.67` — harness literal-equality artifact;
-  the demo-critical substring check passes.
-- 23 Opus 4.7 calls total · 46.1% cache hit · USD 0.96.
+- Fallback identity harness (`python evals/run_eval.py --bundle all`) now
+  passes all demo-critical checks across 3 bundles / 10 sources:
+  `merge_precision = 1.00`, `merge_recall = 1.00`,
+  `non_merge_accuracy = 1.00`, `modifier_routing_accuracy = 1.00`,
+  `ephemeral_routing_accuracy = 1.00`.
+- Search harness (`python evals/run_search_eval.py --mode fallback`) reports
+  `top1_accuracy = 1.00`, `top3_accuracy = 1.00`, and
+  `zero_invention_rate = 1.00` against 12 positive and 3 negative queries.
 
 ### Guardrails
 - Automated tests assert no `temperature`, `top_p`, `top_k`, or `budget_tokens`
   is ever sent to the Messages API.
 - Three regression tests lock the contract that uploaded files never get
   replaced by the italian fixture in any failure path.
-- 56/56 backend tests green.
+- Regression coverage locks that `Tacos al Pastor` and `Tacos de Carnitas`
+  remain separate even though both contain pork/onion.

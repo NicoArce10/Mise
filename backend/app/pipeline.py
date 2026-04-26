@@ -37,6 +37,7 @@ from .domain.models import (
     DishCandidate,
     EntityId,
     EphemeralItem,
+    ExcludedItem,
     MetricsPreview,
     Modifier,
     ProcessingRun,
@@ -87,6 +88,7 @@ def _run_extraction(
     mode: Mode,
     on_source_progress: Callable[[str, dict[str, Any]], None] | None = None,
     user_instructions: str | None = None,
+    excluded_sink: list[str] | None = None,
 ) -> tuple[list[DishCandidate], list[ExtractionFailure]]:
     """Run extraction per source. Collect both successes and per-source
     failures so the caller can decide how to present partial results.
@@ -95,6 +97,11 @@ def _run_extraction(
       - stage="page_done", extra={source_idx, source_total, source_name,
                                    pages_done, pages_total}
       - stage="dishes_found", extra={names: list[str]}
+
+    `excluded_sink`, when provided, is appended with every dish name Opus
+    dropped because of `user_instructions` during the in-prompt HARD
+    FILTER pass. The receipt feeds the Cockpit's "Excluded by user
+    filter" section.
     """
     all_candidates: list[DishCandidate] = []
     failures: list[ExtractionFailure] = []
@@ -140,6 +147,7 @@ def _run_extraction(
                             on_page_done=_on_page,
                             on_candidates_found=_on_names,
                             user_instructions=user_instructions,
+                            excluded_sink=excluded_sink,
                         )
                     )
             else:
@@ -294,6 +302,7 @@ def _build_cockpit(
     elapsed_s: float,
     extraction_failures: int = 0,
     user_instructions: str | None = None,
+    excluded_by_user_filter: list["ExcludedItem"] | None = None,
 ) -> CockpitState:
     parent = _union_find_merges(candidates, reconciliations)
 
@@ -578,6 +587,7 @@ def _build_cockpit(
         metrics_preview=metrics,
         quality_signal=quality_signal,
         user_instructions=user_instructions,
+        excluded_by_user_filter=list(excluded_by_user_filter or []),
     )
 
 
@@ -659,11 +669,20 @@ def run_pipeline(
             names = extra.get("names") or []
             on_stage("extracting", None, {"new_dish_names": names})
 
+    # Sink for the receipt the Cockpit renders as "Excluded by user
+    # filter". We track BOTH passes:
+    #   1. In-prompt HARD FILTER fills `excluded_first_pass` from each
+    #      Opus chunk's `excluded_by_user_filter` array (no reason).
+    #   2. The post-extraction LLM filter pass returns an audit list
+    #      with per-dish reasons that we merge in below.
+    excluded_first_pass: list[str] = []
+
     candidates, failures = _run_extraction(
         inputs,
         mode,
         on_source_progress=_on_source_progress,
         user_instructions=user_instructions,
+        excluded_sink=excluded_first_pass,
     )
 
     # If every source died during extraction, don't continue to reconciliation
@@ -682,12 +701,26 @@ def run_pipeline(
     # user's directive, and re-applies the filter reliably — the
     # "limpieza post-extraer" the user asked for. Only runs in real
     # mode (the fallback fixtures don't have user-typed instructions).
+    excluded_second_pass: list[ExcludedItem] = []
     instruction = (user_instructions or "").strip()
     if mode == "real" and instruction and candidates:
         before_count = len(candidates)
-        candidates, _audit = apply_user_instruction_filter(
+        candidates, audit = apply_user_instruction_filter(
             candidates, instruction
         )
+        # Audit entries with `kept=False` are the dishes the second pass
+        # dropped — record them with their model-supplied reason so the
+        # Cockpit can show "Tiramisù — purely vegetarian" instead of a
+        # bare name.
+        for entry in audit:
+            if entry.get("kept") is False:
+                name = (entry.get("name") or "").strip()
+                if not name:
+                    continue
+                reason = (entry.get("reason") or "").strip() or None
+                excluded_second_pass.append(
+                    ExcludedItem(name=name, reason=reason)
+                )
         if on_stage is not None:
             dropped = before_count - len(candidates)
             if dropped > 0:
@@ -773,6 +806,26 @@ def run_pipeline(
         adaptive = sum(1 for r in reconciliations if r.used_adaptive_thinking)
         on_stage("routing", "Organizing your catalog", {"adaptive": adaptive})
 
+    # Merge the two filter passes into a single de-duplicated receipt.
+    # The second-pass entries carry a model-supplied reason; keep them
+    # first so the dedup prefers the richer record. First-pass names
+    # come in without a reason — render as "(matched user filter)" in
+    # the UI, but only when no second-pass entry already covered them.
+    excluded_combined: list[ExcludedItem] = []
+    seen_excluded: set[str] = set()
+    for item in excluded_second_pass:
+        key = item.name.strip().lower()
+        if key in seen_excluded:
+            continue
+        seen_excluded.add(key)
+        excluded_combined.append(item)
+    for name in excluded_first_pass:
+        key = name.strip().lower()
+        if key in seen_excluded or not key:
+            continue
+        seen_excluded.add(key)
+        excluded_combined.append(ExcludedItem(name=name.strip(), reason=None))
+
     elapsed = time.time() - t0
     cockpit = _build_cockpit(
         processing_id=processing_id,
@@ -783,6 +836,7 @@ def run_pipeline(
         elapsed_s=elapsed,
         extraction_failures=len(failures),
         user_instructions=user_instructions,
+        excluded_by_user_filter=excluded_combined,
     )
 
     logger.info(

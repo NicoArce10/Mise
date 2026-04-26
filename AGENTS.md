@@ -5,9 +5,9 @@ Orientation for any AI agent contributing to Mise. Pair this with `CLAUDE.md` (i
 ## Read first
 1. `CLAUDE.md` — product identity, core promise, engineering principles.
 2. `docs/product.md` — what Mise is and what it is not.
-3. `docs/demo_script.md` — the frame every UI and API decision serves.
-4. `docs/evals.md` — the only source of truth for published metrics.
-5. `docs/cockpit_visual_direction.md` — design tokens for every UI surface.
+3. `docs/evals.md` — the only source of truth for published metrics.
+4. `docs/cockpit_visual_direction.md` — design tokens for every UI surface.
+5. `docs/competitive_benchmark.md` — how Mise compares to Veryfi / Klippa.
 
 ## Hard rules (non-negotiable)
 - **Opus 4.7 only**, no fallback to a weaker model. Model id is `claude-opus-4-7`.

@@ -2,15 +2,15 @@
 
 > Target length: 100–200 words. Keep the primary summary tight. All supplementary material lives below the rule.
 
-## Summary (≈180 words)
+## Summary (≈190 words)
 
-**Any menu. Any language. Ask like a customer.** Mise takes any restaurant menu — a PDF, a photo, a chalkboard, an Instagram screenshot — and turns it into a searchable dish graph you can query in natural language, in whatever language the market speaks.
+**Any menu. Any language. Ask like a customer.** Mise turns any restaurant menu — PDF, photo, chalkboard, or Instagram screenshot — into a searchable dish graph that downstream products can actually ingest.
 
-Upload the menu and Claude Opus 4.7 reads it vision-natively (no OCR), extracting every dish with canonical names, aliases, local vernacular search terms, categories, prices, modifiers, and source evidence. Then the real demo begins: you ask the menu the way a customer would — *"something veggie that isn't a salad"*, *"a burger like a quarter-pounder"*, *"mila napo abundante"*, *"ramen light de shio"*. Opus 4.7 interprets the intent, honors exclusions, and returns only dishes actually on the menu — each match explained in one line, never invented.
+Claude Opus 4.7 reads the menu vision-natively (no OCR), extracts canonical dishes, aliases, local search terms, prices, modifiers, ephemerals, and source evidence in one call, then answers diner-style queries like *"pizza with figs"*, *"papas locas"*, or *"cesar"* (typo) with matches grounded in the actual menu.
 
-Four pillars of Opus 4.7 are visible in the product: **vision-native ingestion** (no external OCR), a **dish graph written by the model** with aliases and diner-style search terms, **natural-language search with adaptive thinking** only when the query is ambiguous, and **structured outputs** validated by Pydantic before anything reaches the UI.
+A Claude chat can emit a one-off menu JSON. Mise turns that capability into a system: every dish is approvable / editable / rejectable, the natural-language filter the reviewer attached (e.g. *Drop the Lobster Enchilado Rings — its price is "Market price"*) produces a visible **`excluded_by_user_filter`** receipt, the run is moderation-aware, and the export carries the same versioned contract every time (`mise.catalog.v1`, with `run_id`, `review_status`, `quality_signal`, and a `user_instructions` echo).
 
-Not a menu parser. A menu you can talk to.
+Claude is the reasoning engine. Mise is the system around it: schema, audit trail, reviewer surface, exporter. In a chat, the user still has to copy, clean, reject, version, and wire the result. Mise does that as the product.
 
 ---
 
@@ -29,20 +29,21 @@ Menus live as PDFs, chalkboards, Instagram posts, and WhatsApp photos, in whatev
 
 ### How Opus 4.7 is used
 
-1. **Vision-native ingestion** — PDFs sent as `document` blocks, photos as base64 `image` blocks. No external OCR.
-2. **A dish graph, written by the model** — the extractor acts as a local food writer and produces aliases (`mila napo`, `Marga`, `Funghi`) and diner-style search terms (`algo veggie que no sea ensalada`) directly from the evidence.
-3. **Natural-language search with adaptive thinking** — a deterministic gate keeps obvious lookups cheap; `thinking: {"type": "adaptive"}` fires only when the query has exclusions, analogies, or multi-constraint intent.
-4. **Structured output with deterministic validation** — every response is constrained by a JSON schema, parsed into Pydantic, and re-validated before reaching the UI. Reasoning and safety are architecturally separate.
+1. **Vision-native ingestion** — PDFs sent as `document` blocks, photos as base64 `image` blocks. No external OCR. The demo runs against a real one-page bistro menu used with permission (`Menus/Menu Demo/menu_.jpg`).
+2. **A dish graph, written by the model** — the extractor acts as a local food writer and produces aliases (`papas locas`, `1910 Pizza`), diner-style search terms, ingredient lists, and modifier attachments directly from the evidence.
+3. **Natural-language hard filter, with a receipt** — when the reviewer types *"Drop the Lobster Enchilado Rings — its price is 'Market price' and it goes through a different pricing flow"*, Opus drops the dish during extraction, records it in `excluded_by_user_filter[]`, and surfaces it back in the Cockpit. The filter is two redundant signals (dish name + price condition) because the menu mentions *lobster* in three other dishes — single-criterion filtering would be ambiguous. The export carries the same array — auditors can verify the filter ran without rerunning the pipeline.
+4. **Natural-language search with adaptive thinking** — a deterministic gate keeps obvious lookups cheap; `thinking: {"type": "adaptive"}` fires only when the query has exclusions, analogies, or multi-constraint intent.
+5. **Structured output with deterministic validation** — every response is constrained by a JSON schema, parsed into Pydantic, and re-validated before reaching the UI. Reasoning and safety are architecturally separate.
 
 ### Measured (reproducible)
 
-Search is graded against an evidence-grounded golden set of 12 vernacular queries and 3 negative queries the menu cannot satisfy (`evals/search_golden.json`). The deterministic fallback path lands:
+Search is graded against an evidence-grounded golden set of 12 vernacular queries and 3 negative queries the **eval fixture** (`evals/fixtures/bistro_argentino.py` — a separate Argentine bistro graph held purely for harness reproducibility, distinct from the demo menu shown in the video) cannot satisfy (`evals/search_golden.json`). The deterministic fallback path lands:
 
 - **top-1 accuracy: 1.0** (12 / 12 queries resolve the intended dish first)
 - **top-3 accuracy: 1.0**
 - **zero-invention rate: 1.0** (3 / 3 negatives return no matches instead of hallucinating)
 
-Reproduce end-to-end with `python evals/run_search_eval.py --mode fallback`. The run writes `submissions/metrics.json`. No invented figures — if the fallback accuracy drops under 0.75, the harness exits non-zero.
+Reproduce end-to-end with `python evals/run_search_eval.py --mode fallback`. The run writes `submissions/metrics.json`. No invented figures — if the fallback accuracy drops under 0.75, the harness exits non-zero. The video is filmed against the live API path and the committed demo menu (`Menus/Menu Demo/menu_.jpg`); the harness is the deterministic floor that protects the search behaviour from regressing.
 
 ### Links
 
@@ -51,17 +52,19 @@ Reproduce end-to-end with `python evals/run_search_eval.py --mode fallback`. The
 - Demo video: `<YouTube unlisted URL — filled on submission day>` (≤ 3:00)
 - Live metrics: `submissions/metrics.json`
 
-### Why this problem — and the Dishy tie-in
+### Why this problem
 
-The builder applied to Y Combinator with **Dishy**, a personal-project review app where you rate individual dishes (not restaurants). Dishy is in closed beta. The single hardest problem in Dishy's roadmap was always the same one: *how do you onboard a restaurant without asking its owner to manually type every item into your system?* Delivery platforms face the same wall for every restaurant that isn't on a compatible POS. Review apps face it every time a user wants to review a dish that isn't in the database. Voice agents face it every time a customer says *"mila napo con papas"* instead of `item-id-42`.
+I'm **Nicolás Arce**. I build automation tools for restaurants, and I'm also building my own restaurant-review app — currently in closed beta in Buenos Aires. Both products hit the same wall: *how do you onboard a restaurant without asking its owner to manually type every item into your system?* Delivery platforms hit it for every restaurant without a compatible POS. Review apps hit it every time a user wants to review a dish the database doesn't know yet. Voice agents hit it every time a customer says *"mila napo con papas"* instead of `item-id-42`.
 
-Mise is the service the builder wished had existed.
+DoorDash already solved this — *for DoorDash*. Their engineering team [documented the approach](https://careersatdoordash.com/blog/doordash-llm-transcribe-menu/): OCR, LLM, classifier, human-in-the-loop. It runs in production, at scale, and it stays inside DoorDash. Veryfi and Klippa cover ingestion as commercial APIs but their output stops at item, price, and section — the diner-vernacular aliases, the search terms, the modifier graph all land on whoever integrates them. Every other delivery platform, POS, ghost kitchen, and review app is still paying 2–3 hours per restaurant to do it by hand. Mise is the open-source primitive that didn't exist.
 
-It does not share code, schema, or data with Dishy. It is an independent, open-source engine. But the narrative anchor of the demo — *"one JSON call, the catalog is yours"* — comes from having lived the inverse experience: manually loading menus, restaurant by restaurant, and knowing exactly how many teams pay humans to do this every day.
+Mise is the service I wished had existed both times.
+
+It does not share code, schema, or data with any prior product. It is an independent, open-source engine. The narrative anchor of the demo — *"one JSON call, the catalog is yours"* — comes from having lived the inverse experience: manually loading menus, restaurant by restaurant, and knowing exactly how many teams pay humans to do this every day.
 
 ### Acknowledgement
 
-The ingestion engine, the dish graph schema, the search layer, and all frontend surfaces were built from scratch during the hackathon. Personal restaurant menus used in the demo are the builder's own (or used with explicit written permission) and are not committed to the public repository. No Dishy code, data, schema, or assets are used, referenced, or mirrored inside Mise's repo.
+The ingestion engine, the dish graph schema, the search layer, and all frontend surfaces were built from scratch during the hackathon. The single demo menu committed to the repository (`Menus/Menu Demo/menu_.jpg`) is a real one-page bistro menu, included with the restaurant's explicit written permission so a reviewer can reproduce the video end-to-end. The video itself does not name the restaurant — it is referenced only as *"the menu"*; the JPEG is the verifiable evidence and that is enough. Any additional restaurant menus used internally during development remain off-repo. No prior-product code, data, schema, or assets are used, referenced, or mirrored inside Mise's repo.
 
 <!--
 Authoring checklist (delete before submitting):
