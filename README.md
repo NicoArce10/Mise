@@ -299,7 +299,7 @@ Mise/
 
 If you are reviewing this submission, the deliverables are:
 
-1. **Demo video** — link in [`submissions/README.md`](submissions/README.md) (≤ 3:00, recorded against the live Opus 4.7 API path on the menu committed to this repo).
+1. **Demo video** — <https://youtu.be/ojQpdtRtXe0> (≤ 3:00, recorded end-to-end against the live Opus 4.7 API path on a real one-page bistro menu).
 2. **Written summary** — [`submissions/written_summary.md`](submissions/written_summary.md).
 3. **Measured search metrics** — [`submissions/metrics.json`](submissions/metrics.json), reproducible via `python evals/run_search_eval.py --mode fallback`.
 4. **Competitive benchmark** — reproducible side-by-side with Veryfi (requires your own Veryfi API key): `python evals/run_competitor_bench.py --bundle bundle_01_italian --mise-mode real --with-veryfi`. Methodology: [`docs/competitive_benchmark.md`](docs/competitive_benchmark.md).

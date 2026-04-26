@@ -49,7 +49,7 @@ Reproduce end-to-end with `python evals/run_search_eval.py --mode fallback`. The
 
 - Repo: <https://github.com/NicoArce10/Mise>
 - License: MIT (see `LICENSE`)
-- Demo video: `<YouTube unlisted URL — filled on submission day>` (≤ 3:00)
+- Demo video: <https://youtu.be/ojQpdtRtXe0> (≤ 3:00)
 - Live metrics: `submissions/metrics.json`
 
 ### Why this problem

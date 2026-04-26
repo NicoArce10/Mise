@@ -12,7 +12,7 @@ Deliverables for the Claude Opus 4.7 Hackathon (April 2026).
 
 ## Links
 
-- **Demo video** (≤ 3:00): `<YouTube / Loom URL — filled on submission day>`
+- **Demo video** (≤ 3:00): <https://youtu.be/ojQpdtRtXe0>
 - **Repo**: <https://github.com/NicoArce10/Mise>
 - **License**: MIT (see [`LICENSE`](../LICENSE))
 
