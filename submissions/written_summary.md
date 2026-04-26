@@ -29,7 +29,7 @@ Menus live as PDFs, chalkboards, Instagram posts, and WhatsApp photos, in whatev
 
 ### How Opus 4.7 is used
 
-1. **Vision-native ingestion** — PDFs sent as `document` blocks, photos as base64 `image` blocks. No external OCR. The demo runs against a real one-page bistro menu used with permission (`Menus/Menu Demo/menu_.jpg`).
+1. **Vision-native ingestion** — PDFs sent as `document` blocks, photos as base64 `image` blocks. No external OCR. The demo runs against a real one-page bistro menu in JPEG form.
 2. **A dish graph, written by the model** — the extractor acts as a local food writer and produces aliases (`papas locas`, `1910 Pizza`), diner-style search terms, ingredient lists, and modifier attachments directly from the evidence.
 3. **Natural-language hard filter, with a receipt** — when the reviewer types *"Drop the Lobster Enchilado Rings — its price is 'Market price' and it goes through a different pricing flow"*, Opus drops the dish during extraction, records it in `excluded_by_user_filter[]`, and surfaces it back in the Cockpit. The filter is two redundant signals (dish name + price condition) because the menu mentions *lobster* in three other dishes — single-criterion filtering would be ambiguous. The export carries the same array — auditors can verify the filter ran without rerunning the pipeline.
 4. **Natural-language search with adaptive thinking** — a deterministic gate keeps obvious lookups cheap; `thinking: {"type": "adaptive"}` fires only when the query has exclusions, analogies, or multi-constraint intent.
@@ -43,7 +43,7 @@ Search is graded against an evidence-grounded golden set of 12 vernacular querie
 - **top-3 accuracy: 1.0**
 - **zero-invention rate: 1.0** (3 / 3 negatives return no matches instead of hallucinating)
 
-Reproduce end-to-end with `python evals/run_search_eval.py --mode fallback`. The run writes `submissions/metrics.json`. No invented figures — if the fallback accuracy drops under 0.75, the harness exits non-zero. The video is filmed against the live API path and the committed demo menu (`Menus/Menu Demo/menu_.jpg`); the harness is the deterministic floor that protects the search behaviour from regressing.
+Reproduce end-to-end with `python evals/run_search_eval.py --mode fallback`. The run writes `submissions/metrics.json`. No invented figures — if the fallback accuracy drops under 0.75, the harness exits non-zero. The video is filmed against the live API path on a real one-page bistro menu; the harness is the deterministic floor that protects the search behaviour from regressing.
 
 ### Links
 
@@ -64,14 +64,13 @@ It does not share code, schema, or data with any prior product. It is an indepen
 
 ### Acknowledgement
 
-The ingestion engine, the dish graph schema, the search layer, and all frontend surfaces were built from scratch during the hackathon. The single demo menu committed to the repository (`Menus/Menu Demo/menu_.jpg`) is a real one-page bistro menu, included with the restaurant's explicit written permission so a reviewer can reproduce the video end-to-end. The video itself does not name the restaurant — it is referenced only as *"the menu"*; the JPEG is the verifiable evidence and that is enough. Any additional restaurant menus used internally during development remain off-repo. No prior-product code, data, schema, or assets are used, referenced, or mirrored inside Mise's repo.
+The ingestion engine, the dish graph schema, the search layer, and all frontend surfaces were built from scratch during the hackathon. The demo video is recorded against a real one-page bistro menu, referenced only as *"the menu"* and never identified by name. Restaurant menus used during development and recording are not redistributed inside this repository; deterministic reproducibility for any reviewer rests on the eval harness and its bundles (`evals/sample_menus/`, `evals/fixtures/`). No prior-product code, data, schema, or assets are used, referenced, or mirrored inside Mise's repo.
 
 <!--
 Authoring checklist (delete before submitting):
 - [ ] Primary summary above the rule is 100–200 words (current target ≈180)
 - [ ] Every claim maps to a visible element in the demo video
 - [ ] No reuse of prior-product code, schema, or assets
-- [ ] If a real menu is shown, written permission is on file
 - [ ] Repo URL verified incognito
 - [ ] Video URL verified incognito
 -->

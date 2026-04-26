@@ -35,4 +35,4 @@ python evals/run_competitor_bench.py --bundle bundle_01_italian \
 - Every number in `written_summary.md` or in the video matches `metrics.json` exactly. No rounding, no "approximately".
 - Identity-graph claims are reproducible with `python evals/run_eval.py --bundle all`; search claims are reproducible with `python evals/run_search_eval.py --mode fallback`.
 - Live Opus demo claims must be visible in the recorded product flow. Do not publish a number that only appeared in a local dry run.
-- The demo menu (`Menus/Menu Demo/menu_.jpg`) is committed with the restaurant's written permission and is the same file shown in the submission video, so a reviewer can reproduce the run end-to-end.
+- Restaurant menus used during development and video recording are not redistributed in this repository; deterministic reproducibility rests on the eval harness and the bundles under `evals/sample_menus/` and `evals/fixtures/`.
